@@ -1,0 +1,14 @@
+{
+  "score": 0.92,
+  "verdict": "pass",
+  "dimensions": {
+    "correctness": 0.93,
+    "completeness": 0.91,
+    "quality": 0.92,
+    "intent_alignment": 0.96,
+    "domain_specific": 0.90
+  },
+  "differences": [],
+  "suggestions": [],
+  "reasoning": "Seed와 규범 contracts.yaml은 구문상 유효하고 상호 참조가 일치한다. 최초 득점의 동기 트랜잭션과 비동기 원장 효과가 모순 없이 분리되었으며, 상태 전이·입력 오류·멱등성·역분개·거점 재생·부하와 SLI 분모·반복 중단 복구가 결정적으로 명시되었다. 17개 수용 기준은 관찰 가능한 결과와 독립 증거를 가지며 요구사항 추적성도 확보된다. 한국어 웹 MVP와 기능 개발 우선순위 및 명시적 제외 범위를 유지한다."
+}

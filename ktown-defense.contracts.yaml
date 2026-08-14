@@ -1,0 +1,210 @@
+version: 1.0.0
+seed: ktown-defense.seed.yaml
+timezone_for_daily_limits: Asia/Seoul
+
+error_contract:
+  malformed_json_or_wrong_type: {status: 400, code: MALFORMED_REQUEST}
+  payload_too_large: {status: 413, code: PAYLOAD_TOO_LARGE}
+  unsupported_media_type: {status: 415, code: UNSUPPORTED_MEDIA_TYPE}
+  semantic_range_or_state_violation: {status: 422, code: VALIDATION_FAILED}
+  unauthenticated: {status: 401, code: AUTHENTICATION_REQUIRED}
+  forbidden: {status: 403, code: FORBIDDEN}
+
+common_types:
+  uuid: {format: uuid-v4, max_length: 36}
+  idempotency_key: {format: uuid-v4, max_length: 36}
+  korean_short_text: {encoding: UTF-8, normalization: NFC, min_codepoints: 1, max_codepoints: 100}
+  korean_long_text: {encoding: UTF-8, normalization: NFC, min_codepoints: 1, max_codepoints: 2000}
+  latitude: {type: number, minimum: -90, maximum: 90}
+  longitude: {type: number, minimum: -180, maximum: 180}
+  accuracy_m: {type: number, minimum: 0, maximum: 1000}
+  utc_timestamp: {format: RFC3339, offset: Z}
+
+write_api_contracts:
+  - route: PUT /api/v1/me/season-membership
+    body:
+      fandom_id: {type_ref: uuid, required: true}
+    semantic_rules: [활성 시즌이어야 함, 최초 승인 트랜잭션으로 잠긴 뒤 일반 변경 금지]
+  - route: POST /api/v1/checkin-sessions
+    headers:
+      Idempotency-Key: {type_ref: idempotency_key, required: true}
+    body:
+      place_id: {type_ref: uuid, required: true}
+      season_id: {type_ref: uuid, required: true}
+    semantic_rules: [활성 사용자·장소·시즌이어야 함, 마지막 정상 카탈로그가 24시간 이내여야 함, 사용자·장소·현지 날짜 시도 횟수 3회 미만]
+  - route: POST /api/v1/checkin-sessions/{id}/gps-samples
+    body:
+      sample_sequence: {type: integer, minimum: 1, maximum: 10000, required: true}
+      sample_kind: {enum: [start, middle, end, recovery], required: true}
+      latitude: {type_ref: latitude, required: true}
+      longitude: {type_ref: longitude, required: true}
+      accuracy_m: {type_ref: accuracy_m, required: true}
+      captured_at: {type_ref: utc_timestamp, required: true}
+    semantic_rules: [sample_sequence는 직전 값보다 1 큼, captured_at은 세션 시작 이후이면서 서버 현재보다 30초 넘게 미래일 수 없음, closed 세션 금지]
+  - route: POST /api/v1/checkin-sessions/{id}/photo
+    content_type: multipart/form-data
+    headers:
+      Idempotency-Key: {type_ref: idempotency_key, required: true}
+    file:
+      count: 1
+      max_bytes: 10485760
+      allowed_mime: [image/jpeg, image/png, image/webp]
+      validation: [매직 바이트와 MIME 일치, 이미지 디코딩 성공, 저장 전 EXIF 제거]
+  - route: POST /api/v1/checkin-sessions/{id}/submit
+    headers:
+      Idempotency-Key: {type_ref: idempotency_key, required: true}
+    body: {}
+    semantic_rules: [ready_to_submit 상태만 허용, 같은 키는 기존 checkin_session_id 응답, 다른 키의 재제출은 VALIDATION_FAILED]
+  - route: POST /api/v1/checkins/{id}/appeals
+    body:
+      reason_ko: {type_ref: korean_long_text, min_codepoints: 10, max_codepoints: 1000, required: true}
+    semantic_rules: [rejected 후 48시간 이내, checkin당 1회]
+  - route: PATCH /api/v1/admin/review-tasks/{id}
+    body:
+      decision: {enum: [approved, rejected, upheld, overturned], required: true}
+      reason_ko: {type_ref: korean_long_text, max_codepoints: 1000, required: true}
+    semantic_rules: [reviewer 역할 필요, subject의 현재 상태에서 허용된 전이만 가능]
+  - route: POST /api/v1/admin/places
+    body:
+      name_ko: {type_ref: korean_short_text, required: true}
+      address_ko: {type_ref: korean_long_text, max_codepoints: 300, required: true}
+      description_ko: {type_ref: korean_long_text, required: true}
+      transit_guide_ko: {type_ref: korean_long_text, max_codepoints: 1000, required: true}
+      map_deep_link: {format: https-url, max_length: 2048, required: true}
+      artist_id: {type_ref: uuid, required: false}
+      evidence_tier: {enum: [official, verified], required: false}
+      latitude: {type_ref: latitude, required: true}
+      longitude: {type_ref: longitude, required: true}
+      radius_m: {type: integer, minimum: 50, maximum: 200, required: true}
+    semantic_rules: [place_manager 역할 필요, source_locale은 ko로 고정, artist_id와 evidence_tier는 함께 제공하거나 함께 생략, 아티스트 연결 없이도 장소 승인 가능, 승인된 기본 미션 전에는 public_visible=false]
+  - route: PATCH /api/v1/admin/places/{id}
+    body:
+      name_ko: {type_ref: korean_short_text, required: false}
+      address_ko: {type_ref: korean_long_text, max_codepoints: 300, required: false}
+      description_ko: {type_ref: korean_long_text, required: false}
+      transit_guide_ko: {type_ref: korean_long_text, max_codepoints: 1000, required: false}
+      map_deep_link: {format: https-url, max_length: 2048, required: false}
+      radius_m: {type: integer, minimum: 50, maximum: 200, required: false}
+      active: {type: boolean, required: false}
+      public_visible: {type: boolean, required: false}
+    semantic_rules: [최소 한 필드 필요, place_manager 역할 필요, 권리 무효화를 true로 되돌리려면 유효한 RightsRecord 필요]
+  - route: POST /api/v1/admin/catalog-sync-runs
+    body:
+      source: {enum: [KTOUR_API], required: true}
+    semantic_rules: [place_manager 또는 super_admin 역할 필요]
+  - route: POST /api/v1/admin/place-candidates/{id}/approve
+    body:
+      coordinate_verified: {type: boolean, required: true}
+      photo_target_safe: {type: boolean, required: true}
+      safety_note_ko: {type_ref: korean_long_text, max_codepoints: 1000, required: true}
+    semantic_rules: [place_manager 역할 필요, 대상 인구감소지역·유효한 출처·권리·안전 승인 필요, 장소는 approved 비공개 상태가 되며 승인된 기본 미션 활성화만 published로 전환]
+  - route: POST /api/v1/admin/dual-approvals
+    body:
+      action_type: {enum: [POINT_ADJUSTMENT, SEASON_FINALIZATION], required: true}
+      subject_id: {type_ref: uuid, required: true}
+    semantic_rules: [requester_id와 approver_id는 달라야 함, 동일 action_type과 subject_id의 활성 요청은 하나]
+  - route: POST /api/v1/admin/dual-approvals/{id}/approve
+    body: {}
+    semantic_rules: [approver는 requester와 달라야 함, pending 요청만 승인 가능, 필요한 운영자 역할 보유]
+  - route: POST /api/v1/admin/point-adjustments
+    body:
+      user_id: {type_ref: uuid, required: true}
+      fandom_id: {type_ref: uuid, required: true}
+      place_id: {type_ref: uuid, required: true}
+      season_id: {type_ref: uuid, required: true}
+      points: {type: integer, minimum: -10000, maximum: 10000, required: true}
+      reason_ko: {type_ref: korean_long_text, min_codepoints: 10, max_codepoints: 1000, required: true}
+      dual_approval_id: {type_ref: uuid, required: true}
+    semantic_rules: [승인된 POINT_ADJUSTMENT 2인 승인 필요, 조정은 새 LedgerEvent로만 기록]
+  - route: POST /api/v1/admin/dlq/{id}/retry
+    body: {}
+    semantic_rules: [super_admin 역할 필요, resolved DLQ는 재처리 금지]
+  - route: POST /api/v1/admin/seasons/{id}/finalize
+    body:
+      dual_approval_id: {type_ref: uuid, required: true}
+    semantic_rules: [review_grace 종료, 승인된 2인 승인, 한 번만 확정]
+
+database_contracts:
+  - {name: unique_checkin_submission, unique: [user_id, idempotency_key], table: checkin_session}
+  - {name: ordered_gps_sample, unique: [checkin_session_id, sample_sequence], table: gps_sample}
+  - {name: unique_photo_upload, unique: [checkin_session_id, upload_idempotency_key], table: photo_asset}
+  - {name: unique_approval_effect, unique: [event_key], table: ledger_event}
+  - {name: unique_outbox_effect, unique: [event_key], table: outbox_event}
+  - {name: single_season_membership, unique: [user_id, season_id], table: season_membership}
+  - {name: distinct_dual_approvers, check: requester_id != approver_id, table: dual_approval}
+
+state_transition_contracts:
+  checkin_session:
+    collecting: [paused, ready_to_submit, expired, cancelled]
+    paused: [collecting, expired, cancelled]
+    ready_to_submit: [submitted, expired, cancelled]
+    submitted: []
+    expired: []
+    cancelled: []
+  verification_decision:
+    pending: [auto_approved, review_required]
+    auto_approved: [approved]
+    review_required: [approved, rejected]
+    approved: []
+    rejected: []
+  point_application:
+    not_started: [approved_processing]
+    approved_processing: [applied, retrying]
+    retrying: [applied, retrying, dlq]
+    dlq: [retrying]
+    applied: [reversed]
+    reversed: []
+
+verification_decision_contract:
+  sample_accuracy:
+    auto_approval_max_m: 50
+    submission_max_m: 100
+    above_review_max: ignored
+  geofence:
+    inside: distance_m + accuracy_m <= radius_m
+    outside: distance_m - accuracy_m > radius_m
+    boundary_overlap: 그 외 경우 review_required
+  risk_rules:
+    - {code: LOW_ACCURACY, when: 50 < accuracy_m <= 100}
+    - {code: DUPLICATE_MEDIA, when: 동일 sha256가 다른 사용자 또는 같은 시즌 다른 체크인에 존재}
+    - {code: ABNORMAL_ROUTE, when: 연속 유효 샘플 계산 속도 > 200km/h}
+    - {code: GPS_WEAK_PLACE, when: verification_policy.gps_weak=true}
+    - {code: PHOTO_TARGET_REVIEW, when: verification_policy.photo_verification_mode=manual_target}
+  photo_modes:
+    capture_only: 이미지 디코딩·현장 세션 촬영·중복 검사를 통과하면 사진 조건 충족
+    manual_target: 운영자가 photo_target_ko와 사진을 대조하기 전까지 review_required
+    ai_target_recognition: excluded
+  deterministic_order: [필수 조건 결손 거절, 위험 코드 산출, 위험 코드 없으면 자동 승인, 위험 코드 있으면 수동 검수]
+
+reconcile_contract:
+  schedule: every 1 minute
+  stale_after_seconds: 120
+  lease_seconds: 60
+  rules:
+    - event_key가 ledger_event에 존재하면 outbox를 applied로 정리하고 새 점수를 만들지 않음
+    - event_key가 없고 재시도 횟수가 남으면 실패 단계부터 재큐잉
+    - 재시도 횟수를 소진했으면 DlqItem을 정확히 하나 생성
+    - projection_version이 최신 ledger 순번과 다르면 시즌 투영 전체를 재생해 원자 교체
+
+load_and_sli_contract:
+  random_seed: 20260812
+  warmup_minutes: 5
+  observation_minutes: 30
+  arrival_model: seeded Poisson
+  requests_per_second: 20
+  concurrent_users: 100
+  traffic_mix_percent: {places: 30, place_detail: 15, checkin_start: 10, checkin_submit: 10, checkin_status: 10, strongholds: 10, leaderboards: 15}
+  photo_distribution_percent: {1MB: 50, 5MB: 40, 10MB: 10}
+  minimum_samples: {per_core_api_success: 100, approval_events: 1000, projection_events: 1000, injected_failure_events: 1000}
+  zero_denominator: fail_measurement
+  injected_failure_percent: 10
+  injected_failure_stage_percent: {before_db_commit: 25, before_outbox_publish: 25, before_ledger_commit: 25, before_projection_commit: 25}
+  health_check_timeout_seconds: 3
+
+generated_test_suites:
+  - api-malformed-input
+  - api-boundary-values
+  - database-uniqueness-and-foreign-keys
+  - state-transition-model
+  - repeated-interruption-and-reconcile
+  - load-sli-seed-20260812

@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+*.pem
+*.ppk
+.pytest_cache/
+.coverage
+htmlcov/
+node_modules/
+.next/
+playwright-report/
+test-results/
+.superpowers/
+ouroboros-run*.log

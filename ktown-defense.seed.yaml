@@ -1,0 +1,595 @@
+goal: >-
+  한국어 모바일 우선 반응형 사용자 웹과 운영자 웹 콘솔로 K-타운 디펜스 MVP를 구현한다.
+  사용자는 아티스트 팬덤을 선택하고 인구감소지역의 승인 장소를 탐색한 뒤 포그라운드 GPS와
+  현장 사진으로 방문을 인증받아 포인트를 획득하고, 장소 단위 거점을 생성·방어하며 시즌
+  리더보드에 참여한다.
+
+task_type: code
+
+brownfield_context:
+  project_type: greenfield
+  architecture: modular_monolith
+  persistence: PostgreSQL
+
+scope:
+  included:
+    - 한국어 모바일 우선 사용자 웹과 역할 기반 운영자 웹 콘솔
+    - Google·Apple 소셜 로그인과 이메일 매직 링크 로그인
+    - 아티스트·시즌 팬덤 선택과 최초 득점 시 팬덤 잠금
+    - 한국관광공사 OpenAPI 기반 PlaceCatalog 동기화와 마지막 정상 데이터 캐시
+    - 인구감소지역 중심 지도, 장소 상세, 정적 교통 안내와 외부 지도 앱 딥링크
+    - 포그라운드 GPS·5분 체류·웹 카메라 사진을 이용한 장소 체크인
+    - 자동 판정, 위험 기반 수동 검수, 재시도, 이의제기
+    - 불변 포인트 원장, 거점 생성·방어·탈환, 시즌과 리더보드
+    - 운영자 검수, 장소·권리 관리, 2인 승인, 감사 로그, DLQ 재처리
+    - 최종 순위와 비IP 디지털 배지
+  excluded:
+    - 숙박·소비 영수증 인증, OCR, 제휴 QR과 관련 점수
+    - 실시간 교통 API, 네이티브 앱, 백그라운드 위치 추적
+    - 캐릭터·의상 커스터마이징, 점주용 분석 대시보드
+    - 팬 제안 장소와 자동 검증, 복잡한 팬덤 역보정
+    - 체류·숙박·소비 보너스, 실험군·비교군과 파일럿 성과 지표
+    - 물리 보상·배송, 관광 코스 편집, SNS 공개 피드
+    - 한국어 외 언어, 언어 선택 UI, 영어·일본어 폴백
+
+constraints:
+  product:
+    - 비회원은 공개 지도·장소·거점·팬덤 및 지역 리더보드만 조회할 수 있다.
+    - 로그인한 만 18세 이상 사용자만 팬덤 선택, 체크인, 사진 제출, 이의제기, 개인 기록 조회를 할 수 있다.
+    - 경쟁 팬덤은 시즌당 하나다. 최초 승인 판정 시 approved_processing 전이·팬덤 잠금·outbox 생성이 같은 트랜잭션에서 확정된다.
+    - 잠금 이후 팬덤 변경은 오선택·계정 복구 사유에 대한 운영자 승인만 허용하며 과거 점수는 원 팬덤에 남는다.
+    - MVP 장소는 운영자가 승인한 공식 또는 검증 장소만 허용한다.
+    - 장소명·주소·설명·미션·검수 사유는 source_locale=ko인 한국어 입력을 필수로 한다.
+    - UI 문구는 ko i18n 리소스로 분리하되 다른 언어 리소스나 번역 컬럼은 만들지 않는다.
+  verification:
+    - 위치 측정은 활성 체크인 세션의 포그라운드 탭에서만 수행하고 탭 비활성화 시 즉시 일시 중지한다.
+    - 장소별 기본 반경은 100m이며 운영자가 50~200m 범위에서 설정한다.
+    - 체류 시작·중간·종료에 정확도 100m 이하 GPS 샘플을 각각 하나 이상 수집하며 세 샘플이 모두 50m 이하여야 자동 승인 후보가 된다.
+    - 유효한 포그라운드 누적 체류시간은 5분 이상이어야 한다.
+    - 활성 세션에서 웹 카메라로 사진 1장을 촬영하며 갤러리 업로드와 얼굴 촬영을 요구하지 않는다.
+    - 장소별 촬영 대상 조건을 적용한다.
+    - 장소 정책의 photo_verification_mode는 capture_only 또는 manual_target이다. capture_only는 이미지 디코딩·현장 세션 촬영·중복 여부만 자동 검사하고, manual_target은 PHOTO_TARGET_REVIEW로 수동 검수한다. MVP는 촬영 대상 인식 AI를 사용하지 않는다.
+    - 모든 조건을 충족하고 위험 신호가 없으면 자동 승인한다.
+    - 경계 위치, 낮은 정확도, 중복, 불명확한 촬영 대상, GPS 취약 장소, 비정상 동선, 다중 계정 의심은 수동 검수한다.
+    - 정확도 50m 이하는 자동승인 유효 샘플, 50m 초과 100m 이하는 제출 유효 샘플로 저장하되 LOW_ACCURACY 수동 검수, 100m 초과는 제출 조건 샘플로 인정하지 않는다.
+    - 각 유효 샘플의 장소 중심 거리와 accuracy_m의 합이 반경 이하이면 내부, 차가 반경을 초과하면 외부, 그 외는 BOUNDARY_OVERLAP 수동 검수다.
+    - 동일 photo_sha256가 다른 사용자 또는 같은 시즌의 다른 체크인에서 발견되면 DUPLICATE_MEDIA로 수동 검수한다.
+    - 연속 유효 GPS 샘플 사이 계산 속도가 시속 200km를 초과하면 ABNORMAL_ROUTE로 수동 검수한다.
+    - gps_weak=true인 장소는 자동 승인하지 않고 항상 수동 검수한다.
+    - 즉시 재시도는 사용자·장소·현지 날짜 기준 하루 3회까지 허용한다.
+    - 최종 거절 후 48시간 이내 한 번만 이의제기할 수 있으며 운영 목표는 접수 후 72시간 이내 처리다.
+  scoring_and_season:
+    - 사용자·장소·시즌별 최초 승인 체크인은 100점이고 이후 승인 방문은 기록만 남기며 0점이다.
+    - 미점령 장소에서 한 팬덤이 300점을 얻으면 씨앗 거점을 생성한다.
+    - 거점 레벨은 씨앗 300점, 나무 1000점, 랜드마크 2000점이다.
+    - 도전 팬덤은 해당 장소에서 300점 이상이며 소유 팬덤 점수의 110% 이상일 때만 탈환한다.
+    - 동점 또는 110% 미만이면 기존 소유 팬덤이 유지된다.
+    - 동시 효과의 판정 순서는 ledger_event.created_at, ledger_event.ledger_event_id 오름차순이다.
+    - 팬덤 순위는 보유 거점 수 내림차순, 시즌 유효점수 내림차순, 마지막 거점 획득 시각 오름차순, fandom_id 오름차순이다.
+    - 역분개 후에는 reversed 이벤트를 제외한 전체 원장을 위 순서로 재생한다. 300점 미만이면 미점령, 300·1000·2000점 경계에 따라 레벨을 다시 정하며 탈환 조건도 재생 시점마다 다시 평가한다.
+    - 지역 점유율은 해당 팬덤의 활성 보유 거점 수를 지역 내 활성 장소 수로 나눈 값이다.
+    - 시즌 종료 시각 전에 제출된 체크인은 72시간 검수 유예 대상이며 유예 종료 후 결과를 확정한다.
+    - 새 시즌은 점수·소유권·레벨을 초기화하고 과거 시즌 결과·체크인·거점 획득 이력은 보존한다.
+  consistency:
+    - 포인트 원장은 점수의 단일 진실 공급원이며 거점과 리더보드는 원장만으로 재구축 가능해야 한다.
+    - approved 판정, approved_processing 전이, 최초 득점 팬덤 잠금, outbox 생성은 하나의 DB 트랜잭션이다.
+    - 승인 이벤트 키는 checkin:{checkin_id}:approved:v1이며 ledger_event.event_key에 고유 제약을 둔다.
+    - 전달은 at-least-once이고 같은 이벤트 키는 정확히 하나의 원장 효과만 만든다.
+    - 승인 취소와 부정행위 확정은 원장 삭제가 아니라 원 이벤트를 참조하는 역분개 이벤트로 기록한다.
+    - 재시도 시각은 최초 실패 기준 1초, 5초, 30초, 2분, 5분 오프셋이며 모두 실패한 뒤 DLQ와 운영자 알림으로 전환한다. 5분 복구 SLI는 경계 시각까지 커밋된 이벤트만 포함한다.
+    - 운영자는 실패 단계부터 멱등 재처리할 수 있다.
+    - 서버가 저장하는 GPS 샘플은 checkin_session_id와 sample_sequence 조합이 고유하며 sample_sequence는 1부터 단조 증가한다.
+    - 사진 업로드와 제출은 각각 idempotency_key를 사용하며 반복 호출은 최초 성공 응답의 식별자를 반환한다.
+    - 2분 이상 approved_processing 또는 retrying에 머문 작업은 reconcile 작업이 매분 탐지해 lease를 획득하고 재큐잉한다.
+    - reconcile은 원장 event_key가 이미 있으면 적용 완료로 정리하고, 재시도 소진 건만 DLQ로 이동한다.
+    - projection_version이 원장의 최신 순번과 다르면 해당 시즌 투영을 원장으로 자동 재구축하고 원자적으로 교체한다.
+    - 마지막 정상 관광 데이터 snapshot은 생성 후 24시간까지 체크인 생성에 사용할 수 있다. 24시간 초과 시 공개 조회는 stale 표기와 함께 유지하되 새 체크인을 차단한다.
+    - 권리 취소·만료·삭제 요청은 캐시 수명과 무관하게 즉시 Place 공개 및 체크인 가능 상태를 무효화한다.
+  access_and_operations:
+    - 운영자 역할은 reviewer, place_manager, season_admin, super_admin이다.
+    - 점수 직접 조정과 시즌 확정은 요청자와 승인자가 다른 2인 승인 및 감사 로그가 필요하다.
+    - 정지 계정은 새 체크인을 시작할 수 없고 기존 원장은 유지한다.
+    - 탈퇴 계정은 개인정보를 삭제·익명화하고 원장에는 익명 식별자만 유지한다.
+  privacy_and_rights:
+    - 활성 체크인에 필요한 위치만 수집하며 상시 또는 백그라운드 위치를 수집하지 않는다.
+    - 사진은 비공개 검수 목적으로만 사용하고 저장 전에 EXIF를 제거한다.
+    - 원본 GPS는 최종 판정 후 30일, 인증 사진은 90일 후 삭제한다.
+    - 운영자의 개인정보 조회와 다운로드는 역할로 제한하고 모두 감사한다.
+    - 개발·테스트는 가상 아티스트와 자체 임시 자산만 사용한다.
+    - 프로덕션은 서면 권한이 유효한 아티스트와 승인된 텍스트 콘텐츠만 공개한다.
+    - 무권리 이미지·로고·응원봉·음원·영상·굿즈는 사용하지 않는다.
+    - 권리 삭제 요청 콘텐츠는 요청 등록 트랜잭션 완료 시 public_visible=false가 되어야 한다.
+    - 프로덕션 공개는 법률·개인정보 검토 승인 없이는 차단한다.
+
+state_machines:
+  checkin_session:
+    states: [collecting, paused, ready_to_submit, submitted, expired, cancelled]
+    transitions:
+      - collecting -> paused: visibilitychange로 탭이 비활성화되거나 GPS 권한·연결이 끊김
+      - paused -> collecting: 탭 활성화 후 권한·연결과 장소 반경을 다시 확인
+      - collecting -> ready_to_submit: 시작·중간·종료 GPS, 유효 체류 5분, 현장 사진 조건 충족
+      - ready_to_submit -> submitted: idempotency_key를 포함한 제출이 서버에 최초 접수됨
+      - collecting|paused|ready_to_submit -> expired: 시작 후 30분 경과
+      - collecting|paused|ready_to_submit -> cancelled: 사용자가 명시적으로 취소
+    recovery_rules:
+      - 새로고침 또는 브라우저 재실행 시 서버 세션과 로컬 임시 상태를 조회해 만료 전 세션을 paused로 복구한다.
+      - 네트워크 단절 중 체류시간은 증가하지 않으며 재연결 후 새 GPS 샘플부터 다시 증가한다.
+      - 같은 idempotency_key의 중복 제출은 기존 checkin_id와 동일한 응답을 반환한다.
+      - expired 또는 cancelled 세션의 제출은 CHECKIN_SESSION_CLOSED로 거절한다.
+  verification_decision:
+    states: [pending, auto_approved, review_required, approved, rejected]
+    transitions:
+      - pending -> auto_approved -> approved: 모든 자동 승인 규칙 충족
+      - pending -> review_required: 하나 이상의 수동 검수 신호 발생
+      - review_required -> approved|rejected: reviewer 판정
+    invariant: approved와 rejected는 상호 배타적인 최종 판정이며 이의제기는 판정 상태를 직접 되돌리지 않는다.
+  appeal:
+    states: [not_available, available, submitted, upheld, overturned, expired]
+    transitions:
+      - not_available -> available: verification_decision이 rejected가 됨
+      - available -> submitted: 거절 후 48시간 내 최초 이의제기
+      - available -> expired: 48시간 경과
+      - submitted -> upheld|overturned: reviewer 최종 판정
+    invariant: checkin당 appeal은 최대 1개이며 rejected 판정의 overturned는 원 판정을 보존한 채 승인 outbox를 생성한다. 승인 취소·부정행위 역분개는 appeal과 별도 운영 절차다.
+  point_application:
+    states: [not_started, approved_processing, applied, retrying, dlq, reversed]
+    transitions:
+      - not_started -> approved_processing: 승인 트랜잭션에서 outbox 생성
+      - approved_processing|retrying -> applied: ledger_event와 투영 반영 완료
+      - approved_processing|retrying -> retrying: 처리 실패 후 재시도 예약
+      - retrying -> dlq: 지정된 5회 재시도 소진
+      - dlq -> retrying: 운영자가 재처리 lease를 획득
+      - applied -> reversed: 취소 또는 부정행위 역분개 적용
+    invariant: retrying은 실패 시 dlq로 되돌아갈 수 있고, applied 또는 reversed 상태의 순점수는 event_key와 reversal_of로 원장에서 결정론적으로 계산된다.
+
+development_spec:
+  modules:
+    - name: Identity
+      owns: [User, LoginIdentity, Artist, Fandom, SeasonMembership, Operator, OperatorRoleAssignment]
+    - name: PlaceCatalog
+      owns: [Place, PlaceArtistLink, VerificationPolicy, RightsRecord, CatalogSyncRun]
+    - name: CheckIn
+      owns: [CheckInSession, GpsSample, PhotoAsset, VerificationDecision, Appeal]
+    - name: PointsLedger
+      owns: [LedgerEvent, OutboxEvent, DlqItem]
+    - name: TerritorySeason
+      owns: [Season, PlaceFandomScoreProjection, StrongholdProjection, LeaderboardProjection, SeasonResult, DigitalBadge]
+    - name: Operations
+      owns: [ReviewTask, DualApproval, AuditLog, ReleaseGate, RightsDeletionRequest, ReconcileRun]
+  normative_contracts:
+    file: ktown-defense.contracts.yaml
+    purpose: DB 제약, API 입력·오류, 상태 전이, 부하·SLI 및 복구 테스트를 생성하는 기계 판독 가능한 단일 계약 원본
+    precedence: Seed의 서술과 충돌하면 이 Seed의 제품 규칙을 우선하고 계약 파일을 수정한 뒤 CI를 재실행한다.
+  user_screens:
+    - 공개 지도 및 지역·장소 필터
+    - 장소 상세와 한국어 설명·교통 텍스트·지도 앱 딥링크
+    - 로그인 및 만 18세 확인
+    - 아티스트·팬덤 선택과 잠금 상태
+    - 체크인 진행, 일시 중지, 복구, 사진 촬영, 제출 결과
+    - 개인 포인트·체크인 기록과 이의제기
+    - 거점 지도, 팬덤·지역 리더보드, 시즌 결과와 디지털 배지
+  operator_screens:
+    - 검수·이의제기 큐와 증빙 뷰어
+    - 장소·정책·한국어 콘텐츠·출처·권리 관리
+    - 관광 데이터 동기화 결과와 비활성화 후보 검토
+    - 점수 조정·시즌 확정 2인 승인함
+    - DLQ·재처리·감사 로그·보관기한 삭제 현황
+    - 법률·개인정보 출시 게이트
+  api_contracts:
+    public:
+      - GET /api/v1/places
+      - GET /api/v1/places/{placeId}
+      - GET /api/v1/seasons/current/strongholds
+      - GET /api/v1/seasons/current/leaderboards
+    member:
+      - GET|PUT /api/v1/me/season-membership
+      - POST /api/v1/checkin-sessions
+      - POST /api/v1/checkin-sessions/{id}/gps-samples
+      - POST /api/v1/checkin-sessions/{id}/photo
+      - POST /api/v1/checkin-sessions/{id}/submit
+      - GET /api/v1/checkins/{id}
+      - POST /api/v1/checkins/{id}/appeals
+      - GET /api/v1/me/ledger
+    operator:
+      - GET|PATCH /api/v1/admin/review-tasks/{id}
+      - GET|POST|PATCH /api/v1/admin/places
+      - POST /api/v1/admin/catalog-sync-runs
+      - POST /api/v1/admin/dual-approvals
+      - POST /api/v1/admin/dual-approvals/{id}/approve
+      - POST /api/v1/admin/point-adjustments
+      - POST /api/v1/admin/dlq/{id}/retry
+      - POST /api/v1/admin/seasons/{id}/finalize
+  user_journeys:
+    - id: J1_public_discovery
+      input: 비회원이 지역 또는 장소 조건으로 검색
+      output: 한국어 장소 목록·상세·거점·리더보드와 외부 지도 딥링크
+      failure: 비공개·권리 만료·비활성 장소는 결과에서 제외
+      evidence: e2e/j1-public-discovery
+    - id: J2_join_and_lock
+      input: 성인 로그인 사용자가 시즌 팬덤을 선택하고 최초 승인 체크인을 완료
+      output: 승인 트랜잭션에서 season_membership 잠금과 outbox가 확정되고, 멱등 소비 후 100점 원장 이벤트가 정확히 한 번 생성됨
+      failure: 미성년·정지 계정 또는 잠금 후 일반 변경은 403과 오류 코드 반환
+      evidence: e2e/j2-membership-lock
+    - id: J3_checkin_recovery
+      input: 사용자가 GPS·체류·사진을 수집하며 탭 비활성·새로고침·네트워크 단절을 경험
+      output: 유효 시간만 누적되고 세션이 paused로 복구되어 중복 없이 제출
+      failure: 30분 만료·3회 초과·권한 거부는 명시적 오류와 재개 불가 상태 표시
+      evidence: e2e/j3-checkin-recovery
+    - id: J4_review_and_appeal
+      input: 위험 신호 체크인 또는 거절 체크인에 대한 48시간 내 이의제기
+      output: 역할이 맞는 운영자가 판정하고 사용자에게 최종 상태와 사유 표시
+      failure: 이의제기 중복·기한 초과·권한 없는 운영자 변경은 거절되고 감사 로그 기록
+      evidence: e2e/j4-review-appeal
+    - id: J5_ledger_to_season
+      input: 승인·중복 전달·부분 실패·역분개·시즌 확정 이벤트
+      output: 단일 원장 효과와 결정론적 거점·리더보드·시즌 결과
+      failure: 재시도 소진 시 DLQ 알림 후 운영자 멱등 재처리
+      evidence: e2e/j5-ledger-season
+    - id: J6_reconcile_recovery
+      input: approved_processing 또는 retrying 단계에서 프로세스를 반복 종료하거나 projection_version을 고의로 뒤처지게 함
+      output: 매분 reconcile이 stale 작업을 멱등 재큐잉하고 원장 중복 없이 투영을 최신 버전으로 재구축함
+      failure: 재시도 소진 건만 DLQ로 이동하고 운영자 재처리 전까지 원인·실패 단계가 보존됨
+      evidence: e2e/j6-reconcile-recovery
+  delivery_plan:
+    - sprint: 1
+      deliverables: [프로젝트 골격, DB 마이그레이션, 인증·RBAC, ko i18n, PlaceCatalog 기본 CRUD]
+    - sprint: 2
+      deliverables: [관광 OpenAPI 동기화·캐시, 공개 지도·장소 상세, 팬덤 선택·잠금]
+    - sprint: 3
+      deliverables: [체크인 세션, GPS 샘플·포그라운드 체류, 카메라·EXIF 제거, 중단 복구]
+    - sprint: 4
+      deliverables: [자동 판정, 운영 검수·이의제기, 사진·GPS 보관기한 작업]
+    - sprint: 5
+      deliverables: [트랜잭셔널 outbox, 포인트 원장, 역분개, 거점·리더보드 투영]
+    - sprint: 6
+      deliverables: [시즌 확정·2인 승인, DLQ 운영, 권리·출시 게이트, 성능·E2E·복구 검증]
+
+measurement_contract:
+  observation_window: 프로덕션 동등 스테이징에서 워밍업 5분 후 30분 연속 측정한다.
+  reproducibility:
+    random_seed: 20260812
+    arrival_model: seeded Poisson arrivals
+    traffic_mix:
+      GET /api/v1/places: 30%
+      GET /api/v1/places/{placeId}: 15%
+      POST /api/v1/checkin-sessions: 10%
+      POST /api/v1/checkin-sessions/{id}/submit: 10%
+      GET /api/v1/checkins/{id}: 10%
+      GET /api/v1/seasons/current/strongholds: 10%
+      GET /api/v1/seasons/current/leaderboards: 15%
+    photo_payload_distribution: 1MB 50%, 5MB 40%, 10MB 10%의 유효 image/jpeg
+    minimum_samples: 각 핵심 API 성공 응답 100건 이상, 승인 이벤트 1000건 이상, 투영 이벤트 1000건 이상, 실패 주입 이벤트 1000건 이상
+    zero_denominator_rule: 분모가 0이거나 minimum_samples 미달이면 지표를 PASS로 간주하지 않고 측정을 실패 처리한다.
+  normal_load:
+    concurrent_users: 100
+    request_rate: 초당 20 요청
+    data_profile: 활성 장소 1000개, 시즌 사용자 10000명, 원장 이벤트 100000건
+  core_json_apis:
+    - GET /api/v1/places
+    - GET /api/v1/places/{placeId}
+    - POST /api/v1/checkin-sessions
+    - POST /api/v1/checkin-sessions/{id}/submit
+    - GET /api/v1/checkins/{id}
+    - GET /api/v1/seasons/current/strongholds
+    - GET /api/v1/seasons/current/leaderboards
+  latency:
+    - 핵심 JSON API는 서버 수신부터 응답 완료까지 성공 응답의 p95가 각 엔드포인트별 1초 이하다.
+    - 사진 업로드 바이트 수신 완료부터 제출 접수 응답 완료까지 성공 요청 p95가 2초 이하다.
+    - approved_processing 커밋부터 ledger_event 커밋까지 성공 이벤트 p95가 3초 이하다.
+    - ledger_event 커밋부터 거점·리더보드 projection_version 반영까지 성공 이벤트 p95가 30초 이하다.
+  reliability:
+    - 승인 원장 성공률은 측정 구간의 고유 승인 이벤트 중 3초 안에 원장 기록된 비율이며 99.5% 이상이다.
+    - 투영 성공률은 측정 구간의 고유 원장 이벤트 중 30초 안에 두 투영에 반영된 비율이며 99.0% 이상이다.
+    - 최종 복구율은 처리 실패가 한 번 이상 발생한 고유 이벤트 중 최초 실패 후 5분 안에 applied가 된 비율이며 99.9% 이상이다.
+    - 실패 주입은 승인 이벤트의 10%에 적용하며 DB 커밋 전 25%, outbox publish 전 25%, ledger consumer 커밋 전 25%, projection 커밋 전 25%로 고정한다.
+  availability:
+    - 4주 연속 각 1분 버킷에서 공개 탐색·테스트 전용 로그인·체크인 제출·리더보드 합성 헬스체크를 각각 1회 실행한다.
+    - 각 합성 요청은 3초 안에 2xx와 계약 스키마를 반환해야 성공하며 네 요청이 모두 성공한 버킷만 성공이다. 성공 버킷 수를 제외되지 않은 전체 버킷 수로 나눈 값이 99.5% 이상이어야 한다.
+    - 사전 공지 24시간 이상, 월 2회 이하, 회당 30분 이하인 계획 점검만 분모에서 제외한다.
+  test_catalog:
+    core_e2e: [J1_public_discovery, J2_join_and_lock, J3_checkin_recovery, J4_review_and_appeal, J5_ledger_to_season, J6_reconcile_recovery]
+    release_rule: core_e2e는 6개 모두 통과하고 전체 자동 회귀 테스트는 재실행 1회 없이 95% 이상 통과한다.
+
+acceptance_criteria:
+  - id: AC-01
+    outcome: 비회원은 공개 탐색만, 성인 정상 계정은 회원 기능만, 각 운영자 역할은 허가된 관리 기능만 수행하며 권한 행렬의 금지 요청은 모두 401 또는 403이다.
+    evidence: RBAC 통합 테스트와 e2e/j1-public-discovery, e2e/j2-membership-lock
+  - id: AC-02
+    outcome: 선택한 아티스트와 승인 연결된 활성 장소의 한국어 정보·교통 안내와 거점·리더보드가 지도와 상세 화면에 노출되고 비공개·비활성·권리 만료 장소는 공개 API에서 0건 노출된다.
+    evidence: PlaceCatalog 공개 필터 통합 테스트와 e2e/j1-public-discovery
+  - id: AC-03
+    outcome: 체크인 세션은 정의된 GPS·체류·사진 조건과 상태 전이를 적용하며 탭 비활성·새로고침·네트워크 단절·중복 제출·30분 만료 시 recovery_rules와 일치한다.
+    evidence: 상태 전이 모델 테스트와 e2e/j3-checkin-recovery
+  - id: AC-04
+    outcome: 자동 승인 조건의 경계값 조합은 approved로, 정의된 위험 신호 각각은 review_required로 분류되며 판정 규칙 테스트 벡터가 100% 일치한다.
+    evidence: 버전 관리된 verification-policy-v1 테스트 벡터
+  - id: AC-05
+    outcome: 장소별 일일 3회 재시도, 거절 후 48시간 내 1회 이의제기, 역할 기반 최종 판정이 서버 시각 기준으로 강제된다.
+    evidence: 경계시간·중복·권한 통합 테스트와 e2e/j4-review-appeal
+  - id: AC-06
+    outcome: 최초 승인 트랜잭션은 팬덤 잠금과 outbox를 정확히 한 번 확정하고, 멱등 소비는 100점 원장 이벤트를 정확히 한 번 만들며 반복 방문·중복 전달·재처리는 추가 점수를 만들지 않는다.
+    evidence: event_key 고유성·동시성 테스트와 e2e/j2-membership-lock, e2e/j5-ledger-season
+  - id: AC-07
+    outcome: 승인 취소와 부정행위 확정은 원 이벤트를 보존한 역분개로 순점수를 변경하고 원장 재생 결과가 현재 점수와 일치한다.
+    evidence: 원장 속성 기반 테스트와 projection rebuild 비교
+  - id: AC-08
+    outcome: 원장 순서대로 300·1000·2000점 레벨과 110% 탈환 규칙이 적용되고 원장 전체 재생 후 거점 소유권·레벨·순위 해시가 기존 투영과 동일하다.
+    evidence: 경계값·동시성·재구축 테스트와 e2e/j5-ledger-season
+  - id: AC-09
+    outcome: 시즌 종료 전 제출 건만 72시간 유예에 포함되고 2인 승인 후 결과가 확정되며 새 시즌 투영은 0점·무소유에서 시작하고 과거 결과는 조회된다.
+    evidence: 시즌 시계 고정 통합 테스트와 e2e/j5-ledger-season
+  - id: AC-10
+    outcome: 한국관광공사 동기화 성공 시 출처·증빙·권리 메타데이터와 snapshot_version이 갱신되고, 외부 API 실패 시 24시간 이내 마지막 정상 스냅샷으로 탐색·체크인이 성공하며 이후 체크인은 차단되고 권리 무효화는 즉시 반영된다.
+    evidence: 계약 테스트와 외부 장애 복구 시나리오
+  - id: AC-11
+    outcome: GPS·사진은 지정 보관기한 후 원본 저장소에서 삭제되고 EXIF가 저장되지 않으며 탈퇴 후 직접 식별자는 원장 익명 ID와 연결되지 않는다.
+    evidence: 보관기한 작업 통합 테스트, 메타데이터 검사, 탈퇴 개인정보 검사
+  - id: AC-12
+    outcome: 권리 삭제 요청 등록 직후 콘텐츠가 공개 API에서 제외되고 프로덕션 배포는 유효한 아티스트 권리와 법률·개인정보 ReleaseGate 승인 없이는 실패한다.
+    evidence: 공개 필터 테스트와 배포 게이트 테스트
+  - id: AC-13
+    outcome: measurement_contract의 동일한 부하·구간·분모에서 네 가지 지연시간과 세 가지 신뢰성 목표를 모두 충족한다.
+    evidence: 버전 고정 성능 보고서와 이벤트 시각 대조 보고서
+  - id: AC-14
+    outcome: 4주 가용성이 정의된 버킷과 계획 점검 규칙으로 99.5% 이상이며 모든 core_e2e와 출시 결함 게이트를 충족한다.
+    evidence: 가용성 SLI 보고서, CI 테스트 보고서, 결함 목록
+  - id: AC-15
+    outcome: 점수 조정·시즌 확정은 서로 다른 두 운영자 승인 없이는 실행되지 않고 개인정보 접근·다운로드·권리 변경·DLQ 재처리가 모두 감사 로그에 남는다.
+    evidence: 2인 승인·감사 불변성 통합 테스트
+  - id: AC-16
+    outcome: 모든 쓰기 API는 contracts.yaml의 필수값·형식·크기·범위·상태·멱등 키 규칙을 강제하고 위반 종류별로 400·413·415·422를 결정적으로 반환한다.
+    evidence: contracts.yaml에서 생성한 empty·oversized·wrong-type·boundary 계약 테스트
+  - id: AC-17
+    outcome: 처리 프로세스를 단계별로 반복 종료해도 2분 stale 탐지와 reconcile을 거쳐 중복 원장 없이 복구되고, 재시도 소진 건만 DLQ로 이동하며 뒤처진 투영은 원장 최신 버전으로 재구축된다.
+    evidence: e2e/j6-reconcile-recovery와 장애 주입 보고서
+
+ontology_schema:
+  name: KTownDefenseCore
+  entities:
+    - name: User
+      primary_key: user_id
+      fields: [adult_verified_at, status, anonymous_ledger_id, deleted_at]
+      enums: {status: [active, suspended, deleted]}
+    - name: LoginIdentity
+      primary_key: login_identity_id
+      foreign_keys: [user_id -> User.user_id]
+      fields: [provider, provider_subject, created_at]
+      unique: [provider, provider_subject]
+    - name: Artist
+      primary_key: artist_id
+      fields: [display_name_ko, rights_status, rights_expires_at, public_visible]
+    - name: Fandom
+      primary_key: fandom_id
+      foreign_keys: [artist_id -> Artist.artist_id]
+      unique: [artist_id]
+    - name: SeasonMembership
+      primary_key: season_membership_id
+      foreign_keys: [user_id -> User.user_id, season_id -> Season.season_id, fandom_id -> Fandom.fandom_id, exception_changed_by -> Operator.operator_id]
+      fields: [locked_at, exception_changed_by, exception_reason]
+      unique: [user_id, season_id]
+    - name: Place
+      primary_key: place_id
+      foreign_keys: [catalog_sync_run_id -> CatalogSyncRun.catalog_sync_run_id]
+      fields: [name_ko, address_ko, description_ko, transit_guide_ko, map_deep_link, source_locale, place_type, latitude, longitude, admin_area_code, source, rights_status, approved_at, expires_at, active, public_visible]
+      enums: {place_type: [official, verified]}
+      invariants: [source_locale=ko, latitude와 longitude는 함께 존재]
+    - name: PlaceArtistLink
+      primary_key: place_artist_link_id
+      foreign_keys: [place_id -> Place.place_id, artist_id -> Artist.artist_id, approved_by -> Operator.operator_id]
+      fields: [evidence_tier, evidence_uri, status, approved_at, expires_at]
+      enums: {evidence_tier: [official, verified], status: [pending, approved, expired, revoked]}
+      unique: [place_id, artist_id]
+    - name: RightsRecord
+      primary_key: rights_record_id
+      foreign_keys: [artist_id -> Artist.artist_id, place_id -> Place.place_id, approved_by -> Operator.operator_id]
+      fields: [subject_type, status, evidence_uri, approved_at, expires_at, revoked_at]
+      enums: {status: [pending, approved, expired, revoked]}
+      invariants: [subject_type에 따라 artist_id 또는 place_id 중 정확히 하나만 존재]
+    - name: VerificationPolicy
+      primary_key: verification_policy_id
+      foreign_keys: [place_id -> Place.place_id]
+      fields: [version, radius_m, max_accuracy_m, min_dwell_seconds, photo_verification_mode, photo_target_ko, gps_weak]
+      enums: {photo_verification_mode: [capture_only, manual_target]}
+      unique: [place_id, version]
+    - name: CatalogSyncRun
+      primary_key: catalog_sync_run_id
+      fields: [source, snapshot_version, started_at, completed_at, status, snapshot_uri, last_good, usable_until]
+      unique: [source, snapshot_version]
+    - name: CheckInSession
+      primary_key: checkin_session_id
+      foreign_keys: [user_id -> User.user_id, place_id -> Place.place_id, season_id -> Season.season_id, verification_policy_id -> VerificationPolicy.verification_policy_id]
+      fields: [status, started_at, expires_at, active_dwell_seconds, idempotency_key, submitted_at]
+      enums: {status: [collecting, paused, ready_to_submit, submitted, expired, cancelled]}
+      unique: [user_id, idempotency_key]
+    - name: GpsSample
+      primary_key: gps_sample_id
+      foreign_keys: [checkin_session_id -> CheckInSession.checkin_session_id]
+      fields: [sample_sequence, sample_kind, latitude, longitude, accuracy_m, captured_at]
+      enums: {sample_kind: [start, middle, end, recovery]}
+      unique: [checkin_session_id, sample_sequence]
+      invariants: [sample_sequence는 세션별 1부터 단조 증가]
+      retention: 최종 판정 후 30일
+    - name: PhotoAsset
+      primary_key: photo_asset_id
+      foreign_keys: [checkin_session_id -> CheckInSession.checkin_session_id]
+      fields: [private_uri, sha256, upload_idempotency_key, mime_type, byte_size, exif_removed_at, captured_at, delete_after]
+      unique: [checkin_session_id, upload_idempotency_key]
+      retention: 최종 판정 후 90일
+    - name: VerificationDecision
+      primary_key: verification_decision_id
+      foreign_keys: [checkin_session_id -> CheckInSession.checkin_session_id, reviewer_id -> Operator.operator_id]
+      fields: [status, risk_codes, reason_ko, reviewer_id, decided_at, policy_version]
+      enums: {status: [pending, auto_approved, review_required, approved, rejected]}
+      unique: [checkin_session_id]
+    - name: Appeal
+      primary_key: appeal_id
+      foreign_keys: [verification_decision_id -> VerificationDecision.verification_decision_id, reviewer_id -> Operator.operator_id]
+      fields: [status, reason_ko, submitted_at, decided_at, reviewer_id]
+      enums: {status: [not_available, available, submitted, upheld, overturned, expired]}
+      unique: [verification_decision_id]
+    - name: LedgerEvent
+      primary_key: ledger_event_id
+      foreign_keys: [checkin_session_id -> CheckInSession.checkin_session_id, user_id -> User.user_id, fandom_id -> Fandom.fandom_id, place_id -> Place.place_id, season_id -> Season.season_id, reversal_of -> LedgerEvent.ledger_event_id]
+      fields: [event_key, points, event_type, created_at]
+      enums: {event_type: [FIRST_SCORE, REPEAT_ZERO, POINT_ADJUSTMENT, REVERSAL]}
+      unique: [event_key]
+      invariants: [불변 레코드, reversal은 원 이벤트와 반대 부호]
+    - name: OutboxEvent
+      primary_key: outbox_event_id
+      fields: [event_key, aggregate_id, status, attempt_count, next_attempt_at, failed_stage, payload]
+      enums: {status: [pending, processing, retrying, applied, dlq]}
+      unique: [event_key]
+    - name: DlqItem
+      primary_key: dlq_item_id
+      foreign_keys: [outbox_event_id -> OutboxEvent.outbox_event_id, last_retried_by -> Operator.operator_id]
+      fields: [status, failed_stage, reason_code, attempt_count, created_at, last_retried_at, resolved_at]
+      enums: {status: [open, retrying, resolved]}
+    - name: StrongholdProjection
+      primary_key: stronghold_projection_id
+      foreign_keys: [place_id -> Place.place_id, season_id -> Season.season_id, owner_fandom_id -> Fandom.fandom_id]
+      fields: [level, acquired_at, projection_version]
+      enums: {level: [seed, tree, landmark]}
+      unique: [place_id, season_id]
+    - name: PlaceFandomScoreProjection
+      primary_key: place_fandom_score_projection_id
+      foreign_keys: [place_id -> Place.place_id, season_id -> Season.season_id, fandom_id -> Fandom.fandom_id]
+      fields: [valid_points, projection_version]
+      unique: [place_id, season_id, fandom_id]
+    - name: LeaderboardProjection
+      primary_key: leaderboard_projection_id
+      foreign_keys: [season_id -> Season.season_id, fandom_id -> Fandom.fandom_id]
+      fields: [stronghold_count, valid_points, last_acquired_at, projection_version]
+      unique: [season_id, fandom_id]
+    - name: Season
+      primary_key: season_id
+      fields: [starts_at, ends_at, review_grace_ends_at, status, finalized_at]
+      enums: {status: [scheduled, active, review_grace, awaiting_dual_approval, finalized]}
+    - name: SeasonResult
+      primary_key: season_result_id
+      foreign_keys: [season_id -> Season.season_id, fandom_id -> Fandom.fandom_id]
+      fields: [rank, stronghold_count, valid_points, finalized_at]
+      unique: [season_id, fandom_id]
+    - name: DigitalBadge
+      primary_key: digital_badge_id
+      foreign_keys: [season_result_id -> SeasonResult.season_result_id, user_id -> User.user_id]
+      fields: [badge_code, issued_at]
+      unique: [season_result_id, user_id, badge_code]
+    - name: Operator
+      primary_key: operator_id
+      fields: [status, created_at, disabled_at]
+      enums: {status: [active, disabled]}
+    - name: OperatorRoleAssignment
+      primary_key: operator_role_assignment_id
+      foreign_keys: [operator_id -> Operator.operator_id]
+      fields: [role, granted_at, revoked_at]
+      enums: {role: [reviewer, place_manager, season_admin, super_admin]}
+      unique: [operator_id, role]
+    - name: ReviewTask
+      primary_key: review_task_id
+      foreign_keys: [assigned_operator_id -> Operator.operator_id]
+      fields: [subject_type, subject_id, status, assigned_operator_id, due_at]
+      enums: {status: [open, assigned, decided, expired]}
+    - name: DualApproval
+      primary_key: dual_approval_id
+      foreign_keys: [requester_id -> Operator.operator_id, approver_id -> Operator.operator_id]
+      fields: [action_type, subject_id, requester_id, approver_id, status, requested_at, approved_at]
+      enums: {action_type: [POINT_ADJUSTMENT, SEASON_FINALIZATION], status: [pending, approved, rejected, expired]}
+      invariants: [requester_id != approver_id]
+    - name: AuditLog
+      primary_key: audit_log_id
+      foreign_keys: [actor_id -> Operator.operator_id]
+      fields: [actor_id, action, subject_type, subject_id, occurred_at, before_hash, after_hash]
+      invariants: [append_only]
+    - name: ReleaseGate
+      primary_key: release_gate_id
+      foreign_keys: [approver_id -> Operator.operator_id]
+      fields: [gate_type, status, approver_id, evidence_uri, approved_at, expires_at]
+      enums: {gate_type: [legal, privacy, quality, artist_rights]}
+      status_enum: [pending, approved, rejected, expired]
+    - name: RightsDeletionRequest
+      primary_key: rights_deletion_request_id
+      foreign_keys: [place_id -> Place.place_id, artist_id -> Artist.artist_id, handled_by -> Operator.operator_id]
+      fields: [requester_reference, received_at, public_hidden_at, status, handled_by, resolved_at]
+      enums: {status: [received, reviewing, resolved, rejected]}
+      invariants: [artist_id 또는 place_id 중 정확히 하나만 존재, received_at과 public_hidden_at은 같은 트랜잭션에서 기록]
+    - name: ReconcileRun
+      primary_key: reconcile_run_id
+      fields: [started_at, completed_at, lease_owner, stale_found, requeued_count, deduplicated_count, dlq_count, projection_rebuild_count, status]
+      enums: {status: [running, completed, failed]}
+      invariants: [동일 작업 키에는 한 lease_owner만 활성]
+  global_invariants:
+    - 모든 시간은 UTC로 저장하고 사용자 표시와 일일 제한 계산에 Asia/Seoul을 사용한다.
+    - 외래키가 가리키는 원장은 물리 삭제하지 않는다.
+    - 공개 조회는 active=true, public_visible=true, rights_status=approved, expires_at 미경과를 모두 만족한다.
+
+traceability_matrix:
+  - requirement: R-AUTH-RBAC
+    acceptance: [AC-01, AC-15]
+    evidence: [RBAC 통합 테스트, 2인 승인·감사 불변성 테스트]
+  - requirement: R-PLACE-KO
+    acceptance: [AC-02, AC-10, AC-12]
+    evidence: [PlaceCatalog 공개 필터, 관광 API 계약·장애 테스트, 배포 게이트]
+  - requirement: R-CHECKIN
+    acceptance: [AC-03, AC-04, AC-05]
+    evidence: [상태 전이 모델, 판정 테스트 벡터, e2e/j3-checkin-recovery, e2e/j4-review-appeal]
+  - requirement: R-LEDGER
+    acceptance: [AC-06, AC-07]
+    evidence: [원장 동시성·속성 기반·재생 테스트]
+  - requirement: R-TERRITORY-SEASON
+    acceptance: [AC-08, AC-09]
+    evidence: [거점 경계값·재구축·시즌 시계 테스트]
+  - requirement: R-PRIVACY-RIGHTS
+    acceptance: [AC-11, AC-12, AC-15]
+    evidence: [보관기한·탈퇴·권리·감사 테스트]
+  - requirement: R-SLO-QUALITY
+    acceptance: [AC-13, AC-14]
+    evidence: [성능·신뢰성·가용성·CI·결함 보고서]
+  - requirement: R-API-CONTRACT
+    acceptance: [AC-16]
+    evidence: [ktown-defense.contracts.yaml 생성 계약 테스트]
+  - requirement: R-RECOVERY
+    acceptance: [AC-17]
+    evidence: [e2e/j6-reconcile-recovery, 장애 주입·투영 재구축 보고서]
+
+legal_and_operations_appendix:
+  release_blockers:
+    - legal과 privacy ReleaseGate가 approved가 아니면 production 배포를 거부한다.
+    - 노출 Artist마다 만료되지 않은 artist_rights ReleaseGate가 없으면 공개하지 않는다.
+  procedures:
+    - 권리 삭제 요청은 접수 즉시 공개 차단 후 place_manager가 증빙과 영향을 검토한다.
+    - 개인정보 다운로드는 업무 사유를 입력하고 권한 확인 후 감사 로그를 남긴다.
+    - 운영 목표 72시간은 이의제기 submitted_at부터 최종 판정까지이며 위반 건은 운영 대시보드에 경고한다.
+    - DLQ는 생성 즉시 알림하고 담당자가 원인·재처리 결과를 AuditLog에 기록한다.
+
+evaluation_principles:
+  - {name: 핵심 사용자 가치, weight: 0.23, description: 탐색부터 인증·점수·거점·순위까지 모바일 웹 수직 흐름이 완결된다.}
+  - {name: 점수 및 영토 정합성, weight: 0.25, description: 중복·부분 실패·동시성·역분개에도 원장과 투영이 결정론적으로 일치한다.}
+  - {name: 인증 신뢰성과 복구성, weight: 0.18, description: GPS·체류·사진 판정과 중단 복구·검수·이의제기가 명시된 상태 규칙을 따른다.}
+  - {name: 성능과 운영 가능성, weight: 0.14, description: 측정 계약의 지연·신뢰성·가용성과 운영 재처리 목표를 충족한다.}
+  - {name: 개인정보와 권리 보호, weight: 0.14, description: 최소 수집·보관·익명화·접근 감사·IP 출시 게이트를 준수한다.}
+  - {name: 범위 준수, weight: 0.06, description: 확정 MVP 제외 기능과 실험 지표를 개발 범위에 다시 포함하지 않는다.}
+
+exit_conditions:
+  - name: 기능 완료
+    criteria: AC-01부터 AC-12 및 AC-15부터 AC-17이 모두 충족되고 J1~J6 core_e2e가 모두 통과한다.
+  - name: 정합성 완료
+    criteria: 중복 점수·데이터 유실 결함이 0건이고 원장 재생과 현재 투영 해시가 일치한다.
+  - name: 품질 완료
+    criteria: AC-13과 AC-14가 충족되고 미해결 P0·P1은 0건, 우회책·담당자가 있는 P2는 최대 3건이다.
+  - name: 보안·개인정보·권리 완료
+    criteria: 권한 우회·개인정보 노출 결함이 0건이고 모든 필수 ReleaseGate가 승인 상태다.
+  - name: 운영 준비 완료
+    criteria: 역할별 검수·이의제기·2인 승인·DLQ 재처리·감사·보관기한 삭제 시나리오가 모두 통과한다.
+
+metadata:
+  seed_id: seed_7fe7f9a22a96
+  version: 1.2.0
+  created_at: '2026-08-09T05:37:20.845564Z'
+  revised_at: '2026-08-12T00:00:00Z'
+  ambiguity_score: 0.033
+  interview_id: interview_20260809_024153
+  parent_seed_id: null
+  generation_mode: normal
+  revision_style: balanced
+  qa_iteration: 3
+  experiment_metrics: excluded

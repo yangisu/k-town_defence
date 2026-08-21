@@ -7,7 +7,7 @@ async function proxy(request: Request, context: RouteContext): Promise<Response>
   const requestHeaders = await headers();
   const { path } = await context.params;
   return proxyKtownRequest(request, path, {
-    baseUrl: process.env.KTOWN_API_BASE_URL ?? "http://127.0.0.1:8000",
+    baseUrl: process.env.KTOWN_API_BASE_URL ?? null,
     platformUserId:
       requestHeaders.get("oai-authenticated-user-id") ??
       (process.env.NODE_ENV !== "production"

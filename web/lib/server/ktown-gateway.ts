@@ -1,5 +1,5 @@
 type GatewayDependencies = {
-  baseUrl: string;
+  baseUrl: string | null;
   platformUserId: string | null;
   fetcher?: typeof fetch;
   timeoutMs?: number;
@@ -27,6 +27,13 @@ export async function proxyKtownRequest(
   pathSegments: string[],
   dependencies: GatewayDependencies,
 ): Promise<Response> {
+  if (!dependencies.baseUrl?.trim()) {
+    return jsonError(
+      503,
+      "BACKEND_NOT_CONFIGURED",
+      "통합 백엔드가 설정되지 않았습니다.",
+    );
+  }
   const path = pathSegments.join("/");
   if (
     pathSegments.some((segment) => !segment || segment.includes("%") || segment === "." || segment === "..") ||

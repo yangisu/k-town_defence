@@ -14,6 +14,47 @@
 로컬 통합 모드는 `Copy-Item .env.example .env.local` 후 실행한다. `.env.local`은
 Git에서 제외되며 vinext가 개발 서버 시작 시 자동으로 읽는다.
 
+## Vercel demo deployment
+
+AWS 백엔드 연결 전에는 프론트엔드만 데모 모드로 배포한다. Vercel Dashboard의
+**Add New → Project**에서 `yangisu/k-town_defence` 저장소를 가져오고 다음 값을
+사용한다.
+
+- Root Directory: `web`
+- Framework Preset: `Nitro`
+- Build Command: `npm run build:vercel` (`vercel.json`이 지정)
+- Output Directory: override를 켜지 않는다. Nitro가 Vercel Build Output API
+  규격의 `.vercel/output`을 생성한다.
+- Environment Variable: Preview와 Production 모두
+  `KTOWN_SERVICE_MODE=demo`
+
+`KTOWN_API_BASE_URL`, `KTOWN_DEV_USER_ID`, `KTOUR_SERVICE_KEY`, 데이터베이스
+URL은 이 단계의 Vercel 환경변수에 추가하지 않는다. 이 값들은 브라우저 공개
+변수가 아니며 `NEXT_PUBLIC_` 접두사를 사용하지 않는다. 로컬 연결 정보가 있는
+`.env.local`과 Vercel이 생성하는 `.vercel/`도 Git에 커밋하지 않는다.
+
+저장소에서 Vercel 산출물을 미리 확인하려면 다음을 실행한다.
+
+```bash
+npm ci
+npm run build:vercel
+```
+
+성공하면 `.vercel/output/config.json`, 정적 자산, `__server.func`가 생성된다.
+Git 연동은 PR/브랜치 push에 Preview를 만들고 `main` push에 Production 배포를
+만든다. 첫 배포에서는 Preview URL에서 다음을 확인한 후 Production으로
+승격한다.
+
+1. `/`가 HTTPS 200으로 열리는지 확인한다.
+2. 팬덤을 선택하고 데모 홈이 표시되는지 확인한다.
+3. 탐색 탭에서 데모 장소가 표시되는지 확인한다.
+4. 체크인 시작 버튼이 데모 체크인 단계를 여는지 확인한다.
+
+AWS API가 준비된 뒤에만 `KTOWN_SERVICE_MODE=integrated`와 서버 전용
+`KTOWN_API_BASE_URL`을 설정한다. 그 전에 Vercel 사용자 세션을 검증해 FastAPI의
+신뢰 헤더로 변환하는 인증 어댑터가 필요하다. `KTOWN_DEV_USER_ID`는 production
+인증 대체 수단으로 사용하지 않는다.
+
 통합 체크인은 브라우저 위치 권한으로 GPS를 세 번 수집하고 카메라 또는
 갤러리에서 선택한 사진 바이너리를 비공개 백엔드에 업로드한다. 위치 권한은
 localhost 또는 HTTPS에서만 정상 동작한다. 원본 사진은 현재 EXIF를 제거하지

@@ -52,13 +52,13 @@ Services도 현재 Private Beta이므로 AWS 이전의 임시 경로로 채택�
 ## 4. 파일과 명령 구조
 
 - `web/vite.config.vercel.ts`
-  - `vinext()`와 `nitro()`만 포함한다.
+  - `vinext()`, Tailwind Vite plugin, `nitro()`만 포함한다.
   - Cloudflare Workers binding과 `.openai/hosting.json`을 읽지 않는다.
 - `web/package.json`
   - `build:vercel`: Vercel preset으로 전용 설정을 빌드한다.
   - 기존 `dev`, `build`, `start`는 유지한다.
 - `web/vercel.json`
-  - Nitro framework, Vercel 빌드 명령, `.output` 산출물을 선언한다.
+  - Nitro framework와 Vercel 빌드 명령을 선언한다.
 - `web/.env.example`
   - 배포 단계별 변수와 서버 전용 규칙을 설명한다.
 - `web/README.md`
@@ -114,7 +114,8 @@ AWS 연결 시에는 다음을 별도 변경으로 수행한다.
 1. 설정 테스트를 먼저 작성해 Vercel config와 전용 script가 없어서 실패하는
    것을 확인한다.
 2. Nitro와 Vercel 설정을 최소 구현한다.
-3. `npm run build:vercel`로 `.output` 산출물과 서버 entrypoint를 확인한다.
+3. `npm run build:vercel`로 `.vercel/output` Build Output API 산출물과 서버
+   function entrypoint를 확인한다.
 4. 기존 `npm test`, `npm run lint`, `npm run build`를 실행해 Cloudflare/Sites
    경로가 유지되는지 확인한다.
 5. Vercel Preview에서 공개 HTTPS smoke test를 실행한다.

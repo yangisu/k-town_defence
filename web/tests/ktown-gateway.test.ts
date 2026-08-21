@@ -2,6 +2,21 @@ import { describe, expect, it, vi } from "vitest";
 import { proxyKtownRequest } from "@/lib/server/ktown-gateway";
 
 describe("K-Town gateway", () => {
+  it("rejects integrated requests when no backend URL is configured", async () => {
+    const fetcher = vi.fn();
+    const response = await proxyKtownRequest(
+      new Request("https://demo.example/api/ktown/api/v1/places"),
+      ["api", "v1", "places"],
+      { baseUrl: null, platformUserId: null, fetcher },
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "BACKEND_NOT_CONFIGURED",
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it("rejects paths outside the exact place and check-in allowlist", async () => {
     const fetcher = vi.fn();
     const response = await proxyKtownRequest(

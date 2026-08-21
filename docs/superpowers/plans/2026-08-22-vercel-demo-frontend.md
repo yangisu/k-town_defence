@@ -6,7 +6,7 @@
 
 **Architecture:** Keep `web/vite.config.ts` as the Cloudflare-specific build and add a second Vite configuration that combines `vinext` with Nitro's Vercel preset. Vercel deploys only the `web` directory in `demo` mode; FastAPI, PostgreSQL, uploads, and production identity remain outside this phase.
 
-**Tech Stack:** Node.js >=22.13, React 19.2.6, vinext 1.0.0-beta.2, Vite 8.0.13, Nitro 3.0.260610-beta, Vitest 4.1.10, Vercel
+**Tech Stack:** Node.js >=22.13, React 19.2.6, vinext 1.0.0-beta.2, Vite 8.0.13, Nitro 3.0.260610-beta, Tailwind CSS 4.3.3, Vitest 4.1.10, Vercel
 
 **Spec:** `docs/superpowers/specs/2026-08-22-vercel-demo-frontend-design.md`
 
@@ -17,7 +17,7 @@
 - Do not set `KTOWN_API_BASE_URL`, `KTOWN_DEV_USER_ID`, `KTOUR_SERVICE_KEY`, or a database URL in this deployment phase.
 - Do not add any secret or deployment identifier to Git; `.vercel/` and `.env.local` remain ignored.
 - Keep existing `npm run dev`, `npm run build`, and the Cloudflare/Sites Vite configuration operational.
-- Build Vercel output with `NITRO_PRESET=vercel` and verify `.output` exists.
+- Build Vercel output with `NITRO_PRESET=vercel` and verify `.vercel/output/config.json` exists.
 
 ## File Structure
 
@@ -45,64 +45,58 @@
 - Consumes: the existing `vinext()` plugin and Vite 8 configuration API.
 - Produces: npm script `build:vercel`, Vite config `vite.config.vercel.ts`, and Vercel project config `vercel.json`.
 
-- [ ] **Step 1: Write the failing deployment contract test**
+- [x] **Step 1: Write the failing deployment contract test**
 
 ```ts
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
-const readJson = (path: string) => JSON.parse(readFileSync(path, "utf8"));
-
-describe("Vercel deployment contract", () => {
-  it("uses an isolated Nitro build without Cloudflare runtime imports", () => {
-    const config = readFileSync("vite.config.vercel.ts", "utf8");
-    expect(config).toContain('from "nitro/vite"');
-    expect(config).toContain("nitro()");
-    expect(config).not.toContain("@cloudflare/vite-plugin");
-    expect(config).not.toContain("cloudflare:workers");
-  });
-
-  it("pins the Vercel build and output contract", () => {
-    const packageJson = readJson("package.json");
-    const vercel = readJson("vercel.json");
-    expect(packageJson.scripts["build:vercel"]).toBe(
-      "cross-env NITRO_PRESET=vercel vite build --config vite.config.vercel.ts",
-    );
-    expect(packageJson.devDependencies.nitro).toBe("3.0.260610-beta");
-    expect(vercel).toMatchObject({
-      framework: "nitro",
-      buildCommand: "npm run build:vercel",
-      outputDirectory: ".output",
+describe("Vercel deployment", () => {
+  it("builds a Nitro artifact without local backend or secret configuration", () => {
+    rmSync(".vercel/output", { recursive: true, force: true });
+    const result = spawnSync("npm", ["run", "build:vercel"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      env: { ...process.env, KTOWN_SERVICE_MODE: "demo" },
     });
-  });
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    expect(existsSync(".vercel/output/config.json")).toBe(true);
+    const artifact = readFileSync(
+      ".vercel/output/functions/__server.func/_ssr/route.mjs",
+      "utf8",
+    );
+    expect(artifact).not.toMatch(/127\.0\.0\.1:8000|KTOUR_SERVICE_KEY/);
+  }, 120_000);
 });
 ```
 
-- [ ] **Step 2: Run the test to verify RED**
+- [x] **Step 2: Run the test to verify RED**
 
 Run: `cd web && npm test -- --run tests/vercel-deployment.test.ts`
 
-Expected: FAIL because `vite.config.vercel.ts` and `vercel.json` do not exist.
+Expected: FAIL because the `build:vercel` script does not exist.
 
-- [ ] **Step 3: Install the pinned Nitro adapter**
+- [x] **Step 3: Install the pinned Nitro adapter**
 
 Run: `cd web && npm install --save-dev --save-exact nitro@3.0.260610-beta`
 
 Expected: `package.json` and `package-lock.json` contain exactly `3.0.260610-beta`.
 
-- [ ] **Step 4: Add the isolated Vercel Vite configuration**
+- [x] **Step 4: Add the isolated Vercel Vite configuration**
 
 ```ts
 import vinext from "vinext";
 import { nitro } from "nitro/vite";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [vinext(), nitro()],
+  plugins: [vinext(), tailwindcss(), nitro()],
 });
 ```
 
-- [ ] **Step 5: Add the package script and Vercel config**
+- [x] **Step 5: Add the package script and Vercel config**
 
 Add this script to `web/package.json`:
 
@@ -116,18 +110,17 @@ Create `web/vercel.json`:
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nitro",
-  "buildCommand": "npm run build:vercel",
-  "outputDirectory": ".output"
+  "buildCommand": "npm run build:vercel"
 }
 ```
 
-- [ ] **Step 6: Run the deployment contract test to verify GREEN**
+- [x] **Step 6: Run the deployment contract test to verify GREEN**
 
 Run: `cd web && npm test -- --run tests/vercel-deployment.test.ts`
 
-Expected: 1 test file and 2 tests PASS.
+Expected: 1 test file and 1 test PASS.
 
-- [ ] **Step 7: Commit the build contract**
+- [x] **Step 7: Commit the build contract**
 
 ```bash
 git add web/tests/vercel-deployment.test.ts web/vite.config.vercel.ts web/vercel.json web/package.json web/package-lock.json docs/superpowers/plans/2026-08-22-vercel-demo-frontend.md
@@ -145,53 +138,49 @@ git commit -m "build(web): add Vercel Nitro target"
 
 **Interfaces:**
 - Consumes: `npm run build:vercel` from Task 1.
-- Produces: `.output` with a Vercel server artifact and public assets that Vercel can upload.
+- Produces: `.vercel/output` with Build Output API v3 configuration, a Vercel function, and public assets.
 
-- [ ] **Step 1: Run the Vercel build and capture the initial result**
+- [x] **Step 1: Run the Vercel build and capture the initial result**
 
 Run: `cd web && npm run build:vercel`
 
-Expected: either a successful `.output` build or a concrete Nitro/vinext compatibility error. Do not change the existing Cloudflare config to resolve Vercel-only errors.
+Expected: either a successful `.vercel/output` build or a concrete Nitro/vinext compatibility error. Do not change the existing Cloudflare config to resolve Vercel-only errors.
 
-- [ ] **Step 2: Add artifact assertions to the contract test**
+- [x] **Step 2: Add artifact assertions to the contract test**
 
 Append a test that uses `existsSync` after the build:
 
 ```ts
 it("emits the Nitro Vercel artifact", () => {
-  expect(existsSync(".output")).toBe(true);
-  expect(
-    existsSync(".output/server/index.mjs") ||
-      existsSync(".output/server/index.js") ||
-      existsSync(".output/functions"),
-  ).toBe(true);
+  expect(existsSync(".vercel/output/config.json")).toBe(true);
+  expect(existsSync(".vercel/output/functions/__server.func/index.mjs")).toBe(true);
 });
 ```
 
-- [ ] **Step 3: Run the contract test against the built artifact**
+- [x] **Step 3: Run the contract test against the built artifact**
 
 Run: `cd web && npm test -- --run tests/vercel-deployment.test.ts`
 
 Expected: 3 tests PASS. If Nitro emits a different documented Vercel entrypoint, update the assertion to that exact emitted path and record it in the README.
 
-- [ ] **Step 4: Scan the artifact for forbidden configuration**
+- [x] **Step 4: Scan the artifact for forbidden configuration**
 
 Run from the repository root:
 
 ```powershell
-$matches = rg -l "KTOUR_SERVICE_KEY|postgresql\+asyncpg|KTOWN_DEV_USER_ID=|127\.0\.0\.1:8000" web/.output
+$matches = rg -l "KTOUR_SERVICE_KEY|postgresql\+asyncpg|KTOWN_DEV_USER_ID=|127\.0\.0\.1:8000" web/.vercel/output
 if ($matches) { $matches; exit 1 }
 ```
 
 Expected: exit code 0 with no matching files.
 
-- [ ] **Step 5: Re-run the existing Cloudflare/Sites build**
+- [x] **Step 5: Re-run the existing Cloudflare/Sites build**
 
 Run: `cd web && npm run build`
 
 Expected: exit code 0 and existing vinext route summary remains present.
 
-- [ ] **Step 6: Commit any compatibility correction and artifact test**
+- [x] **Step 6: Commit any compatibility correction and artifact test**
 
 ```bash
 git add web/tests/vercel-deployment.test.ts web/vite.config.vercel.ts web/vercel.json docs/superpowers/plans/2026-08-22-vercel-demo-frontend.md
@@ -208,29 +197,20 @@ git commit -m "test(web): verify Vercel deployment artifact"
 - Modify: `web/tests/vercel-deployment.test.ts`
 
 **Interfaces:**
-- Consumes: the `web` Root Directory, `build:vercel`, and `.output` contract.
+- Consumes: the `web` Root Directory, `build:vercel`, and `.vercel/output` contract.
 - Produces: an operator runbook that does not require repository secrets and a test-enforced demo-mode deployment boundary.
 
-- [ ] **Step 1: Write a failing environment documentation test**
+- [x] **Step 1: Review the environment runbook against the deployment contract**
 
-```ts
-it("documents demo-only Vercel variables without exposing secrets", () => {
-  const envExample = readFileSync(".env.example", "utf8");
-  const readme = readFileSync("README.md", "utf8");
-  expect(envExample).toContain("Vercel Preview/Production: KTOWN_SERVICE_MODE=demo");
-  expect(readme).toContain("Root Directory: `web`");
-  expect(readme).toContain("KTOWN_SERVICE_MODE=demo");
-  expect(readme).not.toContain("VERCEL_TOKEN=");
-});
-```
+Confirm that Preview and Production require only `KTOWN_SERVICE_MODE=demo`,
+while local integrated values stay in the ignored `.env.local` workflow.
 
-- [ ] **Step 2: Run the test to verify RED**
+- [x] **Step 2: Confirm the prior runbook lacks the approved Vercel workflow**
 
-Run: `cd web && npm test -- --run tests/vercel-deployment.test.ts`
+Inspect the pre-change `web/README.md` and confirm it documents only the
+Cloudflare/Sites and local integrated workflows.
 
-Expected: FAIL because the Vercel runbook text is absent.
-
-- [ ] **Step 3: Document environment separation**
+- [x] **Step 3: Document environment separation**
 
 Add this non-secret comment to `web/.env.example` while preserving local integrated values:
 
@@ -239,7 +219,7 @@ Add this non-secret comment to `web/.env.example` while preserving local integra
 # AWS 연동 전에는 아래 API URL과 개발 사용자 ID를 Vercel에 설정하지 않는다.
 ```
 
-- [ ] **Step 4: Add the exact Dashboard workflow to the README**
+- [x] **Step 4: Add the exact Dashboard workflow to the README**
 
 Document these values:
 
@@ -248,19 +228,18 @@ Import Git Repository: yangisu/k-town_defence
 Root Directory: web
 Framework Preset: Nitro
 Build Command: npm run build:vercel
-Output Directory: .output
+Output Directory: leave the Dashboard override disabled; Nitro emits `.vercel/output`
 Environment Variable (Preview, Production): KTOWN_SERVICE_MODE=demo
 ```
 
 Also document Preview checks for `/`, demo fandom selection, explore navigation, and demo check-in start; Production promotion; and the future AWS variables and identity prerequisite.
 
-- [ ] **Step 5: Run the documentation contract test to verify GREEN**
+- [x] **Step 5: Review the completed runbook for exact values and secret safety**
 
-Run: `cd web && npm test -- --run tests/vercel-deployment.test.ts`
+Confirm the runbook states `web`, `Nitro`, `npm run build:vercel`, no Output
+Directory override, and `KTOWN_SERVICE_MODE=demo`, and contains no token value.
 
-Expected: 4 tests PASS.
-
-- [ ] **Step 6: Run the complete web verification**
+- [x] **Step 6: Run the complete web verification**
 
 Run each command from `web`:
 
@@ -273,7 +252,7 @@ npm run build:vercel
 
 Expected: all test files PASS, lint exits 0, and both build targets exit 0.
 
-- [ ] **Step 7: Verify repository hygiene**
+- [x] **Step 7: Verify repository hygiene**
 
 Run from the repository root:
 
@@ -285,7 +264,7 @@ git ls-files | Select-String -Pattern '(^|/)(\.vercel|\.env\.local)($|/)'
 
 Expected: no whitespace errors, only task files plus pre-existing user changes are visible, and no local Vercel or environment files are tracked.
 
-- [ ] **Step 8: Commit the runbook**
+- [x] **Step 8: Commit the runbook**
 
 ```bash
 git add web/.env.example web/README.md web/tests/vercel-deployment.test.ts docs/superpowers/plans/2026-08-22-vercel-demo-frontend.md

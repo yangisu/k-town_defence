@@ -1,5 +1,5 @@
 export type PlaceCategory = "kpop" | "culture" | "local_food" | "event";
-export type CheckInDecision = "approved" | "review_required" | "rejected";
+export type CheckInDecision = "pending" | "approved" | "review_required" | "rejected";
 
 export interface Region {
   id: string;
@@ -89,13 +89,30 @@ export interface CheckInSession {
   id: string;
   placeId: string;
   expiresAt: string;
+  status?: "collecting" | "ready" | "submitted" | "expired" | "cancelled";
 }
 
 export interface CheckInResult {
   decision: CheckInDecision;
-  awardedPoints: number;
-  pointsToCapture: number;
+  awardedPoints?: number;
+  pointsToCapture?: number;
   message: string;
+}
+
+export interface GpsEvidence {
+  sequence: number;
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number;
+  capturedAt: string;
+}
+
+export interface PhotoEvidence {
+  storageKey: string;
+  contentType: "image/jpeg" | "image/png" | "image/webp";
+  sizeBytes: number;
+  sha256: string;
+  capturedAt: string;
 }
 
 export interface TourismService {
@@ -112,6 +129,8 @@ export interface ExpeditionService {
 export interface CheckInService {
   create(placeId: string): Promise<CheckInSession>;
   restore(): Promise<CheckInSession | null>;
+  recordGps(sessionId: string, evidence: GpsEvidence): Promise<void>;
+  recordPhoto(sessionId: string, evidence: PhotoEvidence): Promise<void>;
   submit(sessionId: string, idempotencyKey: string): Promise<CheckInResult>;
 }
 

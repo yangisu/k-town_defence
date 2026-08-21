@@ -30,6 +30,8 @@ export const services: AppServices = {
       return clone(restoredSession);
     },
     async restore() { return clone(restoredSession); },
+    async recordGps() {},
+    async recordPhoto() {},
     async submit(): Promise<CheckInResult> {
       return { decision: "approved", awardedPoints: 120, pointsToCapture: 300, message: "부산 여행에 120P를 보탰어요" };
     },
@@ -44,3 +46,7 @@ export const services: AppServices = {
     async getJourney() { return clone(journey); },
   },
 };
+
+export function createDemoServices(): AppServices {
+  return services;
+}

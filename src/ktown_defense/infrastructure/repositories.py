@@ -3,10 +3,10 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import CheckInSessionModel, PlaceModel
+from .models import CheckInSessionModel, GpsSampleModel, PhotoModel, PlaceModel
 
 
 class PlaceRepository:
@@ -63,3 +63,30 @@ class CheckInRepository:
 
     def add_session(self, checkin: CheckInSessionModel) -> None:
         self._session.add(checkin)
+
+    async def latest_gps_sequence(self, session_id: UUID) -> int | None:
+        return await self._session.scalar(
+            select(func.max(GpsSampleModel.sequence)).where(
+                GpsSampleModel.session_id == session_id
+            )
+        )
+
+    def add_gps(self, sample: GpsSampleModel) -> None:
+        self._session.add(sample)
+
+    def add_photo(self, photo: PhotoModel) -> None:
+        self._session.add(photo)
+
+    async def has_gps(self, session_id: UUID) -> bool:
+        count = await self._session.scalar(
+            select(func.count(GpsSampleModel.id)).where(
+                GpsSampleModel.session_id == session_id
+            )
+        )
+        return bool(count)
+
+    async def has_photo(self, session_id: UUID) -> bool:
+        count = await self._session.scalar(
+            select(func.count(PhotoModel.id)).where(PhotoModel.session_id == session_id)
+        )
+        return bool(count)

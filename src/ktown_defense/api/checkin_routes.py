@@ -1,6 +1,7 @@
 """Persistent check-in HTTP routes."""
 
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
@@ -40,6 +41,39 @@ class CheckInResponse(BaseModel):
         )
 
 
+class GpsRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    sequence: int = Field(gt=0)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    accuracy_meters: float = Field(alias="accuracyMeters", ge=0)
+    captured_at: datetime = Field(alias="capturedAt")
+
+
+class GpsResponse(BaseModel):
+    id: UUID
+    sequence: int
+
+
+class PhotoRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    storage_key: str = Field(alias="storageKey", min_length=1, max_length=500)
+    content_type: Literal["image/jpeg", "image/png", "image/webp"] = Field(
+        alias="contentType"
+    )
+    size_bytes: int = Field(alias="sizeBytes", ge=1, le=10 * 1024 * 1024)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    captured_at: datetime = Field(alias="capturedAt")
+
+
+class PhotoResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    id: UUID
+    storage_key: str = Field(serialization_alias="storageKey")
+
+
 @router.post("", response_model=CheckInResponse, status_code=status.HTTP_201_CREATED)
 async def create_checkin(
     payload: CreateCheckInRequest,
@@ -58,3 +92,47 @@ async def get_checkin(
 ) -> CheckInResponse:
     checkin = await CheckInApplication(session).get_session(user_id, session_id)
     return CheckInResponse.from_model(checkin)
+
+
+@router.post(
+    "/{session_id}/gps", response_model=GpsResponse, status_code=status.HTTP_201_CREATED
+)
+async def add_gps(
+    session_id: UUID,
+    payload: GpsRequest,
+    session: Session,
+    user_id: UserId,
+) -> GpsResponse:
+    sample = await CheckInApplication(session).add_gps(
+        user_id,
+        session_id,
+        sequence=payload.sequence,
+        latitude=payload.latitude,
+        longitude=payload.longitude,
+        accuracy_meters=payload.accuracy_meters,
+        captured_at=payload.captured_at,
+    )
+    return GpsResponse(id=sample.id, sequence=sample.sequence)
+
+
+@router.post(
+    "/{session_id}/photo",
+    response_model=PhotoResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_photo(
+    session_id: UUID,
+    payload: PhotoRequest,
+    session: Session,
+    user_id: UserId,
+) -> PhotoResponse:
+    photo = await CheckInApplication(session).add_photo(
+        user_id,
+        session_id,
+        storage_key=payload.storage_key,
+        content_type=payload.content_type,
+        size_bytes=payload.size_bytes,
+        sha256=payload.sha256,
+        captured_at=payload.captured_at,
+    )
+    return PhotoResponse(id=photo.id, storage_key=photo.storage_key)

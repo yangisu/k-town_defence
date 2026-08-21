@@ -69,19 +69,7 @@ class KTourAreaClient(KTourOpenAPIClient):
     def _to_area_place(self, item: Mapping[str, object]) -> KTourAreaPlace:
         content_id = self._required_text(item, "contentid")
         detail_items = self._items(
-            self._request(
-                "detailCommon2",
-                {
-                    "contentId": content_id,
-                    "defaultYN": "Y",
-                    "firstImageYN": "Y",
-                    "areacodeYN": "Y",
-                    "catcodeYN": "Y",
-                    "addrinfoYN": "Y",
-                    "mapinfoYN": "Y",
-                    "overviewYN": "Y",
-                },
-            )
+            self._request("detailCommon2", {"contentId": content_id})
         )
         if not detail_items:
             raise KTourAPIError(f"detailCommon2 returned no item for {content_id}")

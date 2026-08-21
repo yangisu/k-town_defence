@@ -47,6 +47,9 @@ class AreaTransport:
             }
             return response([item], 3)
         if operation == "detailCommon2":
+            assert set(params) == {
+                "serviceKey", "MobileOS", "MobileApp", "_type", "contentId"
+            }
             return response(
                 [{"contentid": params["contentId"][0], "overview": "<b>공식</b> 한국어 설명"}],
                 1,

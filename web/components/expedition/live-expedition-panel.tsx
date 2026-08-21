@@ -18,12 +18,24 @@ function formattedTime(value?: string): string | null {
   }).format(date);
 }
 
+function seoulDate(value: Date): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(value);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+const systemNow = () => new Date();
+
 export function LiveExpeditionPanel({
   service,
   onStartCheckIn,
+  now = systemNow,
 }: {
   service: TourismService;
   onStartCheckIn: (place: Place) => void;
+  now?: () => Date;
 }) {
   const [keyword, setKeyword] = useState("BTS");
   const [submittedKeyword, setSubmittedKeyword] = useState("BTS");
@@ -38,7 +50,7 @@ export function LiveExpeditionPanel({
         service.getRecommendedExpedition({
           regionCode: "6",
           keyword: submittedKeyword || undefined,
-          travelDate: new Date().toISOString().slice(0, 10),
+          travelDate: seoulDate(now()),
           limit: 5,
         }),
         service.getOpenDataStatus(),
@@ -49,7 +61,7 @@ export function LiveExpeditionPanel({
     } catch {
       setStatus("error");
     }
-  }, [service, submittedKeyword]);
+  }, [now, service, submittedKeyword]);
 
   useEffect(() => {
     const timeout = setTimeout(() => { void load(); }, 0);

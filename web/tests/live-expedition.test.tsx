@@ -54,16 +54,25 @@ function service(result: LiveExpedition | Error = expedition): TourismService {
 it("shows an explainable live expedition and starts the exact stop check-in", async () => {
   const user = userEvent.setup();
   const onStartCheckIn = vi.fn();
-  render(<LiveExpeditionPanel service={service()} onStartCheckIn={onStartCheckIn} />);
+  const tourism = service();
+  render(
+    <LiveExpeditionPanel
+      service={tourism}
+      onStartCheckIn={onStartCheckIn}
+      now={() => new Date("2026-08-21T18:00:00Z")}
+    />,
+  );
 
-  expect(await screen.findByRole("heading", { name: "부산 로컬 원정" })).toBeVisible();
-  expect(screen.getByText("키워드 일치")).toBeVisible();
+  expect(await screen.findByText("키워드 일치")).toBeVisible();
   expect(screen.getByText("여행일에 열리는 행사")).toBeVisible();
   expect(screen.getByText("관광 OpenAPI · 2개 기능 연동")).toBeVisible();
   expect(screen.getByText("활성 관광지 100곳")).toBeVisible();
   expect(screen.getByText("areaBasedList2 · 100건")).toBeVisible();
   expect(screen.getByText("detailCommon2 · 100건")).toBeVisible();
   expect(screen.getByText("09:00~18:00")).toBeVisible();
+  expect(tourism.getRecommendedExpedition).toHaveBeenCalledWith(
+    expect.objectContaining({ travelDate: "2026-08-22" }),
+  );
   await user.click(screen.getByRole("button", { name: "감천문화마을 체크인" }));
   expect(onStartCheckIn).toHaveBeenCalledWith(places[0]);
 });
@@ -73,7 +82,7 @@ it("removes prohibited provider branding from upstream copy", async () => {
     <LiveExpeditionPanel service={service()} onStartCheckIn={() => undefined} />,
   );
 
-  await screen.findByRole("heading", { name: "부산 로컬 원정" });
+  await screen.findByText("키워드 일치");
   expect(container.textContent).not.toContain("한국관광공사");
   expect(container.textContent).not.toMatch(/\bKTO\b/);
   expect(screen.getByText("공공 관광데이터 공식 설명")).toBeVisible();

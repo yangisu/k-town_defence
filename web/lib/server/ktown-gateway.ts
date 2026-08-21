@@ -12,6 +12,8 @@ const allowedRoutes = [
   { method: "PUT", pattern: /^api\/v1\/me\/season-membership$/ },
   { method: "GET", pattern: /^api\/v1\/places$/ },
   { method: "GET", pattern: new RegExp(`^api/v1/places/${UUID}$`) },
+  { method: "GET", pattern: /^api\/v1\/expeditions\/recommended$/ },
+  { method: "GET", pattern: /^api\/v1\/open-data\/status$/ },
   { method: "POST", pattern: /^api\/v1\/checkins$/ },
   { method: "GET", pattern: new RegExp(`^api/v1/checkins/${UUID}$`) },
   { method: "POST", pattern: new RegExp(`^api/v1/checkins/${UUID}/(?:gps|photo|submit)$`) },
@@ -66,9 +68,12 @@ export async function proxyKtownRequest(
   const timeout = setTimeout(() => controller.abort(), dependencies.timeoutMs ?? 10_000);
   try {
     const query = new URLSearchParams();
-    if (path === "api/v1/places") {
+    if (path === "api/v1/places" || path === "api/v1/expeditions/recommended") {
       const incoming = new URL(request.url).searchParams;
-      for (const key of ["regionCode", "category", "query", "limit", "offset"]) {
+      const allowedQueryKeys = path === "api/v1/places"
+        ? ["regionCode", "category", "query", "limit", "offset"]
+        : ["regionCode", "keyword", "travelDate", "limit"];
+      for (const key of allowedQueryKeys) {
         const value = incoming.get(key);
         if (value !== null) query.set(key, value);
       }

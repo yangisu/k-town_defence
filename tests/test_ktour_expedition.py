@@ -79,6 +79,7 @@ class ExpeditionTransport:
             return response(
                 [
                     {"contentid": "101", "originimgurl": "https://images.example/101.jpg"},
+                    {"contentid": "101", "originimgurl": "http://tong.visitkorea.or.kr/cms/resource/101.jpg"},
                     {"contentid": "101", "originimgurl": "http://unsafe.example/101.jpg"},
                 ]
             )
@@ -116,7 +117,10 @@ def test_fetch_snapshot_uses_nine_operations_and_maps_enriched_place() -> None:
     assert place.rest_date == "연중무휴"
     assert place.parking == "공영주차장 이용"
     assert place.info == ({"contentid": "101", "infoname": "체험", "infotext": "골목 투어"},)
-    assert place.image_urls == ("https://images.example/101.jpg",)
+    assert place.image_urls == (
+        "https://images.example/101.jpg",
+        "https://tong.visitkorea.or.kr/cms/resource/101.jpg",
+    )
     assert place.festival_start_date == date(2026, 8, 20)
     assert place.festival_end_date == date(2026, 8, 25)
     assert place.source_modified_at is not None
@@ -145,6 +149,7 @@ def test_fetch_snapshot_uses_nine_operations_and_maps_enriched_place() -> None:
     assert calls["detailIntro2"]["contentTypeId"] == "12"
     assert calls["detailInfo2"]["contentId"] == "101"
     assert calls["detailImage2"]["imageYN"] == "Y"
+    assert "subImageYN" not in calls["detailImage2"]
     assert calls["searchFestival2"]["eventStartDate"] == "20260822"
     assert calls["areaBasedSyncList2"]["areaCode"] == "6"
 

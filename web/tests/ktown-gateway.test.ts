@@ -58,4 +58,25 @@ describe("K-Town gateway", () => {
       "http://backend/api/v1/places?regionCode=6&query=%EA%B0%90%EC%B2%9C",
     );
   });
+
+  it("forwards public expedition and status routes with bounded query parameters", async () => {
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ stops: [] }));
+    await proxyKtownRequest(
+      new Request(
+        "http://site/api/ktown/api/v1/expeditions/recommended?regionCode=6&keyword=BTS&travelDate=2026-08-22&limit=5&serviceKey=attacker",
+      ),
+      ["api", "v1", "expeditions", "recommended"],
+      { baseUrl: "http://backend", platformUserId: null, fetcher },
+    );
+    await proxyKtownRequest(
+      new Request("http://site/api/ktown/api/v1/open-data/status"),
+      ["api", "v1", "open-data", "status"],
+      { baseUrl: "http://backend", platformUserId: null, fetcher },
+    );
+
+    expect(fetcher.mock.calls[0][0]).toBe(
+      "http://backend/api/v1/expeditions/recommended?regionCode=6&keyword=BTS&travelDate=2026-08-22&limit=5",
+    );
+    expect(fetcher.mock.calls[1][0]).toBe("http://backend/api/v1/open-data/status");
+  });
 });

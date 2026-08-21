@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 import re
 from typing import Mapping
+from urllib.parse import urlsplit, urlunsplit
 
 from .ktour_openapi import KTourAPIError, KTourOpenAPIClient
 from .open_data_observability import OpenApiCallObservation, safe_error_code
@@ -260,7 +261,6 @@ class KTourExpeditionClient(KTourOpenAPIClient):
                     {
                         "contentId": content_id,
                         "imageYN": "Y",
-                        "subImageYN": "Y",
                         "numOfRows": 100,
                         "pageNo": 1,
                     },
@@ -429,7 +429,12 @@ class KTourExpeditionClient(KTourOpenAPIClient):
     @staticmethod
     def _https_url(value: object) -> str | None:
         text = str(value or "").strip()
-        return text if text.startswith("https://") else None
+        if text.startswith("https://"):
+            return text
+        parsed = urlsplit(text)
+        if parsed.scheme == "http" and parsed.netloc == "tong.visitkorea.or.kr":
+            return urlunsplit(parsed._replace(scheme="https"))
+        return None
 
     @classmethod
     def _homepage(cls, value: object) -> str | None:

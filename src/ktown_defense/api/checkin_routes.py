@@ -4,12 +4,12 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Header, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..checkin_application import CheckInApplication
-from ..infrastructure.models import CheckInSessionModel
+from ..infrastructure.models import CheckInSessionModel, SubmissionModel
 from .dependencies import get_session, get_user_id
 
 
@@ -74,6 +74,24 @@ class PhotoResponse(BaseModel):
     storage_key: str = Field(serialization_alias="storageKey")
 
 
+class SubmissionResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: UUID
+    session_id: UUID = Field(serialization_alias="sessionId")
+    decision: Literal["pending"]
+    submitted_at: str = Field(serialization_alias="submittedAt")
+
+    @classmethod
+    def from_model(cls, model: SubmissionModel) -> "SubmissionResponse":
+        return cls(
+            id=model.id,
+            session_id=model.session_id,
+            decision="pending",
+            submitted_at=model.submitted_at.isoformat().replace("+00:00", "Z"),
+        )
+
+
 @router.post("", response_model=CheckInResponse, status_code=status.HTTP_201_CREATED)
 async def create_checkin(
     payload: CreateCheckInRequest,
@@ -136,3 +154,20 @@ async def add_photo(
         captured_at=payload.captured_at,
     )
     return PhotoResponse(id=photo.id, storage_key=photo.storage_key)
+
+
+@router.post(
+    "/{session_id}/submit",
+    response_model=SubmissionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def submit_checkin(
+    session_id: UUID,
+    session: Session,
+    user_id: UserId,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
+) -> SubmissionResponse:
+    submission = await CheckInApplication(session).submit(
+        user_id, session_id, idempotency_key
+    )
+    return SubmissionResponse.from_model(submission)

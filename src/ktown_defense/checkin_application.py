@@ -7,7 +7,12 @@ from uuid import UUID, uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .api.errors import ApiError
-from .infrastructure.models import CheckInSessionModel, GpsSampleModel, PhotoModel
+from .infrastructure.models import (
+    CheckInSessionModel,
+    GpsSampleModel,
+    PhotoModel,
+    SubmissionModel,
+)
 from .infrastructure.repositories import CheckInRepository, PlaceRepository
 
 
@@ -146,3 +151,55 @@ class CheckInApplication:
         ):
             checkin.status = "ready"
             checkin.updated_at = self._clock()
+
+    async def submit(
+        self, user_id: str, session_id: UUID, idempotency_key: str
+    ) -> SubmissionModel:
+        try:
+            parsed_key = UUID(idempotency_key)
+        except ValueError as error:
+            raise ApiError(
+                422, "INVALID_IDEMPOTENCY_KEY", "멱등성 키는 UUID-v4여야 합니다."
+            ) from error
+        if parsed_key.version != 4:
+            raise ApiError(
+                422, "INVALID_IDEMPOTENCY_KEY", "멱등성 키는 UUID-v4여야 합니다."
+            )
+
+        checkin = await self._checkins.get_owned(user_id, session_id, for_update=True)
+        if checkin is None:
+            raise ApiError(404, "CHECKIN_NOT_FOUND", "체크인을 찾을 수 없습니다.")
+
+        existing = await self._checkins.get_submission(session_id)
+        if existing is not None:
+            if existing.idempotency_key == parsed_key:
+                return existing
+            raise ApiError(
+                409,
+                "CHECKIN_ALREADY_SUBMITTED",
+                "이미 다른 요청으로 제출된 체크인입니다.",
+            )
+
+        if checkin.expires_at <= self._clock():
+            checkin.status = "expired"
+            checkin.updated_at = self._clock()
+            await self._session.commit()
+            raise ApiError(409, "CHECKIN_EXPIRED", "체크인 세션이 만료되었습니다.")
+        if checkin.status != "ready":
+            raise ApiError(
+                409, "CHECKIN_NOT_READY", "GPS와 사진 증거가 모두 필요합니다."
+            )
+
+        submission = SubmissionModel(
+            id=uuid4(),
+            session_id=session_id,
+            idempotency_key=parsed_key,
+            decision="pending",
+            submitted_at=self._clock(),
+        )
+        self._checkins.add_submission(submission)
+        checkin.status = "submitted"
+        checkin.updated_at = self._clock()
+        await self._session.commit()
+        await self._session.refresh(submission)
+        return submission

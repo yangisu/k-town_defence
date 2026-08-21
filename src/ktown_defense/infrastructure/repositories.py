@@ -6,7 +6,13 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import CheckInSessionModel, GpsSampleModel, PhotoModel, PlaceModel
+from .models import (
+    CheckInSessionModel,
+    GpsSampleModel,
+    PhotoModel,
+    PlaceModel,
+    SubmissionModel,
+)
 
 
 class PlaceRepository:
@@ -90,3 +96,11 @@ class CheckInRepository:
             select(func.count(PhotoModel.id)).where(PhotoModel.session_id == session_id)
         )
         return bool(count)
+
+    async def get_submission(self, session_id: UUID) -> SubmissionModel | None:
+        return await self._session.scalar(
+            select(SubmissionModel).where(SubmissionModel.session_id == session_id)
+        )
+
+    def add_submission(self, submission: SubmissionModel) -> None:
+        self._session.add(submission)

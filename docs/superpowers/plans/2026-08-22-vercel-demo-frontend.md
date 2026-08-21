@@ -282,13 +282,13 @@ git commit -m "docs(web): add Vercel deployment runbook"
 - Consumes: a Vercel account authorized for `yangisu/k-town_defence` and the tested repository configuration.
 - Produces: either a READY Preview URL or an exact external account action needed before deployment.
 
-- [ ] **Step 1: Check Vercel CLI authentication without printing secrets**
+- [x] **Step 1: Check Vercel CLI authentication without printing secrets**
 
 Run: `cd web && npx vercel whoami`
 
 Expected: the authenticated account name, or an authentication error with no repository mutation.
 
-- [ ] **Step 2: Link and deploy a Preview when account authorization is available**
+- [x] **Step 2: Link and deploy a Preview when account authorization is available**
 
 Run from `web`:
 
@@ -299,7 +299,9 @@ npx vercel deploy --yes
 
 Expected: ignored `.vercel/` metadata and a READY Preview URL. Do not use `--prod` before the Preview smoke test succeeds.
 
-- [ ] **Step 3: Smoke-test the Preview**
+Execution note (2026-08-22): the CLI was not authenticated, so no persistent project was linked. A secret-free anonymous prebuilt deployment was created with `npx vercel deploy --prebuilt --temporary --yes` and reached READY at `https://temporary-rushing-nebula-dr2ef6q.vercel.app`. It must be claimed before the temporary deployment expires to become persistent.
+
+- [x] **Step 3: Smoke-test the Preview**
 
 Verify over HTTPS:
 
@@ -310,6 +312,8 @@ GET / -> 200
 체크인 시작 -> 데모 체크인 단계 표시
 ```
 
-- [ ] **Step 4: Record the outcome**
+Browser verification passed over HTTPS: ARMY selection, 부산 원정 detail, 영도 흰여울길 check-in, and the `120P` completion state all rendered without console errors. The intentionally unconfigured integrated proxy returned `503 BACKEND_NOT_CONFIGURED` rather than attempting a localhost backend.
+
+- [x] **Step 4: Record the outcome**
 
 If authorization is unavailable, stop after the repository is deployment-ready and report the exact Dashboard import and environment steps. If Preview succeeds, record its URL and deployment status without committing account IDs or tokens.

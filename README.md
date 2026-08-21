@@ -64,13 +64,12 @@ docker compose up -d postgres
 ```powershell
 Set-Location web
 npm ci
-$env:KTOWN_SERVICE_MODE = "integrated"
-$env:KTOWN_API_BASE_URL = "http://127.0.0.1:8000"
-$env:KTOWN_DEV_USER_ID = "local-member"
+Copy-Item .env.example .env.local
 npm run dev -- --port 3000
 ```
 
-`KTOWN_DEV_USER_ID`는 로컬 개발 서버에서만 사용된다. production에서는
+필요하면 `.env.local`의 API 주소와 개발 사용자 ID를 수정한다. 이 파일은
+Git에서 제외된다. `KTOWN_DEV_USER_ID`는 로컬 개발 서버에서만 사용된다. production에서는
 Sites가 전달한 `oai-authenticated-user-id`만 신뢰한다.
 
 동기화 명령은 `KTOUR_SERVICE_KEY`를 사용해 KorService2의 부산 지역

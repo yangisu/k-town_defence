@@ -11,6 +11,9 @@
 개발 사용자를 지정할 수 있지만 production에서는 이 값을 무시하고 Sites의
 `oai-authenticated-user-id`만 전달한다.
 
+로컬 통합 모드는 `Copy-Item .env.example .env.local` 후 실행한다. `.env.local`은
+Git에서 제외되며 vinext가 개발 서버 시작 시 자동으로 읽는다.
+
 통합 체크인은 브라우저 위치 권한으로 GPS를 세 번 수집하고 카메라 또는
 갤러리에서 선택한 사진 바이너리를 비공개 백엔드에 업로드한다. 위치 권한은
 localhost 또는 HTTPS에서만 정상 동작한다. 원본 사진은 현재 EXIF를 제거하지

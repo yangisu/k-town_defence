@@ -40,6 +40,28 @@ describe("HTTP services", () => {
     expect(fetcher).toHaveBeenCalledWith("/api/ktown/api/v1/places", expect.any(Object));
   });
 
+  it("sends safe live place filters and maps image metadata", async () => {
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({
+      total: 1,
+      items: [{
+        id: "place-1", contentId: "101", nameKo: "감천문화마을",
+        addressKo: "부산", latitude: 35.1, longitude: 129,
+        regionCode: "6", descriptionKo: "공식 설명", category: "culture",
+        contentTypeId: "12", categoryCode: "A01010100",
+        imageUrl: "https://images.example/place.jpg", syncedAt: "2026-08-21T10:00:00Z",
+      }],
+    }));
+
+    const places = await createHttpServices(fetcher as typeof fetch).tourism.listPlaces({
+      regionId: "busan", category: "culture", query: "감천 마을",
+    });
+
+    expect(fetcher.mock.calls[0][0]).toContain("regionCode=6");
+    expect(fetcher.mock.calls[0][0]).toContain("category=culture");
+    expect(fetcher.mock.calls[0][0]).toContain("query=%EA%B0%90%EC%B2%9C+%EB%A7%88%EC%9D%84");
+    expect(places[0].imageUrl).toBe("https://images.example/place.jpg");
+  });
+
   it("persists evidence and submits with the caller's stable idempotency key", async () => {
     const fetcher = vi
       .fn()

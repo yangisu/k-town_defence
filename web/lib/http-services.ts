@@ -18,6 +18,9 @@ type PlaceDto = {
   longitude: number;
   regionCode: string;
   descriptionKo: string;
+  category?: Place["category"];
+  contentTypeId?: string | null;
+  imageUrl?: string | null;
 };
 
 type CheckInDto = {
@@ -77,8 +80,8 @@ function mapPlace(dto: PlaceDto): Place {
     id: dto.id,
     regionId: regionIds[dto.regionCode] ?? dto.regionCode,
     nameKo: dto.nameKo,
-    category: "culture",
-    categoryLabel: "관광 명소",
+    category: dto.category ?? "culture",
+    categoryLabel: dto.category === "local_food" ? "먹거리" : dto.category === "event" ? "행사" : "관광 명소",
     description: dto.descriptionKo,
     address: dto.addressKo,
     transit: "운영자가 확인한 교통 안내를 준비 중입니다.",
@@ -86,6 +89,8 @@ function mapPlace(dto: PlaceDto): Place {
     points: 0,
     latitude: dto.latitude,
     longitude: dto.longitude,
+    imageUrl: dto.imageUrl ?? undefined,
+    contentTypeId: dto.contentTypeId ?? undefined,
   };
 }
 
@@ -97,17 +102,17 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
       listRegions: () => demoServices.tourism.listRegions(),
       getRegion: (regionId) => demoServices.tourism.getRegion(regionId),
       async listPlaces(filter: PlaceFilter) {
+        const params = new URLSearchParams();
+        const backendRegionCodes: Record<string, string> = { busan: "6" };
+        if (filter.regionId) params.set("regionCode", backendRegionCodes[filter.regionId] ?? filter.regionId);
+        if (filter.category) params.set("category", filter.category);
+        if (filter.query?.trim()) params.set("query", filter.query.trim());
+        const suffix = params.size > 0 ? `?${params.toString()}` : "";
         const response = await requestJson<{ items: PlaceDto[] }>(
           fetcher,
-          "/api/v1/places",
+          `/api/v1/places${suffix}`,
         );
-        return response.items
-          .map(mapPlace)
-          .filter(
-            (place) =>
-              (!filter.regionId || place.regionId === filter.regionId) &&
-              (!filter.category || place.category === filter.category),
-          );
+        return response.items.map(mapPlace);
       },
     },
     expeditions: demoServices.expeditions,

@@ -45,4 +45,17 @@ describe("K-Town gateway", () => {
     expect(headers.get("cookie")).toBeNull();
     expect(response.headers.get("set-cookie")).toBeNull();
   });
+
+  it("forwards allowlisted place query parameters", async () => {
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ items: [] }));
+    await proxyKtownRequest(
+      new Request("http://site/api/ktown/api/v1/places?regionCode=6&query=%EA%B0%90%EC%B2%9C"),
+      ["api", "v1", "places"],
+      { baseUrl: "http://backend", platformUserId: null, fetcher },
+    );
+
+    expect(fetcher.mock.calls[0][0]).toBe(
+      "http://backend/api/v1/places?regionCode=6&query=%EA%B0%90%EC%B2%9C",
+    );
+  });
 });

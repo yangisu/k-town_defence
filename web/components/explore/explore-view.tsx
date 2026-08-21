@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { AppServices, Expedition, PlaceCategory, Region } from "@/lib/domain";
+import type { AppServices, Expedition, Place, PlaceCategory, Region } from "@/lib/domain";
 import { KoreaTerritoryMap } from "./korea-territory-map";
 import { RegionSheet } from "./region-sheet";
 import { Map, Sparkles } from "@/components/ui/icons";
+import { LivePlacesPanel } from "./live-places-panel";
 
 const filters: { label: string; value: PlaceCategory | "all" }[] = [
   { label: "전체", value: "all" }, { label: "K-POP", value: "kpop" }, { label: "문화", value: "culture" }, { label: "먹거리", value: "local_food" }, { label: "행사", value: "event" },
 ];
 
-export function ExploreView({ services, selectedRegionId, onSelectRegion, onOpenExpedition }: { services: AppServices; selectedRegionId: string; onSelectRegion: (id: string) => void; onOpenExpedition: (regionId: string, expeditionId: string) => void }) {
+export function ExploreView({ services, selectedRegionId, mode = "demo", onSelectRegion, onOpenExpedition, onStartCheckIn }: { services: AppServices; selectedRegionId: string; mode?: "demo" | "integrated"; onSelectRegion: (id: string) => void; onOpenExpedition: (regionId: string, expeditionId: string) => void; onStartCheckIn?: (place: Place) => void }) {
   const [regions, setRegions] = useState<Region[]>([]);
   const [expeditions, setExpeditions] = useState<Expedition[]>([]);
   const [filter, setFilter] = useState<PlaceCategory | "all">("all");
@@ -30,6 +31,7 @@ export function ExploreView({ services, selectedRegionId, onSelectRegion, onOpen
         <KoreaTerritoryMap regions={regions} selectedId={selectedRegionId} onSelect={onSelectRegion} />
         {selected ? <RegionSheet region={selected} expedition={expeditions[0]} onOpen={() => expeditions[0] && onOpenExpedition(selected.id, expeditions[0].id)} /> : <div className="panel-loading"><Map size={24} /><span>지역 지도를 준비하고 있어요</span></div>}
       </div>
+      {mode === "integrated" && selectedRegionId === "busan" && onStartCheckIn ? <LivePlacesPanel service={services.tourism} onStartCheckIn={onStartCheckIn} /> : null}
       <section className="region-list-section"><div className="section-heading"><div><span className="eyebrow">EXPLORE MORE</span><h2>다음 원정지는 어디인가요?</h2></div><span>지도와 같은 지역 목록</span></div><div className="region-list">{regions.map((region, index) => <button key={region.id} aria-label={`${region.nameKo} 지역 탐험`} aria-pressed={selectedRegionId === region.id} onClick={() => onSelectRegion(region.id)}><span className="region-index">0{index + 1}</span><div><strong>{region.nameKo}</strong><small>{region.shortCopy}</small></div><span className="region-owner">{region.ownerFandom}<b>{region.ownershipPercent}%</b></span></button>)}</div></section>
     </div>
   );

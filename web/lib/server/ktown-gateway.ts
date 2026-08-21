@@ -52,8 +52,17 @@ export async function proxyKtownRequest(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), dependencies.timeoutMs ?? 10_000);
   try {
+    const query = new URLSearchParams();
+    if (path === "api/v1/places") {
+      const incoming = new URL(request.url).searchParams;
+      for (const key of ["regionCode", "category", "query", "limit", "offset"]) {
+        const value = incoming.get(key);
+        if (value !== null) query.set(key, value);
+      }
+    }
+    const suffix = query.size > 0 ? `?${query.toString()}` : "";
     const upstream = await (dependencies.fetcher ?? fetch)(
-      `${dependencies.baseUrl.replace(/\/$/, "")}/${path}`,
+      `${dependencies.baseUrl.replace(/\/$/, "")}/${path}${suffix}`,
       { method: request.method, headers, body, signal: controller.signal },
     );
     const responseHeaders = new Headers();

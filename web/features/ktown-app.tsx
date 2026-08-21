@@ -17,7 +17,7 @@ export function KTownApp({ mode }: { mode: ServiceMode }) {
   const [checkInPlace, setCheckInPlace] = useState<Place | null>(null);
 
   return <AppShell activeTab={state.activeTab} onTabChange={(tab) => dispatch({ type: "changeTab", tab })}>
-    {state.activeTab === "explore" ? <ExploreView services={services} selectedRegionId={state.selectedRegionId} onSelectRegion={(regionId) => dispatch({ type: "selectRegion", regionId })} onOpenExpedition={(regionId, expeditionId) => dispatch({ type: "openExpedition", regionId, expeditionId })} /> : null}
+    {state.activeTab === "explore" ? <ExploreView services={services} mode={mode} selectedRegionId={state.selectedRegionId} onSelectRegion={(regionId) => dispatch({ type: "selectRegion", regionId })} onOpenExpedition={(regionId, expeditionId) => dispatch({ type: "openExpedition", regionId, expeditionId })} onStartCheckIn={(place) => { setCheckInPlace(place); dispatch({ type: "startCheckIn", placeId: place.id }); }} /> : null}
     {state.activeTab === "expedition" ? <ExpeditionView expeditionId={state.selectedExpeditionId} services={services} onStartCheckIn={(place) => { setCheckInPlace(place); dispatch({ type: "startCheckIn", placeId: place.id }); }} onBack={() => dispatch({ type: "changeTab", tab: "explore" })} /> : null}
     {state.activeTab === "battle" ? <BattleView service={services.battle} selectedRegionId={state.selectedRegionId} /> : null}
     {state.activeTab === "journey" ? <JourneyView service={services.battle} /> : null}

@@ -28,6 +28,8 @@ export interface Place {
   points: number;
   latitude?: number;
   longitude?: number;
+  imageUrl?: string;
+  contentTypeId?: string;
   localBenefit?: string;
   completed?: boolean;
 }
@@ -35,6 +37,7 @@ export interface Place {
 export interface PlaceFilter {
   regionId?: string;
   category?: PlaceCategory;
+  query?: string;
 }
 
 export interface Expedition {

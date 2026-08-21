@@ -1,6 +1,6 @@
 # TourAPI Expedition Engine Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Turn live Korean tourism OpenAPI data into a Busan-first, explainable 3-5 stop expedition that flows into the existing GPS/photo check-in and produces safe API-usage evidence for competition judging.
 
@@ -53,7 +53,7 @@
 - Produces: nullable `PlaceModel.homepage_url`, `telephone`, `open_time`, `rest_date`, `parking`, `intro_json`, `info_json`, `image_urls`, `festival_start_date`, `festival_end_date`, `discovery_keywords`, `source_operations`.
 - Produces: `OpenApiCallLogModel(id, sync_run_id, operation, feature, status, response_count, error_code, started_at, completed_at)`.
 
-- [ ] **Step 1: Write the failing migration test**
+- [x] **Step 1: Write the failing migration test**
 
 ```python
 @pytest.mark.asyncio
@@ -73,12 +73,12 @@ async def test_expedition_migration_adds_enrichment_and_safe_call_log(postgres_u
     assert "request_url" not in inspector.columns("open_api_call_logs")
 ```
 
-- [ ] **Step 2: Run the migration test and verify RED**
+- [x] **Step 2: Run the migration test and verify RED**
 
 Run: `\.\.venv\Scripts\python.exe -m pytest tests/integration/test_tourapi_expedition_migration.py -q`  
 Expected: FAIL because revision `20260822_0004` and the columns do not exist.
 
-- [ ] **Step 3: Add the migration and ORM mappings**
+- [x] **Step 3: Add the migration and ORM mappings**
 
 Use PostgreSQL `JSONB` with non-null server defaults for JSON collections, `Date` for festival dates, and a foreign key from `open_api_call_logs.sync_run_id` to `catalog_sync_runs.id` with `ON DELETE CASCADE`. Add a check constraint:
 
@@ -91,12 +91,12 @@ sa.CheckConstraint(
 
 The ORM JSON fields use `default=dict` or `default=list`; public code must never mutate a shared default.
 
-- [ ] **Step 4: Run migration and existing persistence tests**
+- [x] **Step 4: Run migration and existing persistence tests**
 
 Run: `\.\.venv\Scripts\python.exe -m pytest tests/integration/test_tourapi_expedition_migration.py tests/integration/test_migrations.py tests/integration/test_live_catalog_migration.py -q`  
 Expected: PASS.
 
-- [ ] **Step 5: Commit the schema**
+- [x] **Step 5: Commit the schema**
 
 ```powershell
 git add -- alembic/versions/20260822_0004_tourapi_expeditions.py src/ktown_defense/infrastructure/models.py tests/integration/test_tourapi_expedition_migration.py
@@ -117,7 +117,7 @@ git commit -m "feat: persist tourism enrichment evidence"
 - Produces: `KTourExpeditionClient.fetch_snapshot(area_code: str, keywords: tuple[str, ...], start_date: date, end_date: date, limit: int) -> TourismExpeditionSnapshot`.
 - Produces immutable DTOs `TourismPlaceDetail`, `TourismImage`, `TourismFestival`, `TourismExpeditionSnapshot`.
 
-- [ ] **Step 1: Write failing operation-contract tests**
+- [x] **Step 1: Write failing operation-contract tests**
 
 Use a complete transport fixture for all nine operations. Assert exact operation/critical query pairs:
 
@@ -135,12 +135,12 @@ assert calls["areaBasedSyncList2"]["areaCode"] == "6"
 
 Assert the mapped place contains HTTPS images only, normalized plain text, parsed dates, intro/info dictionaries and `source_operations` listing only operations that contributed data.
 
-- [ ] **Step 2: Run the adapter test and verify RED**
+- [x] **Step 2: Run the adapter test and verify RED**
 
 Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_ktour_expedition.py -q`  
 Expected: FAIL because `ktour_expedition` does not exist.
 
-- [ ] **Step 3: Implement DTOs and orchestration**
+- [x] **Step 3: Implement DTOs and orchestration**
 
 Implement:
 
@@ -157,7 +157,7 @@ Interfaces block and return this DTO after completing all operation mappings.
 
 Keep request URLs inside `_request`; observation errors expose stable codes such as `AUTHENTICATION_FAILED`, `INVALID_RESPONSE`, `UPSTREAM_UNAVAILABLE`, never exception strings or URL text. Optional intro/info/image failures produce failed observations and continue; common failures exclude the affected content.
 
-- [ ] **Step 4: Add mutation-oriented failure tests**
+- [x] **Step 4: Add mutation-oriented failure tests**
 
 Add tests proving:
 
@@ -167,12 +167,12 @@ Add tests proving:
 - an observation has no key, URL or raw body attribute;
 - top-level authentication errors are not retried.
 
-- [ ] **Step 5: Run adapter suites**
+- [x] **Step 5: Run adapter suites**
 
 Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_ktour_expedition.py tests/test_ktour_openapi.py tests/test_ktour_area.py -q`  
 Expected: PASS.
 
-- [ ] **Step 6: Commit the adapter**
+- [x] **Step 6: Commit the adapter**
 
 ```powershell
 git add -- src/ktown_defense/ktour_expedition.py src/ktown_defense/open_data_observability.py src/ktown_defense/ktour_openapi.py tests/test_ktour_expedition.py tests/test_ktour_openapi.py
@@ -194,7 +194,7 @@ git commit -m "feat: map expedition tourism APIs"
 - Produces: `TourismExpeditionSyncService.sync(area_code: str, keywords: tuple[str, ...], start_date: date, end_date: date, limit: int, force_full: bool = False) -> CatalogSyncResult`.
 - Produces CLI: `python -m ktown_defense.sync_expeditions --area-code 6 --keyword BTS --keyword K-POP --days 30 --limit 100`.
 
-- [ ] **Step 1: Write failing successful-sync integration test**
+- [x] **Step 1: Write failing successful-sync integration test**
 
 ```python
 result = await service.sync(
@@ -209,30 +209,30 @@ assert set(place.source_operations) >= {"areaBasedList2", "detailCommon2"}
 assert await call_log_operations(result.run_id) == EXPECTED_NINE_OPERATIONS
 ```
 
-- [ ] **Step 2: Run the sync test and verify RED**
+- [x] **Step 2: Run the sync test and verify RED**
 
 Run: `\.\.venv\Scripts\python.exe -m pytest tests/integration/test_expedition_sync.py::test_sync_publishes_enrichment_and_call_evidence -q`  
 Expected: FAIL because the service is missing.
 
-- [ ] **Step 3: Implement sync publication and observation recorder**
+- [x] **Step 3: Implement sync publication and observation recorder**
 
 Create the run first, execute the blocking adapter with `anyio.to_thread.run_sync`, write observations without request data, then upsert enriched fields in one transaction. Preserve operator/demo rows. On failed or empty snapshots, mark the run failed and do not update or deactivate current public places.
 
-- [ ] **Step 4: Write and pass last-good and idempotency tests**
+- [x] **Step 4: Write and pass last-good and idempotency tests**
 
 Test a second identical sync keeps stable place IDs and does not duplicate content. Test an upstream exception after a successful run leaves prior rows active and records a failed run and failed observation.
 
 Run: `\.\.venv\Scripts\python.exe -m pytest tests/integration/test_expedition_sync.py -q`  
 Expected: PASS.
 
-- [ ] **Step 5: Write and pass CLI tests**
+- [x] **Step 5: Write and pass CLI tests**
 
 Assert parsed defaults, repeated `--keyword`, invalid date windows, non-zero failure exit, and JSON output containing only run ID, status and counts.
 
 Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_sync_expeditions_cli.py -q`  
 Expected: PASS.
 
-- [ ] **Step 6: Commit synchronization**
+- [x] **Step 6: Commit synchronization**
 
 ```powershell
 git add -- src/ktown_defense/expedition_sync.py src/ktown_defense/sync_expeditions.py src/ktown_defense/infrastructure/repositories.py .env.example tests/integration/test_expedition_sync.py tests/test_sync_expeditions_cli.py
@@ -254,7 +254,7 @@ git commit -m "feat: synchronize enriched Busan expeditions"
 - Produces: `GET /api/v1/expeditions/recommended?regionCode=6&keyword=BTS&travelDate=2026-08-22&limit=5`.
 - Produces: `GET /api/v1/open-data/status`.
 
-- [ ] **Step 1: Write failing pure recommendation tests**
+- [x] **Step 1: Write failing pure recommendation tests**
 
 Create literal place candidates around a hand-checked anchor. Assert:
 
@@ -268,20 +268,20 @@ assert result.id == service.recommend(candidates, request).id
 
 Also test 3-5 limit validation, no candidates, missing keyword fallback, same-category diversity fallback, and longitude/latitude ordering mutations.
 
-- [ ] **Step 2: Run recommendation tests and verify RED**
+- [x] **Step 2: Run recommendation tests and verify RED**
 
 Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_expedition_recommendation.py -q`  
 Expected: FAIL because the recommendation module is missing.
 
-- [ ] **Step 3: Implement deterministic recommendation**
+- [x] **Step 3: Implement deterministic recommendation**
 
 Use a pure selector for Haversine distance and category rotation, then a repository-facing service. Generate the ID from canonical UTF-8 JSON containing region, normalized keyword, travel date, snapshot version and selected content IDs using SHA-256 truncated to 24 hexadecimal characters.
 
-- [ ] **Step 4: Write failing route tests**
+- [x] **Step 4: Write failing route tests**
 
 Assert camelCase JSON, exact stop count, non-empty reasons and enriched fields. Assert `404 EXPEDITION_NOT_AVAILABLE`, invalid limits, public status aggregation, and absence of provider names, URLs and keys in serialized responses.
 
-- [ ] **Step 5: Implement and pass API routes**
+- [x] **Step 5: Implement and pass API routes**
 
 `/api/v1/open-data/status` returns:
 
@@ -299,7 +299,7 @@ Assert camelCase JSON, exact stop count, non-empty reasons and enriched fields. 
 Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_expedition_recommendation.py tests/api/test_expedition_routes.py tests/api/test_live_places_api.py -q`  
 Expected: PASS.
 
-- [ ] **Step 6: Commit recommendation APIs**
+- [x] **Step 6: Commit recommendation APIs**
 
 ```powershell
 git add -- src/ktown_defense/expedition_recommendation.py src/ktown_defense/api/expedition_routes.py src/ktown_defense/api/main.py src/ktown_defense/api/place_routes.py tests/test_expedition_recommendation.py tests/api/test_expedition_routes.py
@@ -320,7 +320,7 @@ git commit -m "feat: recommend explainable regional expeditions"
 - Produces `TourismService.getRecommendedExpedition(filter)` and `TourismService.getOpenDataStatus()`.
 - Produces `RecommendedExpedition`, `ExpeditionStop`, `OpenDataStatus` TypeScript interfaces matching camelCase JSON.
 
-- [ ] **Step 1: Write failing HTTP mapping tests**
+- [x] **Step 1: Write failing HTTP mapping tests**
 
 ```typescript
 const expedition = await service.getRecommendedExpedition({
@@ -334,21 +334,21 @@ expect(expedition.stops[0].place.imageUrls).toEqual(["https://images.example/1.j
 
 Assert malformed stop data throws `ApiError`, status mapping retains no unknown provider fields, and the gateway strips attacker-supplied identity headers as before.
 
-- [ ] **Step 2: Run web transport tests and verify RED**
+- [x] **Step 2: Run web transport tests and verify RED**
 
 Run: `npm test -- --run tests/http-services.test.ts tests/ktown-gateway.test.ts`  
 Expected: FAIL because the service methods do not exist.
 
-- [ ] **Step 3: Implement types and strict mappers**
+- [x] **Step 3: Implement types and strict mappers**
 
 Validate arrays, dates, numbers, URLs and reason strings at the network boundary. Do not add the provider name or key to TypeScript environment types.
 
-- [ ] **Step 4: Run transport and service factory tests**
+- [x] **Step 4: Run transport and service factory tests**
 
 Run: `npm test -- --run tests/http-services.test.ts tests/ktown-gateway.test.ts tests/service-factory.test.ts`  
 Expected: PASS.
 
-- [ ] **Step 5: Commit web contracts**
+- [x] **Step 5: Commit web contracts**
 
 ```powershell
 git add -- web/lib/domain.ts web/lib/http-services.ts web/lib/service-factory.ts web/tests/http-services.test.ts web/tests/ktown-gateway.test.ts
@@ -371,7 +371,7 @@ git commit -m "feat(web): map live expedition APIs"
 - Consumes `getRecommendedExpedition`, `getOpenDataStatus`, and existing `onStartCheckIn(place)`.
 - Produces a visible journey: discover → reasons/details → check-in.
 
-- [ ] **Step 1: Write failing live journey test**
+- [x] **Step 1: Write failing live journey test**
 
 Render the real component with deterministic services and assert:
 
@@ -385,27 +385,27 @@ expect(onStartCheckIn).toHaveBeenCalledWith(expect.objectContaining({ id: "place
 
 Assert retry behavior, empty-state copy, open-data freshness, keyboard buttons, image fallback, and no invented open/benefit/point claim.
 
-- [ ] **Step 2: Run the component test and verify RED**
+- [x] **Step 2: Run the component test and verify RED**
 
 Run: `npm test -- --run tests/live-expedition.test.tsx`  
 Expected: FAIL because `LiveExpeditionPanel` is missing.
 
-- [ ] **Step 3: Implement the minimal journey UI**
+- [x] **Step 3: Implement the minimal journey UI**
 
 Use semantic `section`, ordered stop list, buttons and `time dateTime`. Keep the existing `CheckInFlow`. Show the status label `관광 OpenAPI`, operation count, active place count and latest update without provider branding.
 
-- [ ] **Step 4: Add and pass forbidden-branding regression test**
+- [x] **Step 4: Add and pass forbidden-branding regression test**
 
 Render the app and assert public text and metadata do not contain the two forbidden provider tokens. The test must inspect rendered behavior, not grep source files.
 
-- [ ] **Step 5: Run web flow tests and accessibility lint**
+- [x] **Step 5: Run web flow tests and accessibility lint**
 
 Run: `npm test -- --run tests/live-expedition.test.tsx tests/live-places.test.tsx tests/fan-journey.test.tsx tests/real-check-in.test.tsx`  
 Expected: PASS.  
 Run: `npm run lint`  
 Expected: exit 0.
 
-- [ ] **Step 6: Commit the UI**
+- [x] **Step 6: Commit the UI**
 
 ```powershell
 git add -- web/components/expedition/live-expedition-panel.tsx web/components/explore/live-places-panel.tsx web/components/app-shell.tsx web/app/globals.css web/app/layout.tsx web/tests/live-expedition.test.tsx web/tests/live-places.test.tsx web/tests/fan-journey.test.tsx
@@ -424,7 +424,7 @@ git commit -m "feat(web): guide fans through live local expeditions"
 - Documents the nine operation-to-feature mappings, safe evidence query, setup and judge demo.
 - Produces an HTTP E2E flow from recommendation to persistent check-in.
 
-- [ ] **Step 1: Write failing backend HTTP vertical test**
+- [x] **Step 1: Write failing backend HTTP vertical test**
 
 Seed enriched real-shaped rows and call logs, then use the ASGI client:
 
@@ -439,16 +439,16 @@ session = (await member_client.post(
 assert session["status"] == "collecting"
 ```
 
-- [ ] **Step 2: Run the E2E test and verify RED, then complete missing wiring**
+- [x] **Step 2: Run the E2E test and verify RED, then complete missing wiring**
 
 Run: `\.\.venv\Scripts\python.exe -m pytest tests/e2e/test_expedition_vertical.py -q`  
 Expected before wiring: FAIL. Implement only missing route/repository wiring, then rerun to PASS.
 
-- [ ] **Step 3: Write the operator and submission runbook**
+- [x] **Step 3: Write the operator and submission runbook**
 
 Include exact commands for compose, Alembic, live sync, safe SQL evidence, API/web startup and judge flow. Explain that applicant name and authentication key go only into the official submission form. Do not paste the key, provider logo, or a copied API response.
 
-- [ ] **Step 4: Run the full automated verification**
+- [x] **Step 4: Run the full automated verification**
 
 Run:
 
@@ -463,7 +463,7 @@ npm run build
 
 Expected: all commands exit 0.
 
-- [ ] **Step 5: Run real Busan synchronization**
+- [x] **Step 5: Run real Busan synchronization**
 
 Load the ignored root `.env` without printing it, then run:
 
@@ -474,17 +474,17 @@ Load the ignored root `.env` without printing it, then run:
 
 Expected: succeeded run, at least 100 active Busan places, and successful call logs for every required operation that returned supported data. A supported operation returning zero rows remains a successful zero-count call and is still evidence of actual use.
 
-- [ ] **Step 6: Verify live HTTP and secret absence**
+- [x] **Step 6: Verify live HTTP and secret absence**
 
 Start FastAPI and web, request health, open-data status, recommendation and the web root. Confirm recommendation has at least 3 stops, at least 2 categories, non-empty reasons and a sync time. Search captured process output and HTTP bodies for the exact secret value in memory without printing it; fail the verification if found.
 
-- [ ] **Step 7: Commit documentation and E2E evidence**
+- [x] **Step 7: Commit documentation and E2E evidence**
 
 ```powershell
 git add -- README.md docs/competition/openapi-utilization.md docs/superpowers/plans/2026-08-22-tourapi-expedition.md tests/e2e/test_expedition_vertical.py
 git commit -m "docs: add competition OpenAPI evidence runbook"
 ```
 
-- [ ] **Step 8: Completion audit**
+- [x] **Step 8: Completion audit**
 
 Re-read the spec completion criteria and map each requirement to a passing test, live database query, HTTP response or rendered browser evidence. Check `git diff main...HEAD --check`, `git status --short`, and ensure no `.env`, service key, applicant information, PDF, rendered scratch image or private upload is tracked.

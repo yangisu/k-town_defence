@@ -2,8 +2,9 @@
 
 ## 한국관광공사 OpenAPI 설정
 
-PlaceCatalog 동기화는 한국관광공사 **국문 관광정보 서비스_GW
-(KorService2)** 의 `searchKeyword2`와 `detailCommon2`를 실제 호출한다.
+부산 원정 동기화는 한국관광공사 **국문 관광정보 서비스_GW
+(KorService2)** 의 9개 작업을 실제 호출한다. 필요한 키는 이 서비스의
+공공데이터포털 **일반 인증키 하나**이며 작업별 키는 필요하지 않다.
 
 1. [공공데이터포털의 국문 관광정보 서비스](https://www.data.go.kr/data/15101578/openapi.do)에 활용신청한다.
 2. 발급된 일반 인증키(Encoding 또는 Decoding 키 모두 지원)를 소스가 아닌 환경변수에 설정한다.
@@ -15,7 +16,13 @@ $env:KTOUR_SERVICE_KEY = "발급받은-서비스-키"
 $env:KTOUR_MOBILE_APP = "KTownDefense"
 ```
 
-동기화 호출 예시:
+부산 원정 동기화:
+
+```powershell
+.\.venv\Scripts\python.exe -m ktown_defense.sync_expeditions --area-code 6 --keyword BTS --keyword K-POP --days 30 --limit 100
+```
+
+기존 키워드 카탈로그 동기화 호출 예시:
 
 ```python
 from ktown_defense import CatalogSyncService, KTourKeywordQuery
@@ -38,6 +45,10 @@ if run.status != "succeeded":
 관광지 ID·한국어 명칭·주소·좌표·지역코드·상세 설명은 OpenAPI 응답을
 사용한다. 아티스트 검색어와 정적 교통 안내는 서비스 운영자가 검증해
 설정하며, 서비스 키는 스냅샷 및 증빙 URI에 저장하지 않는다.
+
+원정 엔진의 9개 작업별 제품 활용, 비밀값 없는 호출 증빙 SQL, 심사 시연
+순서는 [공모전 OpenAPI 활용·검증서](docs/competition/openapi-utilization.md)에
+정리되어 있다.
 
 테스트:
 
@@ -71,6 +82,9 @@ npm run dev -- --port 3000
 필요하면 `.env.local`의 API 주소와 개발 사용자 ID를 수정한다. 이 파일은
 Git에서 제외된다. `KTOWN_DEV_USER_ID`는 로컬 개발 서버에서만 사용된다. production에서는
 Sites가 전달한 `oai-authenticated-user-id`만 신뢰한다.
+따라서 `npm run start`로 production 모드를 로컬 실행하면 플랫폼 인증 헤더가
+없어 로그인 안내가 표시되는 것이 정상이다. 로컬 통합 시연은 `npm run dev`,
+실배포는 Sites 인증 연결을 사용한다.
 
 동기화 명령은 `KTOUR_SERVICE_KEY`를 사용해 KorService2의 부산 지역
 관광지를 PostgreSQL에 원자적으로 갱신한다. 실패하거나 결과가 비어 있으면

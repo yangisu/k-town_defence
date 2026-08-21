@@ -7,6 +7,9 @@ type GatewayDependencies = {
 
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}";
 const allowedRoutes = [
+  { method: "GET", pattern: /^api\/v1\/fandoms$/ },
+  { method: "GET", pattern: /^api\/v1\/me\/season-membership$/ },
+  { method: "PUT", pattern: /^api\/v1\/me\/season-membership$/ },
   { method: "GET", pattern: /^api\/v1\/places$/ },
   { method: "GET", pattern: new RegExp(`^api/v1/places/${UUID}$`) },
   { method: "POST", pattern: /^api\/v1\/checkins$/ },
@@ -34,6 +37,11 @@ export async function proxyKtownRequest(
 
   const headers = new Headers();
   const contentType = request.headers.get("content-type");
+  const isMembershipSelection =
+    request.method === "PUT" && path === "api/v1/me/season-membership";
+  if (isMembershipSelection && !contentType?.toLowerCase().startsWith("application/json")) {
+    return jsonError(415, "UNSUPPORTED_MEDIA_TYPE", "JSON 요청만 사용할 수 있습니다.");
+  }
   const idempotencyKey = request.headers.get("idempotency-key");
   if (contentType) headers.set("content-type", contentType);
   if (idempotencyKey) headers.set("idempotency-key", idempotencyKey);
@@ -44,7 +52,11 @@ export async function proxyKtownRequest(
   let body: ArrayBuffer | undefined;
   if (!new Set(["GET", "HEAD"]).has(request.method)) {
     body = await request.arrayBuffer();
-    const maximumBodyBytes = path.endsWith("/photo") ? 11 * 1024 * 1024 : 1024 * 1024;
+    const maximumBodyBytes = isMembershipSelection
+      ? 4 * 1024
+      : path.endsWith("/photo")
+        ? 11 * 1024 * 1024
+        : 1024 * 1024;
     if (body.byteLength > maximumBodyBytes) {
       return jsonError(413, "REQUEST_TOO_LARGE", "요청 본문이 너무 큽니다.");
     }

@@ -20,6 +20,11 @@ localhost 또는 HTTPS에서만 정상 동작한다. 원본 사진은 현재 EXI
 않으므로 민감한 촬영정보가 포함된 사진은 사용하지 않는다. 제출은
 `pending`이며 승인과 포인트 지급은 구현되지 않았다.
 
+`integrated` 모드에서는 팬덤 목록과 현재 시즌 멤버십도 같은 게이트웨이로
+조회한다. 멤버십이 없으면 접근 가능한 팬덤 선택 화면을 먼저 표시하고, 선택이
+DB에 저장된 뒤 실시간 부산 관광지 화면을 연다. `demo` 모드는 인스턴스별
+메모리 멤버십으로 동일한 화면 흐름을 체험할 수 있다.
+
 ## Original vinext runtime notes
 
 A clean full-stack starter running on

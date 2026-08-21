@@ -79,6 +79,12 @@ Sites가 전달한 `oai-authenticated-user-id`만 신뢰한다.
 통합 API는 실제 브라우저 GPS 좌표와 최대 10MiB JPEG·PNG·WebP 사진을
 받는다. 사진은 `KTOWN_UPLOAD_DIR`(기본 `.data/private-uploads`) 아래 비공개
 경로에 저장하며 제출 결과는 승인이나 포인트 지급이 아닌 `pending`이다.
+
+통합 모드에서는 사용자가 먼저 현재 시즌 팬덤을 선택한다. 선택은 PostgreSQL의
+`users`, `fandoms`, `seasons`, `season_memberships`에 저장되고 같은 사용자가
+새로고침해도 복원된다. 이번 MVP는 선택 즉시 팬덤을 잠그며, 이후 부산 실관광지
+조회와 GPS·사진 체크인을 사용할 수 있다. 운영자 승인, 포인트 원장 반영,
+사진 EXIF 제거는 아직 후속 범위다.
 현재 로컬 MVP는 사진 EXIF를 제거하지 않으므로 공개 운영 전 EXIF 제거,
 보존기간 삭제 작업과 영속 객체 저장소가 필요하다.
 

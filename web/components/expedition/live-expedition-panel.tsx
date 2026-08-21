@@ -125,7 +125,7 @@ export function LiveExpeditionPanel({
                   <div className="stop-detail">
                     <span className="stop-category">{place.categoryLabel}</span>
                     <h3>{publicCopy(place.nameKo)}</h3>
-                    <div className="recommendation-reasons" aria-label={`${place.nameKo} 추천 이유`}>{stop.reasons.map((reason) => <span key={reason}>{reason}</span>)}</div>
+                    <div className="recommendation-reasons" aria-label={`${publicCopy(place.nameKo)} 추천 이유`}>{stop.reasons.map((reason) => <span key={reason}>{reason}</span>)}</div>
                     <p>{publicCopy(place.description)}</p>
                     <address>{publicCopy(place.address)}</address>
                     <dl className="tourism-facts">
@@ -134,7 +134,7 @@ export function LiveExpeditionPanel({
                       {place.parking ? <div><dt>주차</dt><dd>{publicCopy(place.parking)}</dd></div> : null}
                       {place.imageUrls?.length ? <div><dt>관광 이미지</dt><dd>{place.imageUrls.length}장</dd></div> : null}
                     </dl>
-                    <button className="checkin-button" onClick={() => onStartCheckIn(place)} aria-label={`${place.nameKo} 체크인`}>현장 체크인</button>
+                    <button className="checkin-button" onClick={() => onStartCheckIn(place)} aria-label={`${publicCopy(place.nameKo)} 체크인`}>현장 체크인</button>
                   </div>
                 </article>
               </li>

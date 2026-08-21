@@ -43,7 +43,7 @@ DATABASE_URL=postgresql+asyncpg://ktown:ktown@127.0.0.1:55432/ktown
 ```powershell
 docker compose up -d postgres
 .\.venv\Scripts\python.exe -m alembic -c alembic.ini upgrade head
-.\.venv\Scripts\python.exe -m ktown_defense.sync_expeditions --area-code 6 --keyword BTS --keyword K-POP --days 30 --limit 100
+.\.venv\Scripts\python.exe -m ktown_defense.sync_expeditions --area-code 6 --keyword BTS --keyword K-POP --days 30 --limit 100 --force-full
 ```
 
 성공 JSON에는 실행 ID, 상태, 수집 건수, 활성 건수만 출력된다. 실패 또는 빈 스냅샷이면 기존 정상 관광지를 유지한다. 재실행은 동일 `contentId` 행을 갱신하므로 장소 UUID와 체크인 참조가 안정적으로 유지된다.

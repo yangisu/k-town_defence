@@ -15,6 +15,7 @@ async def test_recommended_open_data_place_starts_a_persisted_checkin(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     anchor = await place_factory(
+        source="KTOUR_API",
         content_id="tourapi-anchor",
         name_ko="감천문화마을",
         content_type_id="12",
@@ -23,6 +24,7 @@ async def test_recommended_open_data_place_starts_a_persisted_checkin(
         synced_at=NOW,
     )
     await place_factory(
+        source="KTOUR_API",
         content_id="tourapi-food",
         name_ko="부산 로컬 식당",
         content_type_id="39",
@@ -31,6 +33,7 @@ async def test_recommended_open_data_place_starts_a_persisted_checkin(
         synced_at=NOW,
     )
     await place_factory(
+        source="KTOUR_API",
         content_id="tourapi-festival",
         name_ko="부산 여름 축제",
         content_type_id="15",

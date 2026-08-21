@@ -144,7 +144,11 @@ async def recommended_expedition(
 async def open_data_status(session: Session) -> OpenDataStatusResponse:
     latest_run = await session.scalar(
         select(CatalogSyncRunModel)
-        .where(CatalogSyncRunModel.status == "succeeded")
+        .where(
+            CatalogSyncRunModel.source == "KTOUR_API",
+            CatalogSyncRunModel.status == "succeeded",
+            CatalogSyncRunModel.id.in_(select(OpenApiCallLogModel.sync_run_id)),
+        )
         .order_by(CatalogSyncRunModel.completed_at.desc())
         .limit(1)
     )

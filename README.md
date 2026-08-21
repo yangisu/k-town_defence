@@ -19,7 +19,7 @@ $env:KTOUR_MOBILE_APP = "KTownDefense"
 부산 원정 동기화:
 
 ```powershell
-.\.venv\Scripts\python.exe -m ktown_defense.sync_expeditions --area-code 6 --keyword BTS --keyword K-POP --days 30 --limit 100
+.\.venv\Scripts\python.exe -m ktown_defense.sync_expeditions --area-code 6 --keyword BTS --keyword K-POP --days 30 --limit 100 --force-full
 ```
 
 기존 키워드 카탈로그 동기화 호출 예시:
@@ -66,7 +66,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
 docker compose up -d postgres
 .\.venv\Scripts\python.exe -m alembic -c alembic.ini upgrade head
-.\.venv\Scripts\python.exe -m ktown_defense.sync_ktour --area-code 6 --limit 100
+.\.venv\Scripts\python.exe -m ktown_defense.sync_expeditions --area-code 6 --keyword BTS --keyword K-POP --days 30 --limit 100 --force-full
 .\.venv\Scripts\python.exe -m uvicorn ktown_defense.api.main:app --port 8000
 ```
 

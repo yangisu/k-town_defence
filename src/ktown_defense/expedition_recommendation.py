@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .infrastructure.models import (
     CatalogSyncRunModel,
     CheckInSessionModel,
+    OpenApiCallLogModel,
     PlaceModel,
 )
 
@@ -74,6 +75,8 @@ def select_expedition(
 ) -> RecommendedExpedition:
     if not candidates:
         raise ValueError("no expedition candidates")
+    if len(candidates) < 3:
+        raise ValueError("at least three expedition candidates are required")
 
     normalized_keyword = (request.keyword or "").strip().casefold()
     anchor = next(
@@ -182,6 +185,7 @@ class ExpeditionRecommendationService:
                 select(PlaceModel, visit_count.label("submitted_visit_count"))
                 .where(
                     PlaceModel.region_code == region_code,
+                    PlaceModel.source == "KTOUR_API",
                     PlaceModel.is_public.is_(True),
                     PlaceModel.is_active.is_(True),
                 )
@@ -209,7 +213,9 @@ class ExpeditionRecommendationService:
             select(CatalogSyncRunModel)
             .where(
                 CatalogSyncRunModel.area_code == region_code,
+                CatalogSyncRunModel.source == "KTOUR_API",
                 CatalogSyncRunModel.status == "succeeded",
+                CatalogSyncRunModel.id.in_(select(OpenApiCallLogModel.sync_run_id)),
             )
             .order_by(CatalogSyncRunModel.completed_at.desc())
             .limit(1)
@@ -265,4 +271,3 @@ def _fallback_snapshot(candidates: tuple[ExpeditionCandidate, ...]) -> str:
         default=None,
     )
     return newest.isoformat() if newest else "unversioned"
-

@@ -9,7 +9,7 @@ from typing import Protocol
 from uuid import UUID, uuid4
 
 import anyio
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -35,6 +35,8 @@ class ExpeditionClient(Protocol):
         start_date: date,
         end_date: date,
         limit: int,
+        force_full: bool = False,
+        modified_since: datetime | None = None,
     ) -> TourismExpeditionSnapshot: ...
 
 
@@ -60,7 +62,24 @@ class TourismExpeditionSyncService:
         limit: int,
         force_full: bool = False,
     ) -> CatalogSyncResult:
-        del force_full  # The bounded MVP always publishes a validated last-good snapshot.
+        async with self._sessions() as session:
+            existing_count = int(
+                await session.scalar(
+                    select(func.count(PlaceModel.id)).where(
+                        PlaceModel.source == "KTOUR_API",
+                        PlaceModel.region_code == area_code,
+                    )
+                )
+                or 0
+            )
+            last_successful_at = await session.scalar(
+                select(func.max(CatalogSyncRunModel.completed_at)).where(
+                    CatalogSyncRunModel.source == "KTOUR_API",
+                    CatalogSyncRunModel.area_code == area_code,
+                    CatalogSyncRunModel.status == "succeeded",
+                )
+            )
+        effective_full = force_full or existing_count == 0
         run_id = uuid4()
         started_at = self._clock()
         async with self._sessions() as session:
@@ -85,9 +104,11 @@ class TourismExpeditionSyncService:
                     start_date=start_date,
                     end_date=end_date,
                     limit=limit,
+                    force_full=effective_full,
+                    modified_since=None if effective_full else last_successful_at,
                 )
             )
-            if not snapshot.places:
+            if effective_full and not snapshot.places:
                 raise ValueError("empty validated snapshot")
         except Exception:
             return await self._record_failure(run_id)
@@ -137,6 +158,27 @@ class TourismExpeditionSyncService:
                             if key not in {"id", "content_id", "created_at"}
                         },
                     )
+                )
+            if effective_full:
+                published_ids = [place.content_id for place in snapshot.places]
+                await session.execute(
+                    update(PlaceModel)
+                    .where(
+                        PlaceModel.source == "KTOUR_API",
+                        PlaceModel.region_code == area_code,
+                        PlaceModel.content_id.not_in(published_ids),
+                    )
+                    .values(is_active=False, updated_at=completed_at)
+                )
+            elif snapshot.deleted_content_ids:
+                await session.execute(
+                    update(PlaceModel)
+                    .where(
+                        PlaceModel.source == "KTOUR_API",
+                        PlaceModel.region_code == area_code,
+                        PlaceModel.content_id.in_(snapshot.deleted_content_ids),
+                    )
+                    .values(is_active=False, updated_at=completed_at)
                 )
             self._add_observations(session, run_id, snapshot.observations)
             active_count = int(
@@ -209,4 +251,3 @@ class TourismExpeditionSyncService:
             default=fallback,
         )
         return f"KTOUR-EXPEDITION-{modified.astimezone(timezone.utc):%Y%m%d%H%M%S}-{len(snapshot.places)}"
-

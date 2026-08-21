@@ -55,6 +55,7 @@ async def test_recommended_expedition_returns_reasons_and_enriched_places(
 ) -> None:
     await _seed_logs(session_factory)
     anchor = await place_factory(
+        source="KTOUR_API",
         content_id="anchor",
         name_ko="감천문화마을",
         latitude=35.0000,
@@ -67,6 +68,7 @@ async def test_recommended_expedition_returns_reasons_and_enriched_places(
         synced_at=NOW,
     )
     await place_factory(
+        source="KTOUR_API",
         content_id="food",
         name_ko="부산 로컬 식당",
         latitude=35.0010,
@@ -75,6 +77,7 @@ async def test_recommended_expedition_returns_reasons_and_enriched_places(
         synced_at=NOW,
     )
     await place_factory(
+        source="KTOUR_API",
         content_id="festival",
         name_ko="부산 여름 축제",
         latitude=35.0020,
@@ -130,6 +133,47 @@ async def test_open_data_status_is_safe_and_aggregated(
     assert "requestUrl" not in serialized
     assert "한국관광공사" not in serialized
     assert '"KTO"' not in serialized
+
+
+async def test_open_data_status_ignores_newer_legacy_run_without_evidence(
+    api_client, session_factory
+) -> None:
+    await _seed_logs(session_factory)
+    async with session_factory() as session:
+        session.add(
+            CatalogSyncRunModel(
+                id=uuid4(), source="KTOUR_API", area_code="6", status="succeeded",
+                snapshot_version="legacy", fetched_count=1, active_count=1,
+                started_at=NOW.replace(hour=4), completed_at=NOW.replace(hour=4),
+            )
+        )
+        await session.commit()
+
+    response = await api_client.get("/api/v1/open-data/status")
+
+    assert response.status_code == 200
+    assert {item["operation"] for item in response.json()["operations"]} == {
+        "areaBasedList2", "detailCommon2", "detailImage2",
+    }
+
+
+async def test_recommendation_excludes_operator_demo_rows(
+    api_client, place_factory, session_factory
+) -> None:
+    await _seed_logs(session_factory)
+    await place_factory(content_id="demo", name_ko="운영자 데모", source="OPERATOR")
+    for index in range(3):
+        await place_factory(
+            content_id=f"tour-{index}", name_ko=f"실제 관광지 {index}",
+            source="KTOUR_API", latitude=35.0 + index * 0.001,
+        )
+
+    response = await api_client.get(
+        "/api/v1/expeditions/recommended?regionCode=6&travelDate=2026-08-22&limit=3"
+    )
+
+    assert response.status_code == 200
+    assert "운영자 데모" not in response.text
 
 
 async def test_recommended_expedition_returns_not_found_without_places(api_client) -> None:

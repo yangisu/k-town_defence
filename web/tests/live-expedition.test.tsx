@@ -78,14 +78,21 @@ it("shows an explainable live expedition and starts the exact stop check-in", as
 });
 
 it("removes prohibited provider branding from upstream copy", async () => {
+  const brandedExpedition: LiveExpedition = {
+    ...expedition,
+    stops: expedition.stops.map((stop, index) => index === 0
+      ? { ...stop, place: { ...stop.place, nameKo: "한국관광공사 KTO 안내소" } }
+      : stop),
+  };
   const { container } = render(
-    <LiveExpeditionPanel service={service()} onStartCheckIn={() => undefined} />,
+    <LiveExpeditionPanel service={service(brandedExpedition)} onStartCheckIn={() => undefined} />,
   );
 
   await screen.findByText("키워드 일치");
   expect(container.textContent).not.toContain("한국관광공사");
   expect(container.textContent).not.toMatch(/\bKTO\b/);
   expect(screen.getByText("공공 관광데이터 공식 설명")).toBeVisible();
+  expect(screen.getByRole("button", { name: "공공 관광데이터 관광 데이터 안내소 체크인" })).toBeVisible();
 });
 
 it("rebuilds the expedition when the submitted keyword is unchanged", async () => {

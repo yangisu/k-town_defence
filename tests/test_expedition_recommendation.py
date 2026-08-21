@@ -105,3 +105,14 @@ def test_rejects_empty_candidates() -> None:
             snapshot_version="snapshot-1",
         )
 
+
+def test_rejects_fewer_than_three_candidates() -> None:
+    with pytest.raises(ValueError, match="at least three"):
+        select_expedition(
+            (
+                candidate(1, "first", "culture", 35.0),
+                candidate(2, "second", "event", 35.1),
+            ),
+            ExpeditionRequest("6", None, date(2026, 8, 22), 3),
+            snapshot_version="snapshot-1",
+        )

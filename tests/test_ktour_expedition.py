@@ -4,7 +4,9 @@ from datetime import date, datetime, timezone
 import json
 from urllib.parse import parse_qs, urlparse
 
-from ktown_defense.ktour_expedition import KTourExpeditionClient
+import pytest
+
+from ktown_defense.ktour_expedition import KTourAPIError, KTourExpeditionClient
 
 
 NOW = datetime(2026, 8, 22, 3, 0, tzinfo=timezone.utc)
@@ -187,6 +189,68 @@ def test_optional_detail_failure_is_observed_without_dropping_base_place() -> No
     assert image_observation.error_code == "INVALID_REQUEST"
     assert "detailImage2" not in snapshot.places[0].source_operations
     assert len([call for call, _ in transport.calls if call == "detailImage2"]) == 0
+
+
+def test_missing_anchor_never_fabricates_location_success() -> None:
+    transport = ExpeditionTransport()
+
+    def no_anchor(url: str, timeout: float) -> bytes:
+        if "areaBasedList2" in url or "searchKeyword2" in url:
+            return response([])
+        return transport(url, timeout)
+
+    client = KTourExpeditionClient(
+        service_key="secret-key", transport=no_anchor, max_attempts=1,
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(KTourAPIError):
+        client.fetch_snapshot(
+            area_code="6", keywords=("BTS",), start_date=date(2026, 8, 22),
+            end_date=date(2026, 9, 21), limit=100,
+        )
+
+    assert not any(
+        item.operation == "locationBasedList2" and item.status == "succeeded"
+        for item in client.observations
+    )
+
+
+def test_incremental_sync_sends_the_last_successful_modified_time() -> None:
+    transport = ExpeditionTransport()
+    client = KTourExpeditionClient(
+        service_key="secret-key", transport=transport, clock=lambda: NOW,
+    )
+
+    client.fetch_snapshot(
+        area_code="6", keywords=("BTS",), start_date=date(2026, 8, 22),
+        end_date=date(2026, 9, 21), limit=100, modified_since=NOW,
+    )
+
+    sync_call = next(params for operation, params in transport.calls if operation == "areaBasedSyncList2")
+    assert sync_call["modifiedtime"] == "20260822030000"
+
+
+def test_sync_list_preserves_confirmed_deleted_content_ids() -> None:
+    transport = ExpeditionTransport()
+
+    def with_deleted(url: str, timeout: float) -> bytes:
+        if "areaBasedSyncList2" in url:
+            return response([
+                {"contentid": "101", "showflag": "1"},
+                {"contentid": "removed", "showflag": "0"},
+            ])
+        return transport(url, timeout)
+
+    snapshot = KTourExpeditionClient(
+        service_key="secret-key", transport=with_deleted, clock=lambda: NOW,
+    ).fetch_snapshot(
+        area_code="6", keywords=("BTS",), start_date=date(2026, 8, 22),
+        end_date=date(2026, 9, 21), limit=100,
+    )
+
+    assert snapshot.changed_content_ids == ("101", "removed")
+    assert snapshot.deleted_content_ids == ("removed",)
 
 
 def test_festival_outside_requested_window_is_not_marked_active() -> None:

@@ -69,8 +69,10 @@ class FakeExpeditionClient:
     def __init__(self, results):
         self.results = list(results)
         self.observations: tuple[OpenApiCallObservation, ...] = ()
+        self.calls: list[dict[str, object]] = []
 
     def fetch_snapshot(self, **kwargs) -> TourismExpeditionSnapshot:
+        self.calls.append(kwargs)
         result = self.results.pop(0)
         if isinstance(result, Exception):
             self.observations = observations("failed")
@@ -161,4 +163,50 @@ async def test_sync_reuses_place_id_and_failure_preserves_last_good(session_fact
     assert place.is_active is True
     assert {log.error_code for log in failed_logs} == {"UPSTREAM_UNAVAILABLE"}
     assert "secret" not in repr(failed_logs)
+    assert client.calls[0]["force_full"] is True
+    assert client.calls[0]["modified_since"] is None
+    assert client.calls[1]["force_full"] is False
+    assert client.calls[1]["modified_since"] == NOW
 
+
+async def test_force_full_deactivates_missing_tourism_rows(session_factory, place_factory) -> None:
+    retained = await place_factory(content_id="101", source="KTOUR_API")
+    removed = await place_factory(content_id="removed", source="KTOUR_API")
+    snapshot = TourismExpeditionSnapshot(
+        places=(tourism_place(),), observations=observations(), changed_content_ids=("101",)
+    )
+    service = TourismExpeditionSyncService(
+        session_factory, FakeExpeditionClient([snapshot]), clock=lambda: NOW
+    )
+
+    await service.sync(
+        area_code="6", keywords=("BTS",), start_date=date(2026, 8, 22),
+        end_date=date(2026, 9, 21), limit=100, force_full=True,
+    )
+
+    async with session_factory() as session:
+        assert (await session.get(PlaceModel, retained.id)).is_active is True
+        assert (await session.get(PlaceModel, removed.id)).is_active is False
+
+
+async def test_incremental_sync_deactivates_confirmed_deleted_content(
+    session_factory, place_factory
+) -> None:
+    retained = await place_factory(content_id="101", source="KTOUR_API")
+    removed = await place_factory(content_id="removed", source="KTOUR_API")
+    snapshot = TourismExpeditionSnapshot(
+        places=(tourism_place(),), observations=observations(),
+        changed_content_ids=("101", "removed"), deleted_content_ids=("removed",),
+    )
+    service = TourismExpeditionSyncService(
+        session_factory, FakeExpeditionClient([snapshot]), clock=lambda: NOW
+    )
+
+    await service.sync(
+        area_code="6", keywords=("BTS",), start_date=date(2026, 8, 22),
+        end_date=date(2026, 9, 21), limit=100,
+    )
+
+    async with session_factory() as session:
+        assert (await session.get(PlaceModel, retained.id)).is_active is True
+        assert (await session.get(PlaceModel, removed.id)).is_active is False

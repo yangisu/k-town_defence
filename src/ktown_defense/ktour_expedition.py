@@ -47,6 +47,7 @@ class TourismExpeditionSnapshot:
     places: tuple[TourismPlaceDetail, ...]
     observations: tuple[OpenApiCallObservation, ...]
     changed_content_ids: tuple[str, ...]
+    deleted_content_ids: tuple[str, ...] = ()
 
 
 class KTourExpeditionClient(KTourOpenAPIClient):
@@ -64,6 +65,8 @@ class KTourExpeditionClient(KTourOpenAPIClient):
         start_date: date,
         end_date: date,
         limit: int,
+        force_full: bool = False,
+        modified_since: datetime | None = None,
     ) -> TourismExpeditionSnapshot:
         if not area_code.strip():
             raise ValueError("area_code is required")
@@ -73,16 +76,21 @@ class KTourExpeditionClient(KTourOpenAPIClient):
             raise ValueError("end_date must not be before start_date")
 
         self._observations: list[OpenApiCallObservation] = []
+        sync_params: dict[str, object] = {
+            "areaCode": area_code,
+            "showflag": "1",
+            "numOfRows": limit,
+            "pageNo": 1,
+        }
+        if modified_since is not None:
+            sync_params["modifiedtime"] = modified_since.astimezone(timezone.utc).strftime(
+                "%Y%m%d%H%M%S"
+            )
         changed_items = self._items(
             self._observed_request(
                 "areaBasedSyncList2",
                 "incremental_catalog",
-                {
-                    "areaCode": area_code,
-                    "showflag": "1",
-                    "numOfRows": limit,
-                    "pageNo": 1,
-                },
+                sync_params,
             )
         )
         changed_ids = tuple(
@@ -91,6 +99,16 @@ class KTourExpeditionClient(KTourOpenAPIClient):
                     str(item.get("contentid", "")).strip()
                     for item in changed_items
                     if str(item.get("contentid", "")).strip()
+                }
+            )
+        )
+        deleted_ids = tuple(
+            sorted(
+                {
+                    str(item.get("contentid", "")).strip()
+                    for item in changed_items
+                    if str(item.get("contentid", "")).strip()
+                    and str(item.get("showflag", "")).strip() == "0"
                 }
             )
         )
@@ -140,7 +158,7 @@ class KTourExpeditionClient(KTourOpenAPIClient):
                 candidates, operations, nearby_items, "locationBasedList2"
             )
         else:
-            self._record_skipped_success("locationBasedList2", "nearby_discovery")
+            raise KTourAPIError("TourAPI returned no anchor for nearby discovery")
 
         festival_items = self._paged(
             "searchFestival2",
@@ -172,8 +190,17 @@ class KTourExpeditionClient(KTourOpenAPIClient):
                     festival_end,
                 )
 
+        priority_ids = (set(changed_ids) - set(deleted_ids)) | set(keyword_matches) | set(festivals)
+        enrichment_candidates = list(candidates.items())
+        if not force_full:
+            enrichment_candidates = [
+                (content_id, item)
+                for content_id, item in enrichment_candidates
+                if content_id in priority_ids
+            ]
+
         places: list[TourismPlaceDetail] = []
-        for content_id, item in list(candidates.items())[:limit]:
+        for content_id, item in enrichment_candidates[:limit]:
             try:
                 place = self._enrich_place(
                     item,
@@ -186,12 +213,13 @@ class KTourExpeditionClient(KTourOpenAPIClient):
                 continue
             places.append(place)
 
-        if not places:
+        if force_full and not places:
             raise KTourAPIError("TourAPI queries returned zero tourism places")
         return TourismExpeditionSnapshot(
             places=tuple(places),
             observations=tuple(self._observations),
             changed_content_ids=changed_ids,
+            deleted_content_ids=deleted_ids,
         )
 
     def _enrich_place(
@@ -233,7 +261,8 @@ class KTourExpeditionClient(KTourOpenAPIClient):
                 )
             )
             intro = dict(intro_items[0]) if intro_items else {}
-            successful.add("detailIntro2")
+            if intro:
+                successful.add("detailIntro2")
         except KTourAPIError:
             pass
         try:
@@ -250,7 +279,8 @@ class KTourExpeditionClient(KTourOpenAPIClient):
                 )
             )
             info = tuple(dict(value) for value in info_items)
-            successful.add("detailInfo2")
+            if info:
+                successful.add("detailInfo2")
         except KTourAPIError:
             pass
         try:
@@ -267,7 +297,8 @@ class KTourExpeditionClient(KTourOpenAPIClient):
                 )
             )
             images = self._https_images(item, common, image_items)
-            successful.add("detailImage2")
+            if images:
+                successful.add("detailImage2")
         except KTourAPIError:
             pass
 
@@ -348,20 +379,6 @@ class KTourExpeditionClient(KTourOpenAPIClient):
             )
         )
         return body
-
-    def _record_skipped_success(self, operation: str, feature: str) -> None:
-        observed_at = self._clock()
-        self._observations.append(
-            OpenApiCallObservation(
-                operation=operation,
-                feature=feature,
-                status="succeeded",
-                response_count=0,
-                error_code=None,
-                started_at=observed_at,
-                completed_at=observed_at,
-            )
-        )
 
     def _paged(
         self,

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 import json
 import os
+from zoneinfo import ZoneInfo
 
 from .expedition_sync import TourismExpeditionSyncService
 from .infrastructure.database import create_engine_and_session_factory
@@ -48,7 +49,7 @@ async def _run(args: argparse.Namespace) -> int:
     settings = Settings()
     if settings.ktour_service_key is None:
         raise SystemExit("KTOUR_SERVICE_KEY is required")
-    start_date = args.start_date or datetime.now(timezone.utc).date()
+    start_date = args.start_date or datetime.now(ZoneInfo("Asia/Seoul")).date()
     end_date = start_date + timedelta(days=args.days - 1)
     keywords = tuple(args.keyword or ("BTS", "K-POP"))
     engine, sessions = create_engine_and_session_factory(settings.database_url)
@@ -86,4 +87,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

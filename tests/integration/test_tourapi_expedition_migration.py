@@ -71,4 +71,3 @@ def test_expedition_migration_adds_enrichment_and_safe_call_log() -> None:
     }
     assert "service_key" not in log_columns
     assert "request_url" not in log_columns
-

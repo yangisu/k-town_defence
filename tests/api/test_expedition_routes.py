@@ -1,4 +1,5 @@
 from datetime import date, datetime, timezone
+import inspect
 from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -7,6 +8,7 @@ from ktown_defense.infrastructure.models import (
     CatalogSyncRunModel,
     OpenApiCallLogModel,
 )
+from ktown_defense.api.expedition_routes import recommended_expedition
 
 
 NOW = datetime(2026, 8, 22, 3, 0, tzinfo=timezone.utc)
@@ -183,3 +185,22 @@ async def test_recommended_expedition_returns_not_found_without_places(api_clien
 
     assert response.status_code == 404
     assert response.json()["code"] == "EXPEDITION_NOT_AVAILABLE"
+
+
+async def test_recommended_expedition_returns_not_found_with_only_two_places(
+    api_client, place_factory, session_factory
+) -> None:
+    await _seed_logs(session_factory)
+    for index in range(2):
+        await place_factory(content_id=f"tour-{index}", source="KTOUR_API")
+
+    response = await api_client.get(
+        "/api/v1/expeditions/recommended?regionCode=6&travelDate=2026-08-22&limit=3"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["code"] == "EXPEDITION_NOT_AVAILABLE"
+
+
+def test_recommended_expedition_date_default_is_calculated_per_request() -> None:
+    assert inspect.signature(recommended_expedition).parameters["travel_date"].default is None

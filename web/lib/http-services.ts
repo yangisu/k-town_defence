@@ -151,6 +151,52 @@ function nullableText(value: unknown): string | undefined {
   return text(value);
 }
 
+const placeCategories = new Set<Place["category"]>(["kpop", "culture", "local_food", "event"]);
+
+function category(value: unknown): Place["category"] {
+  const parsed = text(value) as Place["category"];
+  if (!placeCategories.has(parsed)) invalidResponse();
+  return parsed;
+}
+
+function isoDate(value: unknown): string {
+  const parsed = text(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(parsed)) invalidResponse();
+  const date = new Date(`${parsed}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== parsed) invalidResponse();
+  return parsed;
+}
+
+function timestamp(value: unknown): string {
+  const parsed = text(value);
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(parsed)) invalidResponse();
+  if (Number.isNaN(Date.parse(parsed))) invalidResponse();
+  return parsed;
+}
+
+function httpsUrl(value: unknown): string {
+  const parsed = text(value);
+  try {
+    const url = new URL(parsed);
+    if (url.protocol !== "https:" || url.username || url.password) invalidResponse();
+  } catch {
+    invalidResponse();
+  }
+  return parsed;
+}
+
+function nullableDate(value: unknown): string | undefined {
+  return value === null || value === undefined ? undefined : isoDate(value);
+}
+
+function nullableTimestamp(value: unknown): string | undefined {
+  return value === null || value === undefined ? undefined : timestamp(value);
+}
+
+function nullableHttpsUrl(value: unknown): string | undefined {
+  return value === null || value === undefined ? undefined : httpsUrl(value);
+}
+
 function mapEnrichedPlace(value: unknown): Place {
   const dto = object(value);
   const mapped: PlaceDto = {
@@ -162,22 +208,21 @@ function mapEnrichedPlace(value: unknown): Place {
     longitude: finiteNumber(dto.longitude),
     regionCode: text(dto.regionCode),
     descriptionKo: text(dto.descriptionKo),
-    category: text(dto.category) as Place["category"],
+    category: category(dto.category),
     contentTypeId: nullableText(dto.contentTypeId),
-    imageUrl: nullableText(dto.imageUrl),
-    homepageUrl: nullableText(dto.homepageUrl),
+    imageUrl: nullableHttpsUrl(dto.imageUrl),
+    homepageUrl: nullableHttpsUrl(dto.homepageUrl),
     telephone: nullableText(dto.telephone),
     openTime: nullableText(dto.openTime),
     restDate: nullableText(dto.restDate),
     parking: nullableText(dto.parking),
-    imageUrls: stringArray(dto.imageUrls),
-    festivalStartDate: nullableText(dto.festivalStartDate),
-    festivalEndDate: nullableText(dto.festivalEndDate),
+    imageUrls: stringArray(dto.imageUrls).map(httpsUrl),
+    festivalStartDate: nullableDate(dto.festivalStartDate),
+    festivalEndDate: nullableDate(dto.festivalEndDate),
     discoveryKeywords: stringArray(dto.discoveryKeywords),
     sourceOperations: stringArray(dto.sourceOperations),
-    syncedAt: nullableText(dto.syncedAt),
+    syncedAt: nullableTimestamp(dto.syncedAt),
   };
-  if (mapped.imageUrls?.some((url) => !url.startsWith("https://"))) invalidResponse();
   return mapPlace(mapped);
 }
 
@@ -189,8 +234,8 @@ function mapExpedition(value: unknown): LiveExpedition {
     title: text(dto.title),
     regionCode: text(dto.regionCode),
     keyword: nullableText(dto.keyword),
-    travelDate: text(dto.travelDate),
-    dataUpdatedAt: nullableText(dto.dataUpdatedAt),
+    travelDate: isoDate(dto.travelDate),
+    dataUpdatedAt: nullableTimestamp(dto.dataUpdatedAt),
     stops: dto.stops.map((value) => {
       const stop = object(value);
       return {
@@ -208,13 +253,13 @@ function mapOpenDataStatus(value: unknown): OpenDataStatus {
   if (!Array.isArray(dto.operations)) invalidResponse();
   return {
     label: text(dto.label),
-    lastSuccessfulSyncAt: nullableText(dto.lastSuccessfulSyncAt),
+    lastSuccessfulSyncAt: nullableTimestamp(dto.lastSuccessfulSyncAt),
     activePlaceCount: finiteNumber(dto.activePlaceCount),
     operations: dto.operations.map((value) => {
       const item = object(value);
       return {
         operation: text(item.operation),
-        lastSucceededAt: text(item.lastSucceededAt),
+        lastSucceededAt: timestamp(item.lastSucceededAt),
         responseCount: finiteNumber(item.responseCount),
       };
     }),

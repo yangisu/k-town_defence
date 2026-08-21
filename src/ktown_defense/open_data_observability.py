@@ -26,4 +26,3 @@ def safe_error_code(message: str) -> str:
     if "INVALID JSON" in normalized or "CONTRACT" in normalized or "INVALID" in normalized:
         return "INVALID_RESPONSE"
     return "UPSTREAM_UNAVAILABLE"
-

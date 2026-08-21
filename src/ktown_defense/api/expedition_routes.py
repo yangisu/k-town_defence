@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -102,7 +103,7 @@ async def recommended_expedition(
     session: Session,
     region_code: Annotated[str, Query(alias="regionCode", min_length=1, max_length=20)] = "6",
     keyword: Annotated[str | None, Query(max_length=100)] = None,
-    travel_date: Annotated[date, Query(alias="travelDate")] = date.today(),
+    travel_date: Annotated[date | None, Query(alias="travelDate")] = None,
     limit: Annotated[int, Query(ge=3, le=5)] = 5,
 ) -> RecommendedExpeditionResponse:
     try:
@@ -110,11 +111,14 @@ async def recommended_expedition(
             session,
             region_code=region_code,
             keyword=keyword,
-            travel_date=travel_date,
+            travel_date=travel_date or datetime.now(ZoneInfo("Asia/Seoul")).date(),
             limit=limit,
         )
     except ValueError as exc:
-        if str(exc) == "no expedition candidates":
+        if str(exc) in {
+            "no expedition candidates",
+            "at least three expedition candidates are required",
+        }:
             raise ApiError(
                 404,
                 "EXPEDITION_NOT_AVAILABLE",

@@ -75,7 +75,7 @@ async def test_expedition_migration_adds_enrichment_and_safe_call_log(postgres_u
 
 - [x] **Step 2: Run the migration test and verify RED**
 
-Run: `\.\.venv\Scripts\python.exe -m pytest tests/integration/test_tourapi_expedition_migration.py -q`  
+Run: `\.\.venv\Scripts\python.exe -m pytest tests/integration/test_tourapi_expedition_migration.py -q`
 Expected: FAIL because revision `20260822_0004` and the columns do not exist.
 
 - [x] **Step 3: Add the migration and ORM mappings**
@@ -93,7 +93,7 @@ The ORM JSON fields use `default=dict` or `default=list`; public code must never
 
 - [x] **Step 4: Run migration and existing persistence tests**
 
-Run: `\.\.venv\Scripts\python.exe -m pytest tests/integration/test_tourapi_expedition_migration.py tests/integration/test_migrations.py tests/integration/test_live_catalog_migration.py -q`  
+Run: `\.\.venv\Scripts\python.exe -m pytest tests/integration/test_tourapi_expedition_migration.py tests/integration/test_migrations.py tests/integration/test_live_catalog_migration.py -q`
 Expected: PASS.
 
 - [x] **Step 5: Commit the schema**
@@ -137,7 +137,7 @@ Assert the mapped place contains HTTPS images only, normalized plain text, parse
 
 - [x] **Step 2: Run the adapter test and verify RED**
 
-Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_ktour_expedition.py -q`  
+Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_ktour_expedition.py -q`
 Expected: FAIL because `ktour_expedition` does not exist.
 
 - [x] **Step 3: Implement DTOs and orchestration**
@@ -169,7 +169,7 @@ Add tests proving:
 
 - [x] **Step 5: Run adapter suites**
 
-Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_ktour_expedition.py tests/test_ktour_openapi.py tests/test_ktour_area.py -q`  
+Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_ktour_expedition.py tests/test_ktour_openapi.py tests/test_ktour_area.py -q`
 Expected: PASS.
 
 - [x] **Step 6: Commit the adapter**
@@ -211,7 +211,7 @@ assert await call_log_operations(result.run_id) == EXPECTED_NINE_OPERATIONS
 
 - [x] **Step 2: Run the sync test and verify RED**
 
-Run: `\.\.venv\Scripts\python.exe -m pytest tests/integration/test_expedition_sync.py::test_sync_publishes_enrichment_and_call_evidence -q`  
+Run: `\.\.venv\Scripts\python.exe -m pytest tests/integration/test_expedition_sync.py::test_sync_publishes_enrichment_and_call_evidence -q`
 Expected: FAIL because the service is missing.
 
 - [x] **Step 3: Implement sync publication and observation recorder**
@@ -222,14 +222,14 @@ Create the run first, execute the blocking adapter with `anyio.to_thread.run_syn
 
 Test a second identical sync keeps stable place IDs and does not duplicate content. Test an upstream exception after a successful run leaves prior rows active and records a failed run and failed observation.
 
-Run: `\.\.venv\Scripts\python.exe -m pytest tests/integration/test_expedition_sync.py -q`  
+Run: `\.\.venv\Scripts\python.exe -m pytest tests/integration/test_expedition_sync.py -q`
 Expected: PASS.
 
 - [x] **Step 5: Write and pass CLI tests**
 
 Assert parsed defaults, repeated `--keyword`, invalid date windows, non-zero failure exit, and JSON output containing only run ID, status and counts.
 
-Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_sync_expeditions_cli.py -q`  
+Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_sync_expeditions_cli.py -q`
 Expected: PASS.
 
 - [x] **Step 6: Commit synchronization**
@@ -270,7 +270,7 @@ Also test 3-5 limit validation, no candidates, missing keyword fallback, same-ca
 
 - [x] **Step 2: Run recommendation tests and verify RED**
 
-Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_expedition_recommendation.py -q`  
+Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_expedition_recommendation.py -q`
 Expected: FAIL because the recommendation module is missing.
 
 - [x] **Step 3: Implement deterministic recommendation**
@@ -296,7 +296,7 @@ Assert camelCase JSON, exact stop count, non-empty reasons and enriched fields. 
 }
 ```
 
-Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_expedition_recommendation.py tests/api/test_expedition_routes.py tests/api/test_live_places_api.py -q`  
+Run: `\.\.venv\Scripts\python.exe -m pytest tests/test_expedition_recommendation.py tests/api/test_expedition_routes.py tests/api/test_live_places_api.py -q`
 Expected: PASS.
 
 - [x] **Step 6: Commit recommendation APIs**
@@ -336,7 +336,7 @@ Assert malformed stop data throws `ApiError`, status mapping retains no unknown 
 
 - [x] **Step 2: Run web transport tests and verify RED**
 
-Run: `npm test -- --run tests/http-services.test.ts tests/ktown-gateway.test.ts`  
+Run: `npm test -- --run tests/http-services.test.ts tests/ktown-gateway.test.ts`
 Expected: FAIL because the service methods do not exist.
 
 - [x] **Step 3: Implement types and strict mappers**
@@ -345,7 +345,7 @@ Validate arrays, dates, numbers, URLs and reason strings at the network boundary
 
 - [x] **Step 4: Run transport and service factory tests**
 
-Run: `npm test -- --run tests/http-services.test.ts tests/ktown-gateway.test.ts tests/service-factory.test.ts`  
+Run: `npm test -- --run tests/http-services.test.ts tests/ktown-gateway.test.ts tests/service-factory.test.ts`
 Expected: PASS.
 
 - [x] **Step 5: Commit web contracts**
@@ -387,7 +387,7 @@ Assert retry behavior, empty-state copy, open-data freshness, keyboard buttons, 
 
 - [x] **Step 2: Run the component test and verify RED**
 
-Run: `npm test -- --run tests/live-expedition.test.tsx`  
+Run: `npm test -- --run tests/live-expedition.test.tsx`
 Expected: FAIL because `LiveExpeditionPanel` is missing.
 
 - [x] **Step 3: Implement the minimal journey UI**
@@ -400,9 +400,9 @@ Render the app and assert public text and metadata do not contain the two forbid
 
 - [x] **Step 5: Run web flow tests and accessibility lint**
 
-Run: `npm test -- --run tests/live-expedition.test.tsx tests/live-places.test.tsx tests/fan-journey.test.tsx tests/real-check-in.test.tsx`  
-Expected: PASS.  
-Run: `npm run lint`  
+Run: `npm test -- --run tests/live-expedition.test.tsx tests/live-places.test.tsx tests/fan-journey.test.tsx tests/real-check-in.test.tsx`
+Expected: PASS.
+Run: `npm run lint`
 Expected: exit 0.
 
 - [x] **Step 6: Commit the UI**
@@ -441,7 +441,7 @@ assert session["status"] == "collecting"
 
 - [x] **Step 2: Run the E2E test and verify RED, then complete missing wiring**
 
-Run: `\.\.venv\Scripts\python.exe -m pytest tests/e2e/test_expedition_vertical.py -q`  
+Run: `\.\.venv\Scripts\python.exe -m pytest tests/e2e/test_expedition_vertical.py -q`
 Expected before wiring: FAIL. Implement only missing route/repository wiring, then rerun to PASS.
 
 - [x] **Step 3: Write the operator and submission runbook**

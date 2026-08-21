@@ -191,11 +191,35 @@ def test_optional_detail_failure_is_observed_without_dropping_base_place() -> No
     assert len([call for call, _ in transport.calls if call == "detailImage2"]) == 0
 
 
+def test_detail_image_is_credited_only_when_its_rows_contribute() -> None:
+    transport = ExpeditionTransport()
+
+    def common_image_only(url: str, timeout: float) -> bytes:
+        if "detailCommon2" in url:
+            return response([{
+                "contentid": "101", "overview": "부산 관광지",
+                "firstimage": "https://images.example/common.jpg",
+            }])
+        if "detailImage2" in url:
+            return response([{"originimgurl": "http://unsafe.example/image.jpg"}])
+        return transport(url, timeout)
+
+    place = KTourExpeditionClient(
+        service_key="secret-key", transport=common_image_only, clock=lambda: NOW,
+    ).fetch_snapshot(
+        area_code="6", keywords=("BTS",), start_date=date(2026, 8, 22),
+        end_date=date(2026, 9, 21), limit=100,
+    ).places[0]
+
+    assert place.image_urls == ("https://images.example/common.jpg",)
+    assert "detailImage2" not in place.source_operations
+
+
 def test_missing_anchor_never_fabricates_location_success() -> None:
     transport = ExpeditionTransport()
 
     def no_anchor(url: str, timeout: float) -> bytes:
-        if "areaBasedList2" in url or "searchKeyword2" in url:
+        if "areaBasedSyncList2" in url or "areaBasedList2" in url or "searchKeyword2" in url:
             return response([])
         return transport(url, timeout)
 
@@ -233,13 +257,17 @@ def test_incremental_sync_sends_the_last_successful_modified_time() -> None:
 
 def test_sync_list_preserves_confirmed_deleted_content_ids() -> None:
     transport = ExpeditionTransport()
+    seen_flags: set[str] = set()
 
     def with_deleted(url: str, timeout: float) -> bytes:
         if "areaBasedSyncList2" in url:
-            return response([
-                {"contentid": "101", "showflag": "1"},
-                {"contentid": "removed", "showflag": "0"},
-            ])
+            showflag = parse_qs(urlparse(url).query)["showflag"][0]
+            seen_flags.add(showflag)
+            return response(
+                [{"contentid": "removed", "showflag": "0"}]
+                if showflag == "0"
+                else [{"contentid": "101", "showflag": "1"}]
+            )
         return transport(url, timeout)
 
     snapshot = KTourExpeditionClient(
@@ -251,6 +279,71 @@ def test_sync_list_preserves_confirmed_deleted_content_ids() -> None:
 
     assert snapshot.changed_content_ids == ("101", "removed")
     assert snapshot.deleted_content_ids == ("removed",)
+    assert seen_flags == {"0", "1"}
+
+
+def test_incremental_feed_paginates_and_enriches_every_changed_row() -> None:
+    base_transport = ExpeditionTransport()
+    changed = [
+        {
+            "contentid": str(index), "contenttypeid": "12", "title": f"장소 {index}",
+            "addr1": "부산", "mapx": "129.0", "mapy": "35.0", "areacode": "6",
+            "modifiedtime": "20260822030000", "showflag": "1",
+        }
+        for index in range(101)
+    ]
+
+    def paged(url: str, timeout: float) -> bytes:
+        if "areaBasedSyncList2" in url:
+            query = parse_qs(urlparse(url).query)
+            if query["showflag"][0] == "0":
+                return response([])
+            page = int(query["pageNo"][0])
+            return response(changed[(page - 1) * 100:page * 100], total_count=101)
+        return base_transport(url, timeout)
+
+    snapshot = KTourExpeditionClient(
+        service_key="secret-key", transport=paged, clock=lambda: NOW,
+    ).fetch_snapshot(
+        area_code="6", keywords=("BTS",), start_date=date(2026, 8, 22),
+        end_date=date(2026, 9, 21), limit=100,
+    )
+
+    assert len(snapshot.changed_content_ids) == 101
+    assert {str(index) for index in range(101)} <= {
+        place.content_id for place in snapshot.places
+    }
+
+
+def test_full_sync_prioritizes_keyword_result_over_area_fill() -> None:
+    transport = ExpeditionTransport()
+    base = {
+        "contentid": "base", "contenttypeid": "12", "title": "관광지",
+        "addr1": "부산", "mapx": "129.0", "mapy": "35.0", "areacode": "6",
+        "modifiedtime": "20260822030000",
+    }
+    area = {**base, "contentid": "area", "title": "일반 관광지"}
+    keyword = {**base, "contentid": "keyword", "title": "BTS 명소"}
+
+    def feature_first(url: str, timeout: float) -> bytes:
+        if "areaBasedList2" in url:
+            return response([area])
+        if "searchKeyword2" in url:
+            return response([keyword])
+        if "locationBasedList2" in url:
+            return response([keyword])
+        if "areaBasedSyncList2" in url or "searchFestival2" in url:
+            return response([])
+        return transport(url, timeout)
+
+    snapshot = KTourExpeditionClient(
+        service_key="secret-key", transport=feature_first, clock=lambda: NOW,
+    ).fetch_snapshot(
+        area_code="6", keywords=("BTS",), start_date=date(2026, 8, 22),
+        end_date=date(2026, 9, 21), limit=1, force_full=True,
+    )
+
+    assert [place.content_id for place in snapshot.places] == ["keyword"]
 
 
 def test_festival_outside_requested_window_is_not_marked_active() -> None:

@@ -86,6 +86,21 @@ describe("HTTP services", () => {
     }));
   });
 
+const strictExpedition = {
+  id: "expedition-1", title: "부산 로컬 원정", regionCode: "6", keyword: null,
+  travelDate: "2026-08-22", dataUpdatedAt: "2026-08-22T03:00:00Z",
+  stops: [{
+    order: 1, distanceKm: 0, reasons: ["지역 원정 시작점"],
+    place: {
+      id: "place-1", contentId: "101", nameKo: "감천문화마을", addressKo: "부산",
+      latitude: 35.1, longitude: 129, regionCode: "6", descriptionKo: "공식 설명",
+      category: "culture", imageUrl: "https://images.example/place.jpg",
+      homepageUrl: "https://example.com/place", imageUrls: [], discoveryKeywords: [],
+      sourceOperations: [], syncedAt: "2026-08-22T03:00:00Z",
+    },
+  }],
+};
+
   it("maps a recommended expedition with enriched stop reasons", async () => {
     const fetcher = vi.fn().mockResolvedValue(jsonResponse({
       id: "expedition-1",
@@ -142,6 +157,29 @@ describe("HTTP services", () => {
     await expect(tourism.getOpenDataStatus()).resolves.toEqual(expect.objectContaining({
       label: "관광 OpenAPI", activePlaceCount: 100,
     }));
+    await expect(tourism.getRecommendedExpedition({
+      regionCode: "6", travelDate: "2026-08-22", limit: 3,
+    })).rejects.toMatchObject({ code: "INVALID_RESPONSE", status: 502 });
+  });
+
+  it.each([
+    ["travel date", { ...strictExpedition, travelDate: "today" }],
+    ["updated timestamp", { ...strictExpedition, dataUpdatedAt: "yesterday" }],
+    ["category", {
+      ...strictExpedition,
+      stops: [{ ...strictExpedition.stops[0], place: { ...strictExpedition.stops[0].place, category: "spaceship" } }],
+    }],
+    ["primary image", {
+      ...strictExpedition,
+      stops: [{ ...strictExpedition.stops[0], place: { ...strictExpedition.stops[0].place, imageUrl: "http://unsafe.example/place.jpg" } }],
+    }],
+    ["homepage", {
+      ...strictExpedition,
+      stops: [{ ...strictExpedition.stops[0], place: { ...strictExpedition.stops[0].place, homepageUrl: "javascript:alert(1)" } }],
+    }],
+  ])("rejects malformed %s at the expedition boundary", async (_label, body) => {
+    const tourism = createHttpServices(vi.fn().mockResolvedValue(jsonResponse(body))).tourism;
+
     await expect(tourism.getRecommendedExpedition({
       regionCode: "6", travelDate: "2026-08-22", limit: 3,
     })).rejects.toMatchObject({ code: "INVALID_RESPONSE", status: 502 });

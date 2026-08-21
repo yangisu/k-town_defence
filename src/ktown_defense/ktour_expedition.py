@@ -78,21 +78,22 @@ class KTourExpeditionClient(KTourOpenAPIClient):
         self._observations: list[OpenApiCallObservation] = []
         sync_params: dict[str, object] = {
             "areaCode": area_code,
-            "showflag": "1",
-            "numOfRows": limit,
-            "pageNo": 1,
         }
         if modified_since is not None:
             sync_params["modifiedtime"] = modified_since.astimezone(timezone.utc).strftime(
                 "%Y%m%d%H%M%S"
             )
-        changed_items = self._items(
-            self._observed_request(
-                "areaBasedSyncList2",
-                "incremental_catalog",
-                sync_params,
-            )
+        active_changed_items = self._all_pages(
+            "areaBasedSyncList2",
+            "incremental_catalog",
+            {**sync_params, "showflag": "1"},
         )
+        deleted_items = self._all_pages(
+            "areaBasedSyncList2",
+            "incremental_deletions",
+            {**sync_params, "showflag": "0"},
+        )
+        changed_items = [*active_changed_items, *deleted_items]
         changed_ids = tuple(
             sorted(
                 {
@@ -116,6 +117,9 @@ class KTourExpeditionClient(KTourOpenAPIClient):
         candidates: dict[str, Mapping[str, object]] = {}
         operations: dict[str, set[str]] = {}
         keyword_matches: dict[str, set[str]] = {}
+        self._merge_candidates(
+            candidates, operations, active_changed_items, "areaBasedSyncList2"
+        )
 
         area_items = self._paged(
             "areaBasedList2",
@@ -125,6 +129,7 @@ class KTourExpeditionClient(KTourOpenAPIClient):
         )
         self._merge_candidates(candidates, operations, area_items, "areaBasedList2")
 
+        keyword_items: list[Mapping[str, object]] = []
         for keyword in self._unique_keywords(keywords):
             items = self._paged(
                 "searchKeyword2",
@@ -132,6 +137,7 @@ class KTourExpeditionClient(KTourOpenAPIClient):
                 {"keyword": keyword, "areaCode": area_code, "arrange": "Q"},
                 limit,
             )
+            keyword_items.extend(items)
             self._merge_candidates(candidates, operations, items, "searchKeyword2")
             for item in items:
                 content_id = str(item.get("contentid", "")).strip()
@@ -142,6 +148,7 @@ class KTourExpeditionClient(KTourOpenAPIClient):
             (item for content_id, item in candidates.items() if content_id in keyword_matches),
             next(iter(candidates.values()), None),
         )
+        nearby_items: list[Mapping[str, object]] = []
         if anchor is not None:
             nearby_items = self._paged(
                 "locationBasedList2",
@@ -191,7 +198,22 @@ class KTourExpeditionClient(KTourOpenAPIClient):
                 )
 
         priority_ids = (set(changed_ids) - set(deleted_ids)) | set(keyword_matches) | set(festivals)
-        enrichment_candidates = list(candidates.items())
+        prioritized_ids = tuple(
+            dict.fromkeys(
+                str(item.get("contentid", "")).strip()
+                for item in [
+                    *keyword_items,
+                    *nearby_items,
+                    *festival_items,
+                    *active_changed_items,
+                    *area_items,
+                ]
+                if str(item.get("contentid", "")).strip() in candidates
+            )
+        )
+        enrichment_candidates = [
+            (content_id, candidates[content_id]) for content_id in prioritized_ids
+        ]
         if not force_full:
             enrichment_candidates = [
                 (content_id, item)
@@ -200,7 +222,10 @@ class KTourExpeditionClient(KTourOpenAPIClient):
             ]
 
         places: list[TourismPlaceDetail] = []
-        for content_id, item in enrichment_candidates[:limit]:
+        selected_candidates = (
+            enrichment_candidates[:limit] if force_full else enrichment_candidates
+        )
+        for content_id, item in selected_candidates:
             try:
                 place = self._enrich_place(
                     item,
@@ -296,8 +321,9 @@ class KTourExpeditionClient(KTourOpenAPIClient):
                     },
                 )
             )
+            contributed_images = self._https_images({}, {}, image_items)
             images = self._https_images(item, common, image_items)
-            if images:
+            if contributed_images:
                 successful.add("detailImage2")
         except KTourAPIError:
             pass
@@ -406,6 +432,29 @@ class KTourExpeditionClient(KTourOpenAPIClient):
                 break
             page += 1
         return items[:limit]
+
+    def _all_pages(
+        self,
+        operation: str,
+        feature: str,
+        params: Mapping[str, object],
+    ) -> list[Mapping[str, object]]:
+        items: list[Mapping[str, object]] = []
+        page = 1
+        while True:
+            body = self._observed_request(
+                operation,
+                feature,
+                {**params, "numOfRows": self._page_size, "pageNo": page},
+            )
+            page_items = self._items(body)
+            items.extend(page_items)
+            total_count = int(body.get("totalCount", len(items)))
+            if total_count > 10_000:
+                raise KTourAPIError("incremental change backlog exceeds safe maximum")
+            if len(items) >= total_count or not page_items:
+                return items
+            page += 1
 
     @staticmethod
     def _merge_candidates(

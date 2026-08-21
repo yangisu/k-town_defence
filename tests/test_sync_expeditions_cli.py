@@ -27,4 +27,3 @@ def test_cli_accepts_repeated_keywords_and_start_date() -> None:
 def test_cli_rejects_unsafe_ranges_and_invalid_dates(arguments: list[str]) -> None:
     with pytest.raises(SystemExit):
         build_parser().parse_args(arguments)
-

@@ -44,3 +44,47 @@ if run.status != "succeeded":
 ```powershell
 python -m unittest discover -s tests -v
 ```
+
+## 통합 MVP 로컬 실행
+
+Python 3.13+, Node.js 22.13+, Docker Desktop이 필요하다. 실제 비밀값은
+`.env`에만 두고 커밋하지 않는다.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[test]"
+docker compose up -d postgres
+.\.venv\Scripts\python.exe -m alembic -c alembic.ini upgrade head
+.\.venv\Scripts\python.exe -m ktown_defense.seed_demo
+.\.venv\Scripts\python.exe -m uvicorn ktown_defense.api.main:app --port 8000
+```
+
+다른 터미널에서 웹을 실행한다.
+
+```powershell
+Set-Location web
+npm ci
+$env:KTOWN_SERVICE_MODE = "integrated"
+$env:KTOWN_API_BASE_URL = "http://127.0.0.1:8000"
+$env:KTOWN_DEV_USER_ID = "local-member"
+npm run dev -- --port 3000
+```
+
+`KTOWN_DEV_USER_ID`는 로컬 개발 서버에서만 사용된다. production에서는
+Sites가 전달한 `oai-authenticated-user-id`만 신뢰한다.
+
+통합 MVP API는 `GET /api/v1/places`와 장소 상세, 체크인 생성, GPS·사진
+메타데이터 저장, 멱등 제출을 제공한다. 제출 결과는 승인이나 포인트 지급이
+아닌 `pending`이다. 실제 사진 바이너리 저장, 심사, 포인트와 거점 갱신은
+후속 범위다.
+
+전체 검증:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m pytest tests/api tests/integration tests/e2e -q
+Set-Location web
+npm test
+npm run lint
+npm run build
+```

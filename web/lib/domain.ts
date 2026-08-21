@@ -26,6 +26,8 @@ export interface Place {
   transit: string;
   dwellMinutes: number;
   points: number;
+  latitude?: number;
+  longitude?: number;
   localBenefit?: string;
   completed?: boolean;
 }

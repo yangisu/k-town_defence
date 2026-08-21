@@ -84,6 +84,8 @@ function mapPlace(dto: PlaceDto): Place {
     transit: "운영자가 확인한 교통 안내를 준비 중입니다.",
     dwellMinutes: 5,
     points: 0,
+    latitude: dto.latitude,
+    longitude: dto.longitude,
   };
 }
 

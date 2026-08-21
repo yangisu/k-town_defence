@@ -1,4 +1,4 @@
-export type CheckInStatus = "collecting" | "paused" | "ready_to_submit" | "submitting" | "approved" | "review_required" | "rejected" | "expired" | "cancelled";
+export type CheckInStatus = "collecting" | "paused" | "ready_to_submit" | "submitting" | "submitted_pending" | "approved" | "review_required" | "rejected" | "expired" | "cancelled";
 export type GpsKind = "start" | "middle" | "end";
 export type CheckInIssue = "low_accuracy" | "outside_geofence" | "photo_failed" | "network_failed" | null;
 
@@ -14,6 +14,7 @@ export interface CheckInUiState {
 }
 
 export type CheckInAction =
+  | { type: "sessionCreated"; sessionId: string }
   | { type: "gpsSample"; kind: GpsKind; accuracyMeters: number }
   | { type: "gpsAccuracy"; meters: number }
   | { type: "photoCaptured"; assetId: string }
@@ -22,7 +23,7 @@ export type CheckInAction =
   | { type: "resume" }
   | { type: "submit" }
   | { type: "networkRetry" }
-  | { type: "resolve"; decision: "approved" | "review_required" | "rejected" }
+  | { type: "resolve"; decision: "pending" | "approved" | "review_required" | "rejected" }
   | { type: "issue"; issue: Exclude<CheckInIssue, null> }
   | { type: "expire" }
   | { type: "cancel" };
@@ -42,8 +43,9 @@ function withReadiness(state: CheckInUiState): CheckInUiState {
 }
 
 export function checkInReducer(state: CheckInUiState, action: CheckInAction): CheckInUiState {
-  if (["approved", "review_required", "rejected", "expired", "cancelled"].includes(state.status)) return state;
+  if (["submitted_pending", "approved", "review_required", "rejected", "expired", "cancelled"].includes(state.status)) return state;
   switch (action.type) {
+    case "sessionCreated": return { ...state, sessionId: action.sessionId };
     case "gpsSample":
       if (state.status !== "collecting") return state;
       return withReadiness({ ...state, samples: [...state.samples.filter((sample) => sample.kind !== action.kind), { kind: action.kind, accuracyMeters: action.accuracyMeters }], issue: action.accuracyMeters > 100 ? "low_accuracy" : null });
@@ -54,7 +56,7 @@ export function checkInReducer(state: CheckInUiState, action: CheckInAction): Ch
     case "resume": return state.status === "paused" ? withReadiness({ ...state, status: "collecting" }) : state;
     case "submit": return state.status === "ready_to_submit" ? { ...state, status: "submitting", issue: null } : state;
     case "networkRetry": return state.status === "submitting" ? { ...state, issue: null } : state;
-    case "resolve": return state.status === "submitting" ? { ...state, status: action.decision } : state;
+    case "resolve": return state.status === "submitting" ? { ...state, status: action.decision === "pending" ? "submitted_pending" : action.decision } : state;
     case "issue": return { ...state, issue: action.issue };
     case "expire": return { ...state, status: "expired" };
     case "cancel": return { ...state, status: "cancelled" };

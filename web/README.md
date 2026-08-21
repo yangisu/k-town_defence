@@ -1,4 +1,21 @@
-# vinext-starter
+# K-Town Defense Web
+
+## Runtime modes
+
+- `KTOWN_SERVICE_MODE=demo`: 외부 백엔드 없이 기존 fixture로 실행한다.
+- `KTOWN_SERVICE_MODE=integrated`: 같은 출처 `/api/ktown/*` 게이트웨이를
+  통해 FastAPI의 장소·체크인 API를 사용한다.
+
+`KTOWN_API_BASE_URL`과 신뢰된 사용자 헤더는 서버에서만 사용하며 브라우저
+번들에 노출하지 않는다. 로컬 `npm run dev`에서는 `KTOWN_DEV_USER_ID`로
+개발 사용자를 지정할 수 있지만 production에서는 이 값을 무시하고 Sites의
+`oai-authenticated-user-id`만 전달한다.
+
+통합 체크인은 현재 실제 장치 GPS나 사진 바이너리를 수집하지 않는다.
+검증용 GPS·사진 메타데이터를 PostgreSQL에 저장하고 제출을 `pending`으로
+표시한다. 승인과 포인트 지급은 구현되지 않았다.
+
+## Original vinext runtime notes
 
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and

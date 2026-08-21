@@ -10,6 +10,7 @@ __pycache__/
 .coverage
 htmlcov/
 .venv/
+.data/
 dist/
 .wrangler/
 *.sqlite3

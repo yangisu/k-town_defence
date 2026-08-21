@@ -49,6 +49,11 @@ class PlaceModel(Base):
     longitude: Mapped[Decimal] = mapped_column(Numeric(9, 6))
     region_code: Mapped[str] = mapped_column(String(20))
     description_ko: Mapped[str] = mapped_column(Text, default="")
+    source: Mapped[str] = mapped_column(String(30), default="operator")
+    content_type_id: Mapped[str | None] = mapped_column(String(20))
+    category_code: Mapped[str | None] = mapped_column(String(30))
+    image_url: Mapped[str | None] = mapped_column(String(1000))
+    source_modified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_public: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -58,6 +63,30 @@ class PlaceModel(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
+
+
+class CatalogSyncRunModel(Base):
+    __tablename__ = "catalog_sync_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('running', 'succeeded', 'failed')",
+            name="ck_catalog_sync_runs_status",
+        ),
+        Index("ix_catalog_sync_runs_source_started", "source", "started_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    source: Mapped[str] = mapped_column(String(30))
+    area_code: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20))
+    snapshot_version: Mapped[str | None] = mapped_column(String(100))
+    fetched_count: Mapped[int] = mapped_column(Integer, default=0)
+    active_count: Mapped[int] = mapped_column(Integer, default=0)
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class CheckInSessionModel(Base):

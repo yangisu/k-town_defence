@@ -56,6 +56,12 @@ async def api_client(
 
 
 @pytest.fixture
+async def member_client(api_client: AsyncClient) -> AsyncIterator[AsyncClient]:
+    api_client.headers["X-KTown-User-Id"] = "member-1"
+    yield api_client
+
+
+@pytest.fixture
 def place_factory(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> Callable[..., object]:
@@ -81,3 +87,8 @@ def place_factory(
         return place
 
     return create_place
+
+
+@pytest.fixture
+async def public_place(place_factory) -> PlaceModel:
+    return await place_factory()

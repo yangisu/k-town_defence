@@ -85,4 +85,65 @@ describe("HTTP services", () => {
       headers: expect.objectContaining({ "Idempotency-Key": "0f154c8a-8736-4fb6-ae2d-3a339e127b20" }),
     }));
   });
+
+  it("maps a recommended expedition with enriched stop reasons", async () => {
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({
+      id: "expedition-1",
+      title: "부산 로컬 원정",
+      regionCode: "6",
+      keyword: "BTS",
+      travelDate: "2026-08-22",
+      dataUpdatedAt: "2026-08-22T03:00:00Z",
+      stops: [{
+        order: 1,
+        distanceKm: 0,
+        reasons: ["키워드 일치"],
+        place: {
+          id: "place-1", contentId: "101", nameKo: "감천문화마을",
+          addressKo: "부산광역시 사하구", latitude: 35.0975, longitude: 129.0106,
+          regionCode: "6", descriptionKo: "부산 산복도로의 문화마을",
+          category: "culture", contentTypeId: "12",
+          imageUrl: "https://images.example/101.jpg",
+          imageUrls: ["https://images.example/101.jpg"],
+          openTime: "09:00~18:00", restDate: "연중무휴", parking: "공영주차장",
+          homepageUrl: "https://example.com/101", telephone: "051-000-0000",
+          festivalStartDate: null, festivalEndDate: null,
+          discoveryKeywords: ["BTS"], sourceOperations: ["searchKeyword2", "detailCommon2"],
+          syncedAt: "2026-08-22T03:00:00Z",
+        },
+      }],
+    }));
+
+    const expedition = await createHttpServices(fetcher).tourism.getRecommendedExpedition({
+      regionCode: "6", keyword: "BTS", travelDate: "2026-08-22", limit: 5,
+    });
+
+    expect(fetcher.mock.calls[0][0]).toContain("regionCode=6");
+    expect(fetcher.mock.calls[0][0]).toContain("keyword=BTS");
+    expect(expedition.stops[0].reasons).toEqual(["키워드 일치"]);
+    expect(expedition.stops[0].place.imageUrls).toEqual(["https://images.example/101.jpg"]);
+    expect(expedition.stops[0].place.openTime).toBe("09:00~18:00");
+  });
+
+  it("maps safe open-data status and rejects malformed expedition stops", async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        label: "관광 OpenAPI", lastSuccessfulSyncAt: "2026-08-22T03:00:00Z",
+        activePlaceCount: 100,
+        operations: [{ operation: "areaBasedList2", lastSucceededAt: "2026-08-22T03:00:00Z", responseCount: 100 }],
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        id: "broken", title: "부산 로컬 원정", regionCode: "6", keyword: null,
+        travelDate: "2026-08-22", dataUpdatedAt: "2026-08-22T03:00:00Z",
+        stops: [{ order: 1, distanceKm: "near", reasons: [], place: null }],
+      }));
+    const tourism = createHttpServices(fetcher).tourism;
+
+    await expect(tourism.getOpenDataStatus()).resolves.toEqual(expect.objectContaining({
+      label: "관광 OpenAPI", activePlaceCount: 100,
+    }));
+    await expect(tourism.getRecommendedExpedition({
+      regionCode: "6", travelDate: "2026-08-22", limit: 3,
+    })).rejects.toMatchObject({ code: "INVALID_RESPONSE", status: 502 });
+  });
 });

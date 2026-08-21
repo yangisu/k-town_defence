@@ -31,6 +31,20 @@ export const services: AppServices = {
     async listPlaces(filter) {
       return clone(places.filter((place) => (!filter.regionId || place.regionId === filter.regionId) && (!filter.category || place.category === filter.category)));
     },
+    async getRecommendedExpedition(filter) {
+      const stops = places.filter((place) => place.regionId === "busan").slice(0, filter.limit);
+      return clone({
+        id: "demo-busan-expedition", title: "부산 로컬 원정", regionCode: filter.regionCode,
+        keyword: filter.keyword, travelDate: filter.travelDate, dataUpdatedAt: new Date().toISOString(),
+        stops: stops.map((place, index) => ({
+          order: index + 1, distanceKm: index * 0.8,
+          reasons: [index === 0 && filter.keyword ? "키워드 일치" : "다른 유형의 지역 명소"], place,
+        })),
+      });
+    },
+    async getOpenDataStatus() {
+      return { label: "관광 OpenAPI", lastSuccessfulSyncAt: new Date().toISOString(), activePlaceCount: places.length, operations: [] };
+    },
   },
   expeditions: {
     async listByRegion(regionId) { return clone(expeditions.filter((item) => item.regionId === regionId)); },

@@ -7,6 +7,9 @@ import type {
   Place,
   PlaceFilter,
   FandomSummary,
+  ExpeditionRecommendationFilter,
+  LiveExpedition,
+  OpenDataStatus,
   SeasonMembership,
 } from "./domain";
 import { services as demoServices } from "./demo-services";
@@ -24,6 +27,17 @@ type PlaceDto = {
   category?: Place["category"];
   contentTypeId?: string | null;
   imageUrl?: string | null;
+  homepageUrl?: string | null;
+  telephone?: string | null;
+  openTime?: string | null;
+  restDate?: string | null;
+  parking?: string | null;
+  imageUrls?: string[];
+  festivalStartDate?: string | null;
+  festivalEndDate?: string | null;
+  discoveryKeywords?: string[];
+  sourceOperations?: string[];
+  syncedAt?: string | null;
 };
 
 type CheckInDto = {
@@ -93,7 +107,117 @@ function mapPlace(dto: PlaceDto): Place {
     latitude: dto.latitude,
     longitude: dto.longitude,
     imageUrl: dto.imageUrl ?? undefined,
+    imageUrls: dto.imageUrls,
     contentTypeId: dto.contentTypeId ?? undefined,
+    homepageUrl: dto.homepageUrl ?? undefined,
+    telephone: dto.telephone ?? undefined,
+    openTime: dto.openTime ?? undefined,
+    restDate: dto.restDate ?? undefined,
+    parking: dto.parking ?? undefined,
+    festivalStartDate: dto.festivalStartDate ?? undefined,
+    festivalEndDate: dto.festivalEndDate ?? undefined,
+    discoveryKeywords: dto.discoveryKeywords,
+    sourceOperations: dto.sourceOperations,
+    syncedAt: dto.syncedAt ?? undefined,
+  };
+}
+
+function invalidResponse(): never {
+  throw new KTownApiError("INVALID_RESPONSE", "관광 데이터 응답 형식이 올바르지 않습니다.", 502);
+}
+
+function object(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) invalidResponse();
+  return value as Record<string, unknown>;
+}
+
+function text(value: unknown): string {
+  if (typeof value !== "string" || value.length === 0) invalidResponse();
+  return value;
+}
+
+function finiteNumber(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) invalidResponse();
+  return value;
+}
+
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) invalidResponse();
+  return value as string[];
+}
+
+function nullableText(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  return text(value);
+}
+
+function mapEnrichedPlace(value: unknown): Place {
+  const dto = object(value);
+  const mapped: PlaceDto = {
+    id: text(dto.id),
+    contentId: dto.contentId === null ? null : text(dto.contentId),
+    nameKo: text(dto.nameKo),
+    addressKo: text(dto.addressKo),
+    latitude: finiteNumber(dto.latitude),
+    longitude: finiteNumber(dto.longitude),
+    regionCode: text(dto.regionCode),
+    descriptionKo: text(dto.descriptionKo),
+    category: text(dto.category) as Place["category"],
+    contentTypeId: nullableText(dto.contentTypeId),
+    imageUrl: nullableText(dto.imageUrl),
+    homepageUrl: nullableText(dto.homepageUrl),
+    telephone: nullableText(dto.telephone),
+    openTime: nullableText(dto.openTime),
+    restDate: nullableText(dto.restDate),
+    parking: nullableText(dto.parking),
+    imageUrls: stringArray(dto.imageUrls),
+    festivalStartDate: nullableText(dto.festivalStartDate),
+    festivalEndDate: nullableText(dto.festivalEndDate),
+    discoveryKeywords: stringArray(dto.discoveryKeywords),
+    sourceOperations: stringArray(dto.sourceOperations),
+    syncedAt: nullableText(dto.syncedAt),
+  };
+  if (mapped.imageUrls?.some((url) => !url.startsWith("https://"))) invalidResponse();
+  return mapPlace(mapped);
+}
+
+function mapExpedition(value: unknown): LiveExpedition {
+  const dto = object(value);
+  if (!Array.isArray(dto.stops)) invalidResponse();
+  return {
+    id: text(dto.id),
+    title: text(dto.title),
+    regionCode: text(dto.regionCode),
+    keyword: nullableText(dto.keyword),
+    travelDate: text(dto.travelDate),
+    dataUpdatedAt: nullableText(dto.dataUpdatedAt),
+    stops: dto.stops.map((value) => {
+      const stop = object(value);
+      return {
+        order: finiteNumber(stop.order),
+        distanceKm: finiteNumber(stop.distanceKm),
+        reasons: stringArray(stop.reasons),
+        place: mapEnrichedPlace(stop.place),
+      };
+    }),
+  };
+}
+
+function mapOpenDataStatus(value: unknown): OpenDataStatus {
+  const dto = object(value);
+  if (!Array.isArray(dto.operations)) invalidResponse();
+  return {
+    label: text(dto.label),
+    lastSuccessfulSyncAt: nullableText(dto.lastSuccessfulSyncAt),
+    activePlaceCount: finiteNumber(dto.activePlaceCount),
+    operations: dto.operations.map((value) => {
+      const item = object(value);
+      return {
+        operation: text(item.operation),
+        lastSucceededAt: text(item.lastSucceededAt),
+        responseCount: finiteNumber(item.responseCount),
+      };
+    }),
   };
 }
 
@@ -116,6 +240,24 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
           `/api/v1/places${suffix}`,
         );
         return response.items.map(mapPlace);
+      },
+      async getRecommendedExpedition(filter: ExpeditionRecommendationFilter) {
+        const params = new URLSearchParams({
+          regionCode: filter.regionCode,
+          travelDate: filter.travelDate,
+          limit: String(filter.limit),
+        });
+        if (filter.keyword?.trim()) params.set("keyword", filter.keyword.trim());
+        const response = await requestJson<unknown>(
+          fetcher,
+          `/api/v1/expeditions/recommended?${params.toString()}`,
+        );
+        return mapExpedition(response);
+      },
+      async getOpenDataStatus() {
+        return mapOpenDataStatus(
+          await requestJson<unknown>(fetcher, "/api/v1/open-data/status"),
+        );
       },
     },
     expeditions: demoServices.expeditions,

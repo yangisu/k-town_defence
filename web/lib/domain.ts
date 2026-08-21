@@ -29,7 +29,18 @@ export interface Place {
   latitude?: number;
   longitude?: number;
   imageUrl?: string;
+  imageUrls?: string[];
   contentTypeId?: string;
+  homepageUrl?: string;
+  telephone?: string;
+  openTime?: string;
+  restDate?: string;
+  parking?: string;
+  festivalStartDate?: string;
+  festivalEndDate?: string;
+  discoveryKeywords?: string[];
+  sourceOperations?: string[];
+  syncedAt?: string;
   localBenefit?: string;
   completed?: boolean;
 }
@@ -38,6 +49,43 @@ export interface PlaceFilter {
   regionId?: string;
   category?: PlaceCategory;
   query?: string;
+}
+
+export interface ExpeditionRecommendationFilter {
+  regionCode: string;
+  keyword?: string;
+  travelDate: string;
+  limit: 3 | 4 | 5;
+}
+
+export interface LiveExpeditionStop {
+  order: number;
+  distanceKm: number;
+  reasons: string[];
+  place: Place;
+}
+
+export interface LiveExpedition {
+  id: string;
+  title: string;
+  regionCode: string;
+  keyword?: string;
+  travelDate: string;
+  dataUpdatedAt?: string;
+  stops: LiveExpeditionStop[];
+}
+
+export interface OpenDataOperationStatus {
+  operation: string;
+  lastSucceededAt: string;
+  responseCount: number;
+}
+
+export interface OpenDataStatus {
+  label: string;
+  lastSuccessfulSyncAt?: string;
+  activePlaceCount: number;
+  operations: OpenDataOperationStatus[];
 }
 
 export interface Expedition {
@@ -129,6 +177,8 @@ export interface TourismService {
   listRegions(): Promise<Region[]>;
   getRegion(regionId: string): Promise<Region>;
   listPlaces(filter: PlaceFilter): Promise<Place[]>;
+  getRecommendedExpedition(filter: ExpeditionRecommendationFilter): Promise<LiveExpedition>;
+  getOpenDataStatus(): Promise<OpenDataStatus>;
 }
 
 export interface ExpeditionService {

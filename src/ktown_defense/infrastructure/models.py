@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -10,6 +10,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -19,7 +20,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PostgreSQLUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -123,6 +124,18 @@ class PlaceModel(Base):
     content_type_id: Mapped[str | None] = mapped_column(String(20))
     category_code: Mapped[str | None] = mapped_column(String(30))
     image_url: Mapped[str | None] = mapped_column(String(1000))
+    homepage_url: Mapped[str | None] = mapped_column(String(1000))
+    telephone: Mapped[str | None] = mapped_column(String(200))
+    open_time: Mapped[str | None] = mapped_column(Text)
+    rest_date: Mapped[str | None] = mapped_column(Text)
+    parking: Mapped[str | None] = mapped_column(Text)
+    intro_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    info_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    image_urls: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    festival_start_date: Mapped[date | None] = mapped_column(Date)
+    festival_end_date: Mapped[date | None] = mapped_column(Date)
+    discovery_keywords: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    source_operations: Mapped[list[str]] = mapped_column(JSONB, default=list)
     source_modified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_public: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -157,6 +170,36 @@ class CatalogSyncRunModel(Base):
     error_code: Mapped[str | None] = mapped_column(String(100))
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class OpenApiCallLogModel(Base):
+    __tablename__ = "open_api_call_logs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('succeeded', 'failed')",
+            name="ck_open_api_call_logs_status",
+        ),
+        Index(
+            "ix_open_api_call_logs_operation_completed",
+            "operation",
+            "completed_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    sync_run_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("catalog_sync_runs.id", ondelete="CASCADE"),
+    )
+    operation: Mapped[str] = mapped_column(String(100))
+    feature: Mapped[str] = mapped_column(String(100))
+    status: Mapped[str] = mapped_column(String(20))
+    response_count: Mapped[int] = mapped_column(Integer, default=0)
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class CheckInSessionModel(Base):

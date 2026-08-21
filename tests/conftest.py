@@ -16,7 +16,7 @@ from ktown_defense.settings import Settings
 
 DATABASE_URL = os.getenv(
     "KTOWN_TEST_DATABASE_URL",
-    "postgresql+asyncpg://ktown:ktown@127.0.0.1:55432/ktown",
+    "postgresql+asyncpg://ktown:ktown@127.0.0.1:55432/ktown_test",
 )
 
 

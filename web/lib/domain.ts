@@ -113,10 +113,7 @@ export interface GpsEvidence {
 }
 
 export interface PhotoEvidence {
-  storageKey: string;
-  contentType: "image/jpeg" | "image/png" | "image/webp";
-  sizeBytes: number;
-  sha256: string;
+  file: File;
   capturedAt: string;
 }
 

@@ -56,7 +56,7 @@ async function requestJson<T>(
   const response = await fetcher(`/api/ktown${path}`, {
     ...init,
     headers: {
-      ...(init.body ? { "content-type": "application/json" } : {}),
+      ...(init.body && !(init.body instanceof FormData) ? { "content-type": "application/json" } : {}),
       ...(init.headers ?? {}),
     },
   });
@@ -135,9 +135,12 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
         });
       },
       async recordPhoto(sessionId: string, evidence: PhotoEvidence) {
+        const form = new FormData();
+        form.set("file", evidence.file);
+        form.set("capturedAt", evidence.capturedAt);
         await requestJson(fetcher, `/api/v1/checkins/${sessionId}/photo`, {
           method: "POST",
-          body: JSON.stringify(evidence),
+          body: form,
         });
       },
       async submit(sessionId, idempotencyKey): Promise<CheckInResult> {

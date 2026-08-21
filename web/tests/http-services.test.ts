@@ -73,11 +73,14 @@ describe("HTTP services", () => {
 
     const session = await service.create("place-1");
     await service.recordGps(session.id, { sequence: 1, latitude: 35.1, longitude: 129, accuracyMeters: 20, capturedAt: "2026-08-21T10:00:00Z" });
-    await service.recordPhoto(session.id, { storageKey: "private/photo.jpg", contentType: "image/jpeg", sizeBytes: 1024, sha256: "a".repeat(64), capturedAt: "2026-08-21T10:00:01Z" });
+    const file = new File([new Uint8Array([0xff, 0xd8, 0xff])], "camera.jpg", { type: "image/jpeg" });
+    await service.recordPhoto(session.id, { file, capturedAt: "2026-08-21T10:00:01Z" });
     const result = await service.submit(session.id, "0f154c8a-8736-4fb6-ae2d-3a339e127b20");
 
     expect(result).toEqual(expect.objectContaining({ decision: "pending" }));
     expect(result.awardedPoints).toBeUndefined();
+    expect(fetcher.mock.calls[2]?.[1]?.body).toBeInstanceOf(FormData);
+    expect(new Headers(fetcher.mock.calls[2]?.[1]?.headers).has("content-type")).toBe(false);
     expect(fetcher.mock.calls[3]?.[1]).toEqual(expect.objectContaining({
       headers: expect.objectContaining({ "Idempotency-Key": "0f154c8a-8736-4fb6-ae2d-3a339e127b20" }),
     }));

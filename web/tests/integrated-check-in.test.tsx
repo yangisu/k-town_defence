@@ -27,10 +27,12 @@ it("shows a pending review without invented approval or points", async () => {
     submit: vi.fn().mockResolvedValue({ decision: "pending", message: "체크인 제출이 접수되었습니다. 검토를 기다려 주세요." }),
   };
 
-  render(<CheckInFlow place={place} service={service} mode="integrated" onClose={() => undefined} />);
-  const advance = screen.getByRole("button", { name: "인증 과정 진행" });
-  await waitFor(() => expect(advance).toBeEnabled());
-  await user.click(advance);
+  const geolocation = { getCurrentPosition(success: PositionCallback) { success({ coords: { latitude: 35.1, longitude: 129, accuracy: 20 } as GeolocationCoordinates, timestamp: Date.now() }); }, watchPosition: () => 0, clearWatch: () => undefined } as Geolocation;
+  render(<CheckInFlow place={place} service={service} mode="integrated" geolocation={geolocation} onClose={() => undefined} />);
+  const location = screen.getByRole("button", { name: "실제 위치 확인" });
+  await waitFor(() => expect(location).toBeEnabled());
+  await user.click(location);
+  await user.upload(await screen.findByLabelText("현장 사진 선택"), new File([new Uint8Array([0xff, 0xd8, 0xff])], "camera.jpg", { type: "image/jpeg" }));
   await user.click(await screen.findByRole("button", { name: "체크인 제출" }));
 
   expect(await screen.findByText(/검토를 기다려 주세요/)).toBeVisible();

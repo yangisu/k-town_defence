@@ -55,7 +55,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[test]"
 docker compose up -d postgres
 .\.venv\Scripts\python.exe -m alembic -c alembic.ini upgrade head
-.\.venv\Scripts\python.exe -m ktown_defense.seed_demo
+.\.venv\Scripts\python.exe -m ktown_defense.sync_ktour --area-code 6 --limit 100
 .\.venv\Scripts\python.exe -m uvicorn ktown_defense.api.main:app --port 8000
 ```
 
@@ -73,10 +73,15 @@ npm run dev -- --port 3000
 `KTOWN_DEV_USER_ID`는 로컬 개발 서버에서만 사용된다. production에서는
 Sites가 전달한 `oai-authenticated-user-id`만 신뢰한다.
 
-통합 MVP API는 `GET /api/v1/places`와 장소 상세, 체크인 생성, GPS·사진
-메타데이터 저장, 멱등 제출을 제공한다. 제출 결과는 승인이나 포인트 지급이
-아닌 `pending`이다. 실제 사진 바이너리 저장, 심사, 포인트와 거점 갱신은
-후속 범위다.
+동기화 명령은 `KTOUR_SERVICE_KEY`를 사용해 KorService2의 부산 지역
+관광지를 PostgreSQL에 원자적으로 갱신한다. 실패하거나 결과가 비어 있으면
+마지막 정상 장소 목록을 유지한다.
+
+통합 API는 실제 브라우저 GPS 좌표와 최대 10MiB JPEG·PNG·WebP 사진을
+받는다. 사진은 `KTOWN_UPLOAD_DIR`(기본 `.data/private-uploads`) 아래 비공개
+경로에 저장하며 제출 결과는 승인이나 포인트 지급이 아닌 `pending`이다.
+현재 로컬 MVP는 사진 EXIF를 제거하지 않으므로 공개 운영 전 EXIF 제거,
+보존기간 삭제 작업과 영속 객체 저장소가 필요하다.
 
 전체 검증:
 

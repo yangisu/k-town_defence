@@ -35,7 +35,7 @@ export function createInitialCheckInState(sessionId: string, placeId: string, id
 export function deriveCheckInProgress(state: CheckInUiState) {
   const gpsCount = new Set(state.samples.filter((sample) => sample.accuracyMeters <= 100).map((sample) => sample.kind)).size;
   const dwellPercent = Math.min(100, Math.round((state.activeSeconds / 300) * 100));
-  return { gpsCount, dwellPercent, canSubmit: gpsCount === 3 && Boolean(state.photoAssetId) && state.activeSeconds >= 300 };
+  return { gpsCount, dwellPercent, canSubmit: gpsCount === 3 && Boolean(state.photoAssetId) };
 }
 
 function withReadiness(state: CheckInUiState): CheckInUiState {

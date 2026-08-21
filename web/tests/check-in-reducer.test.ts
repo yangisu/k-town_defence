@@ -11,16 +11,15 @@ const readyActions: CheckInAction[] = [
   { type: "gpsSample", kind: "middle", accuracyMeters: 22 },
   { type: "gpsSample", kind: "end", accuracyMeters: 20 },
   { type: "photoCaptured", assetId: "photo-1" },
-  { type: "dwellUpdated", activeSeconds: 300 },
 ];
 
 describe("check-in reducer", () => {
-  it("becomes ready only after three GPS kinds, photo, and 300 active seconds", () => {
+  it("becomes ready after three GPS kinds and a photo", () => {
     const collecting = createInitialCheckInState("session-1", "busan-white-cliff", "submit-1");
     const ready = readyActions.reduce(checkInReducer, collecting);
     expect(deriveCheckInProgress(ready)).toEqual({
       gpsCount: 3,
-      dwellPercent: 100,
+      dwellPercent: 0,
       canSubmit: true,
     });
     expect(ready.status).toBe("ready_to_submit");

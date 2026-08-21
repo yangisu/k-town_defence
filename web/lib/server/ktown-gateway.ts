@@ -44,7 +44,8 @@ export async function proxyKtownRequest(
   let body: ArrayBuffer | undefined;
   if (!new Set(["GET", "HEAD"]).has(request.method)) {
     body = await request.arrayBuffer();
-    if (body.byteLength > 1024 * 1024) {
+    const maximumBodyBytes = path.endsWith("/photo") ? 11 * 1024 * 1024 : 1024 * 1024;
+    if (body.byteLength > maximumBodyBytes) {
       return jsonError(413, "REQUEST_TOO_LARGE", "요청 본문이 너무 큽니다.");
     }
   }

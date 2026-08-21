@@ -19,12 +19,18 @@ const place: Place = {
 };
 
 function service(result: Place[] | Error): TourismService {
+  const expedition = {
+    id: "live-expedition", title: "부산 로컬 원정", regionCode: "6", travelDate: "2026-08-22",
+    stops: result instanceof Error ? [] : result.map((item, index) => ({ order: index + 1, distanceKm: index, reasons: ["지역 원정 시작점"], place: item })),
+  };
   return {
     listRegions: vi.fn().mockResolvedValue([]),
     getRegion: vi.fn(),
     listPlaces: result instanceof Error
       ? vi.fn().mockRejectedValue(result)
       : vi.fn().mockResolvedValue(result),
+    getRecommendedExpedition: result instanceof Error ? vi.fn().mockRejectedValue(result) : vi.fn().mockResolvedValue(expedition),
+    getOpenDataStatus: vi.fn().mockResolvedValue({ label: "관광 OpenAPI", activePlaceCount: 1, operations: [] }),
   };
 }
 
@@ -34,7 +40,7 @@ it("renders a real Busan place and starts its exact check-in", async () => {
   render(<LivePlacesPanel service={service([place])} onStartCheckIn={onStartCheckIn} />);
 
   expect(await screen.findByText("감천문화마을")).toBeVisible();
-  expect(screen.getByText("한국관광공사 공식 설명")).toBeVisible();
+  expect(screen.getByText("공공 관광데이터 공식 설명")).toBeVisible();
   await user.click(screen.getByRole("button", { name: "감천문화마을 체크인" }));
   expect(onStartCheckIn).toHaveBeenCalledWith(place);
 });
@@ -42,6 +48,6 @@ it("renders a real Busan place and starts its exact check-in", async () => {
 it("shows a recoverable error state", async () => {
   render(<LivePlacesPanel service={service(new Error("network"))} onStartCheckIn={() => undefined} />);
 
-  expect(await screen.findByText("실제 관광지를 불러오지 못했어요")).toBeVisible();
+  expect(await screen.findByText("지역 원정을 만들지 못했어요")).toBeVisible();
   expect(screen.getByRole("button", { name: "다시 시도" })).toBeVisible();
 });

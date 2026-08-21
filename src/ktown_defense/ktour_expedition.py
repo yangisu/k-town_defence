@@ -51,6 +51,10 @@ class TourismExpeditionSnapshot:
 class KTourExpeditionClient(KTourOpenAPIClient):
     """Fetch and enrich a bounded area snapshot using official operation shapes."""
 
+    @property
+    def observations(self) -> tuple[OpenApiCallObservation, ...]:
+        return tuple(getattr(self, "_observations", ()))
+
     def fetch_snapshot(
         self,
         *,

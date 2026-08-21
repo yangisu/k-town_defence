@@ -130,7 +130,7 @@ class PlaceModel(Base):
     rest_date: Mapped[str | None] = mapped_column(Text)
     parking: Mapped[str | None] = mapped_column(Text)
     intro_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
-    info_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)
+    info_json: Mapped[list[dict[str, object]]] = mapped_column(JSONB, default=list)
     image_urls: Mapped[list[str]] = mapped_column(JSONB, default=list)
     festival_start_date: Mapped[date | None] = mapped_column(Date)
     festival_end_date: Mapped[date | None] = mapped_column(Date)

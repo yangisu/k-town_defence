@@ -36,7 +36,7 @@ def upgrade() -> None:
             "info_json",
             postgresql.JSONB(astext_type=sa.Text()),
             nullable=False,
-            server_default=empty_object,
+            server_default=empty_array,
         ),
     )
     op.add_column(
@@ -120,4 +120,3 @@ def downgrade() -> None:
         "homepage_url",
     ):
         op.drop_column("places", name)
-

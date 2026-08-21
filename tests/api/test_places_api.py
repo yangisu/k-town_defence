@@ -9,19 +9,31 @@ async def test_places_list_only_public_active_rows(api_client, place_factory) ->
     response = await api_client.get("/api/v1/places")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "items": [
-            {
-                "id": str(visible.id),
-                "contentId": visible.content_id,
-                "nameKo": "감천문화마을",
-                "addressKo": "부산광역시 사하구",
-                "latitude": 35.0975,
-                "longitude": 129.0106,
-                "regionCode": "6",
-                "descriptionKo": "부산의 산복도로 문화마을",
-            }
-        ]
+    body = response.json()
+    assert body["total"] == 1
+    assert body["limit"] == 100
+    assert body["offset"] == 0
+    assert len(body["items"]) == 1
+    assert body["items"][0] | {
+        "contentTypeId": None,
+        "categoryCode": None,
+        "category": "culture",
+        "imageUrl": None,
+        "syncedAt": None,
+    } == {
+        "id": str(visible.id),
+        "contentId": visible.content_id,
+        "nameKo": "감천문화마을",
+        "addressKo": "부산광역시 사하구",
+        "latitude": 35.0975,
+        "longitude": 129.0106,
+        "regionCode": "6",
+        "descriptionKo": "부산의 산복도로 문화마을",
+        "contentTypeId": None,
+        "categoryCode": None,
+        "category": "culture",
+        "imageUrl": None,
+        "syncedAt": None,
     }
 
 

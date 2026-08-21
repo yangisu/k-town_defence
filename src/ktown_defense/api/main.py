@@ -2,17 +2,27 @@
 
 from fastapi import FastAPI
 
+from ..infrastructure.database import create_engine_and_session_factory
 from ..settings import Settings
+from .errors import install_error_handlers
+from .place_routes import router as place_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="K-Town Defense", version="0.1.0")
     app.state.settings = settings or Settings()
+    engine, session_factory = create_engine_and_session_factory(
+        app.state.settings.database_url
+    )
+    app.state.engine = engine
+    app.state.session_factory = session_factory
+    install_error_handlers(app)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"service": "ktown-defense", "status": "ok"}
 
+    app.include_router(place_router)
     return app
 
 

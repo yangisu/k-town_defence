@@ -31,13 +31,8 @@ async def test_http_checkin_flow_survives_a_fresh_database_connection(
 
     photo = await member_client.post(
         f"/api/v1/checkins/{session_id}/photo",
-        json={
-            "storageKey": f"private/{session_id}/photo.jpg",
-            "contentType": "image/jpeg",
-            "sizeBytes": 1024,
-            "sha256": "c" * 64,
-            "capturedAt": "2026-08-21T10:00:01Z",
-        },
+        files={"file": ("camera.jpg", b"\xff\xd8\xff\xe0e2e-photo", "image/jpeg")},
+        data={"capturedAt": "2026-08-21T10:00:01Z"},
     )
     assert photo.status_code == 201
 

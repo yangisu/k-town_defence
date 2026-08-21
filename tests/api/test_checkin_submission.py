@@ -14,13 +14,7 @@ GPS_PAYLOAD = {
     "accuracyMeters": 20,
     "capturedAt": "2026-08-21T10:00:00Z",
 }
-PHOTO_PAYLOAD = {
-    "storageKey": "private/member-1/session/submission.jpg",
-    "contentType": "image/jpeg",
-    "sizeBytes": 1024,
-    "sha256": "b" * 64,
-    "capturedAt": "2026-08-21T10:00:01Z",
-}
+PHOTO_BYTES = b"\xff\xd8\xff\xe0submission-photo"
 
 
 async def _create_session(member_client, public_place) -> str:
@@ -38,7 +32,9 @@ async def _make_ready(member_client, session_id: str) -> None:
     ).status_code == 201
     assert (
         await member_client.post(
-            f"/api/v1/checkins/{session_id}/photo", json=PHOTO_PAYLOAD
+            f"/api/v1/checkins/{session_id}/photo",
+            files={"file": ("camera.jpg", PHOTO_BYTES, "image/jpeg")},
+            data={"capturedAt": "2026-08-21T10:00:01Z"},
         )
     ).status_code == 201
 

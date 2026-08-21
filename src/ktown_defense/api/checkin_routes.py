@@ -4,12 +4,13 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, status
+from fastapi import APIRouter, Depends, File, Form, Header, Request, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..checkin_application import CheckInApplication
 from ..infrastructure.models import CheckInSessionModel, SubmissionModel
+from ..photo_storage import PrivatePhotoStorage
 from .dependencies import get_session, get_user_id
 
 
@@ -54,18 +55,6 @@ class GpsRequest(BaseModel):
 class GpsResponse(BaseModel):
     id: UUID
     sequence: int
-
-
-class PhotoRequest(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    storage_key: str = Field(alias="storageKey", min_length=1, max_length=500)
-    content_type: Literal["image/jpeg", "image/png", "image/webp"] = Field(
-        alias="contentType"
-    )
-    size_bytes: int = Field(alias="sizeBytes", ge=1, le=10 * 1024 * 1024)
-    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    captured_at: datetime = Field(alias="capturedAt")
 
 
 class PhotoResponse(BaseModel):
@@ -140,19 +129,27 @@ async def add_gps(
 )
 async def add_photo(
     session_id: UUID,
-    payload: PhotoRequest,
+    request: Request,
     session: Session,
     user_id: UserId,
+    file: Annotated[UploadFile, File()],
+    captured_at: Annotated[datetime, Form(alias="capturedAt")],
 ) -> PhotoResponse:
-    photo = await CheckInApplication(session).add_photo(
-        user_id,
-        session_id,
-        storage_key=payload.storage_key,
-        content_type=payload.content_type,
-        size_bytes=payload.size_bytes,
-        sha256=payload.sha256,
-        captured_at=payload.captured_at,
-    )
+    storage: PrivatePhotoStorage = request.app.state.photo_storage
+    stored = await storage.store(session_id, file)
+    try:
+        photo = await CheckInApplication(session).add_photo(
+            user_id,
+            session_id,
+            storage_key=stored.storage_key,
+            content_type=stored.content_type,
+            size_bytes=stored.size_bytes,
+            sha256=stored.sha256,
+            captured_at=captured_at,
+        )
+    except Exception:
+        storage.delete(stored.storage_key)
+        raise
     return PhotoResponse(id=photo.id, storage_key=photo.storage_key)
 
 

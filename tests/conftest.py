@@ -45,14 +45,22 @@ async def session_factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
 @pytest.fixture
 async def api_client(
     session_factory: async_sessionmaker[AsyncSession],
+    upload_dir,
 ) -> AsyncIterator[AsyncClient]:
-    app = create_app(Settings(database_url=DATABASE_URL, _env_file=None))
+    app = create_app(
+        Settings(database_url=DATABASE_URL, upload_dir=upload_dir, _env_file=None)
+    )
     app.state.session_factory = session_factory
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
         yield client
+
+
+@pytest.fixture
+def upload_dir(tmp_path):
+    return tmp_path / "private-uploads"
 
 
 @pytest.fixture

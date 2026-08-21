@@ -6,13 +6,7 @@ GPS_PAYLOAD = {
     "capturedAt": "2026-08-21T10:00:00Z",
 }
 
-PHOTO_PAYLOAD = {
-    "storageKey": "private/member-1/session/photo.jpg",
-    "contentType": "image/jpeg",
-    "sizeBytes": 1024,
-    "sha256": "a" * 64,
-    "capturedAt": "2026-08-21T10:00:01Z",
-}
+PHOTO_BYTES = b"\xff\xd8\xff\xe0checkin-photo"
 
 
 async def _create_session(member_client, public_place) -> str:
@@ -39,19 +33,18 @@ async def test_gps_sequence_must_increase(member_client, public_place) -> None:
     assert duplicate.json()["code"] == "GPS_SEQUENCE_CONFLICT"
 
 
-async def test_photo_metadata_rejects_invalid_sha256(
+async def test_photo_endpoint_rejects_client_supplied_metadata_json(
     member_client, public_place
 ) -> None:
     session_id = await _create_session(member_client, public_place)
 
     response = await member_client.post(
         f"/api/v1/checkins/{session_id}/photo",
-        json={**PHOTO_PAYLOAD, "sha256": "bad"},
+        json={"storageKey": "private/client-controlled.jpg", "sha256": "bad"},
     )
 
     assert response.status_code == 422
     assert response.json()["code"] == "VALIDATION_ERROR"
-    assert response.json()["field"] == "sha256"
 
 
 async def test_session_becomes_ready_only_after_gps_and_photo(
@@ -64,7 +57,9 @@ async def test_session_becomes_ready_only_after_gps_and_photo(
     )
     after_gps = await member_client.get(f"/api/v1/checkins/{session_id}")
     photo = await member_client.post(
-        f"/api/v1/checkins/{session_id}/photo", json=PHOTO_PAYLOAD
+        f"/api/v1/checkins/{session_id}/photo",
+        files={"file": ("camera.jpg", PHOTO_BYTES, "image/jpeg")},
+        data={"capturedAt": "2026-08-21T10:00:01Z"},
     )
     after_photo = await member_client.get(f"/api/v1/checkins/{session_id}")
 
@@ -74,13 +69,15 @@ async def test_session_becomes_ready_only_after_gps_and_photo(
     assert after_photo.json()["status"] == "ready"
 
 
-async def test_storage_key_traversal_is_rejected(member_client, public_place) -> None:
+async def test_client_photo_filename_cannot_control_storage_key(member_client, public_place) -> None:
     session_id = await _create_session(member_client, public_place)
 
     response = await member_client.post(
         f"/api/v1/checkins/{session_id}/photo",
-        json={**PHOTO_PAYLOAD, "storageKey": "../public/photo.jpg"},
+        files={"file": ("../../public/photo.jpg", PHOTO_BYTES, "image/jpeg")},
+        data={"capturedAt": "2026-08-21T10:00:01Z"},
     )
 
-    assert response.status_code == 422
-    assert response.json()["code"] == "INVALID_STORAGE_KEY"
+    assert response.status_code == 201
+    assert ".." not in response.json()["storageKey"]
+    assert "public/photo.jpg" not in response.json()["storageKey"]

@@ -346,6 +346,53 @@ def test_full_sync_prioritizes_keyword_result_over_area_fill() -> None:
     assert [place.content_id for place in snapshot.places] == ["keyword"]
 
 
+def test_feature_groups_share_saturated_full_sync_capacity() -> None:
+    groups = [
+        [{"contentid": f"{prefix}-{index}"} for index in range(100)]
+        for prefix in ("keyword", "nearby", "festival", "changed")
+    ]
+    candidates = {
+        str(item["contentid"]): item for group in groups for item in group
+    }
+
+    prioritized = KTourExpeditionClient._prioritized_content_ids(groups, [], candidates)
+    selected = prioritized[:100]
+
+    assert selected[:4] == ("keyword-0", "nearby-0", "festival-0", "changed-0")
+    assert {
+        content_id.split("-", 1)[0] for content_id in selected
+    } == {"keyword", "nearby", "festival", "changed"}
+
+
+def test_incremental_sync_does_not_reenrich_unchanged_discovery_results() -> None:
+    transport = ExpeditionTransport()
+    changed = {
+        "contentid": "changed", "contenttypeid": "12", "title": "변경 관광지",
+        "addr1": "부산", "mapx": "129.0", "mapy": "35.0", "areacode": "6",
+        "modifiedtime": "20260822030000", "showflag": "1",
+    }
+    unchanged = {**changed, "contentid": "unchanged", "title": "기존 BTS 명소"}
+
+    def changed_only(url: str, timeout: float) -> bytes:
+        if "areaBasedSyncList2" in url:
+            showflag = parse_qs(urlparse(url).query)["showflag"][0]
+            return response([changed] if showflag == "1" else [])
+        if "areaBasedList2" in url:
+            return response([changed, unchanged])
+        if "searchKeyword2" in url or "locationBasedList2" in url or "searchFestival2" in url:
+            return response([unchanged])
+        return transport(url, timeout)
+
+    snapshot = KTourExpeditionClient(
+        service_key="secret-key", transport=changed_only, clock=lambda: NOW,
+    ).fetch_snapshot(
+        area_code="6", keywords=("BTS",), start_date=date(2026, 8, 22),
+        end_date=date(2026, 9, 21), limit=100,
+    )
+
+    assert [place.content_id for place in snapshot.places] == ["changed"]
+
+
 def test_festival_outside_requested_window_is_not_marked_active() -> None:
     transport = ExpeditionTransport()
 

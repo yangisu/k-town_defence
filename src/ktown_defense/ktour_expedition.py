@@ -197,19 +197,11 @@ class KTourExpeditionClient(KTourOpenAPIClient):
                     festival_end,
                 )
 
-        priority_ids = (set(changed_ids) - set(deleted_ids)) | set(keyword_matches) | set(festivals)
-        prioritized_ids = tuple(
-            dict.fromkeys(
-                str(item.get("contentid", "")).strip()
-                for item in [
-                    *keyword_items,
-                    *nearby_items,
-                    *festival_items,
-                    *active_changed_items,
-                    *area_items,
-                ]
-                if str(item.get("contentid", "")).strip() in candidates
-            )
+        incremental_ids = set(changed_ids) - set(deleted_ids)
+        prioritized_ids = self._prioritized_content_ids(
+            [keyword_items, nearby_items, festival_items, active_changed_items],
+            area_items,
+            candidates,
         )
         enrichment_candidates = [
             (content_id, candidates[content_id]) for content_id in prioritized_ids
@@ -218,7 +210,7 @@ class KTourExpeditionClient(KTourOpenAPIClient):
             enrichment_candidates = [
                 (content_id, item)
                 for content_id, item in enrichment_candidates
-                if content_id in priority_ids
+                if content_id in incremental_ids
             ]
 
         places: list[TourismPlaceDetail] = []
@@ -246,6 +238,38 @@ class KTourExpeditionClient(KTourOpenAPIClient):
             changed_content_ids=changed_ids,
             deleted_content_ids=deleted_ids,
         )
+
+    @staticmethod
+    def _prioritized_content_ids(
+        feature_groups: list[list[Mapping[str, object]]],
+        area_items: list[Mapping[str, object]],
+        candidates: Mapping[str, Mapping[str, object]],
+    ) -> tuple[str, ...]:
+        """Interleave feature discoveries before filling capacity from the area catalog."""
+        grouped_ids = [
+            list(
+                dict.fromkeys(
+                    content_id
+                    for item in group
+                    if (content_id := str(item.get("contentid", "")).strip())
+                    in candidates
+                )
+            )
+            for group in feature_groups
+        ]
+        prioritized: list[str] = []
+        seen: set[str] = set()
+        for index in range(max((len(group) for group in grouped_ids), default=0)):
+            for group in grouped_ids:
+                if index < len(group) and group[index] not in seen:
+                    prioritized.append(group[index])
+                    seen.add(group[index])
+        for item in area_items:
+            content_id = str(item.get("contentid", "")).strip()
+            if content_id in candidates and content_id not in seen:
+                prioritized.append(content_id)
+                seen.add(content_id)
+        return tuple(prioritized)
 
     def _enrich_place(
         self,

@@ -3,10 +3,16 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import Page from "@/app/page";
 
+async function selectDemoMembership(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole("radio", { name: /ARMY/ }));
+  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시즌 시작" }));
+}
+
 describe("fan tourism journey", () => {
   it("moves from regional discovery through an approved check-in", async () => {
     const user = userEvent.setup();
     render(<Page />);
+    await selectDemoMembership(user);
 
     expect(await screen.findByRole("heading", { name: /팬덤으로 여는 한국 여행/ })).toBeVisible();
     await user.click(screen.getAllByRole("button", { name: /부산 지역 탐험/ })[0]);
@@ -29,6 +35,7 @@ describe("fan tourism journey", () => {
   it("navigates to battle and travel record views", async () => {
     const user = userEvent.setup();
     render(<Page />);
+    await selectDemoMembership(user);
 
     await user.click((await screen.findAllByRole("button", { name: "전투" }))[0]);
     expect(await screen.findByRole("heading", { name: "시즌 01 지역 전선" })).toBeVisible();

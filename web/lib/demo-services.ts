@@ -1,8 +1,24 @@
-import type { AppServices, CheckInResult, CheckInSession } from "./domain";
+import type { AppServices, CheckInResult, CheckInSession, MembershipService } from "./domain";
 import { battles, expeditions, journey, leaderboard, places, regions } from "./demo-data";
 
 const clone = <T,>(value: T): T => structuredClone(value);
 let restoredSession: CheckInSession | null = null;
+const demoFandoms = [
+  { id: "10000000-0000-4000-8000-000000000001", name: "ARMY", artistName: "방탄소년단" },
+  { id: "10000000-0000-4000-8000-000000000002", name: "BLINK", artistName: "BLACKPINK" },
+  { id: "10000000-0000-4000-8000-000000000003", name: "CARAT", artistName: "SEVENTEEN" },
+];
+function createDemoMembership(): MembershipService {
+  let current: Awaited<ReturnType<MembershipService["getCurrent"]>> = null;
+  return {
+    async listFandoms() { return clone(demoFandoms); },
+    async getCurrent() { return clone(current); },
+    async selectFandom(fandomId) {
+      current ??= { userId: "30000000-0000-4000-8000-000000000001", seasonId: "20000000-0000-4000-8000-000000000001", fandomId, lockedAt: new Date().toISOString() };
+      return clone(current);
+    },
+  };
+}
 
 export const services: AppServices = {
   tourism: {
@@ -45,8 +61,9 @@ export const services: AppServices = {
     async getLeaderboard() { return clone(leaderboard); },
     async getJourney() { return clone(journey); },
   },
+  membership: createDemoMembership(),
 };
 
 export function createDemoServices(): AppServices {
-  return services;
+  return { ...services, membership: createDemoMembership() };
 }

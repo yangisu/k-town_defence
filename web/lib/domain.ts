@@ -117,6 +117,14 @@ export interface PhotoEvidence {
   capturedAt: string;
 }
 
+export interface FandomSummary { id: string; name: string; artistName: string | null; }
+export interface SeasonMembership { userId: string; seasonId: string; fandomId: string; lockedAt: string | null; }
+export interface MembershipService {
+  listFandoms(): Promise<FandomSummary[]>;
+  getCurrent(): Promise<SeasonMembership | null>;
+  selectFandom(fandomId: string): Promise<SeasonMembership>;
+}
+
 export interface TourismService {
   listRegions(): Promise<Region[]>;
   getRegion(regionId: string): Promise<Region>;
@@ -147,4 +155,5 @@ export interface AppServices {
   expeditions: ExpeditionService;
   checkIn: CheckInService;
   battle: BattleService;
+  membership: MembershipService;
 }

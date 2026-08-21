@@ -6,8 +6,11 @@ import type {
   PhotoEvidence,
   Place,
   PlaceFilter,
+  FandomSummary,
+  SeasonMembership,
 } from "./domain";
 import { services as demoServices } from "./demo-services";
+import { ApiError } from "./api/api-error";
 
 type PlaceDto = {
   id: string;
@@ -38,13 +41,13 @@ const regionIds: Record<string, string> = {
   "37": "jeonju",
 };
 
-export class KTownApiError extends Error {
+export class KTownApiError extends ApiError {
   constructor(
     public readonly code: string,
     message: string,
     public readonly status: number,
   ) {
-    super(message);
+    super(status, code); this.message = message;
   }
 }
 
@@ -159,5 +162,12 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
       },
     },
     battle: demoServices.battle,
+    membership: {
+      async listFandoms() {
+        return (await requestJson<{ items: FandomSummary[] }>(fetcher, "/api/v1/fandoms")).items;
+      },
+      getCurrent: () => requestJson<SeasonMembership | null>(fetcher, "/api/v1/me/season-membership"),
+      selectFandom: (fandomId) => requestJson<SeasonMembership>(fetcher, "/api/v1/me/season-membership", { method: "PUT", body: JSON.stringify({ fandomId }) }),
+    },
   };
 }

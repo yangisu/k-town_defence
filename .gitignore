@@ -3,11 +3,17 @@
 !.env.example
 __pycache__/
 *.py[cod]
+*.egg-info/
 *.pem
 *.ppk
 .pytest_cache/
 .coverage
 htmlcov/
+.venv/
+dist/
+.wrangler/
+*.sqlite3
+postgres-data/
 node_modules/
 .next/
 playwright-report/

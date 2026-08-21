@@ -7,6 +7,7 @@ from ..photo_storage import PrivatePhotoStorage
 from ..settings import Settings
 from .checkin_routes import router as checkin_router
 from .errors import install_error_handlers
+from .membership_routes import router as membership_router
 from .place_routes import router as place_router
 
 
@@ -26,6 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"service": "ktown-defense", "status": "ok"}
 
     app.include_router(place_router)
+    app.include_router(membership_router)
     app.include_router(checkin_router)
     return app
 

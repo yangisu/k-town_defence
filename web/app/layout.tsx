@@ -15,17 +15,17 @@ const geistMono = Geist_Mono({
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
-  const host = requestHeaders.get("host") ?? "localhost:3000";
-  const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  const origin = `${protocol}://${host}`;
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? "https";
+  const imageUrl = host ? `${protocol}://${host}/og.png` : "/og.png";
   const title = "K-Town Defense — 팬덤으로 여는 한국 여행";
   const description = "K-POP 팬덤 경쟁을 따라 한국의 지역과 로컬 관광을 발견하는 여행 플랫폼";
   return {
     title,
     description,
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
-    openGraph: { title, description, type: "website", images: [{ url: `${origin}/og.png`, width: 1200, height: 630, alt: "팬덤으로 여는 한국 여행 — K-Town Defense" }] },
-    twitter: { card: "summary_large_image", title, description, images: [`${origin}/og.png`] },
+    openGraph: { title, description, type: "website", images: [{ url: imageUrl, width: 1200, height: 630, alt: "팬덤으로 여는 한국 여행 — K-Town Defense" }] },
+    twitter: { card: "summary_large_image", title, description, images: [imageUrl] },
   };
 }
 

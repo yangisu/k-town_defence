@@ -28,6 +28,15 @@ const forbiddenSentinels = [
   "task9-local-api-portless-ipv6-sentinel",
 ] as const;
 
+const privateRuntimeIdentifierPattern = /\b(?:KTOUR_SERVICE_KEY|KTOWN_DATABASE_URL|DATABASE_URL|POSTGRES_URL|POSTGRES_PRISMA_URL|POSTGRES_URL_NON_POOLING|MYSQL_URL|MARIADB_URL|MONGODB_URI|MONGO_URL|REDIS_URL|UPSTASH_REDIS_REST_URL|KTOWN_DEV_USER_ID)\b/;
+const browserForbiddenIdentifierPattern = /\b(?:KTOUR_SERVICE_KEY|KTOWN_DATABASE_URL|KTOWN_API_BASE_URL|DATABASE_URL|POSTGRES_URL|POSTGRES_PRISMA_URL|POSTGRES_URL_NON_POOLING|MYSQL_URL|MARIADB_URL|MONGODB_URI|MONGO_URL|REDIS_URL|UPSTASH_REDIS_REST_URL|KTOWN_DEV_USER_ID)\b/;
+const databaseUrlPattern = /\b(?:postgres(?:ql)?(?:\+[a-z][a-z0-9_-]*)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss):\/\//i;
+const localOriginPattern = /https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?(?=[/?#'"`\s]|$)/i;
+const localHostWithPortPattern = /(?:^|[^a-z0-9.-])(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]):\d+(?=[/?#'"`\s]|$)/i;
+const developmentIdentityPattern = /\b(?:local-member|dev-member|development-user)\b/i;
+
+type TextArtifact = { path: string; text: string };
+
 const textFilesUnder = (directory: string): string[] => {
   const files: string[] = [];
   for (const entry of readdirSync(directory)) {
@@ -39,6 +48,24 @@ const textFilesUnder = (directory: string): string[] => {
     }
   }
   return files;
+};
+
+const textArtifactsUnder = (directory: string): TextArtifact[] => textFilesUnder(directory)
+  .map((path) => ({ path, text: readFileSync(path, "utf8") }));
+
+const windowsAround = (source: string, markers: readonly string[], radius = 600) => markers
+  .flatMap((marker) => {
+    const windows: string[] = [];
+    let index = source.indexOf(marker);
+    while (index >= 0) {
+      windows.push(source.slice(Math.max(0, index - radius), index + marker.length + radius));
+      index = source.indexOf(marker, index + marker.length);
+    }
+    return windows;
+  });
+
+const expectNoMatch = (label: string, source: string, pattern: RegExp) => {
+  expect(source.match(pattern), `${label} matched ${pattern}`).toBeNull();
 };
 
 const buildEnvironmentAllowlist = /^(?:APPDATA|CI|COMSPEC|HOME|HOMEDRIVE|HOMEPATH|LANG|LC_ALL|LOCALAPPDATA|NODE_OPTIONS|PATH|PATHEXT|SHELL|SYSTEMROOT|TEMP|TMP|USERPROFILE|WINDIR)$/i;
@@ -61,7 +88,9 @@ const parseEnvironmentAssignments = (source: string) => source
 describe("Vercel deployment", () => {
   let configArtifact = "";
   let browserArtifact = "";
+  let browserApplicationArtifact = "";
   let serverArtifact = "";
+  let serverApplicationArtifact = "";
   let diagnostic = "";
 
   beforeAll(() => {
@@ -81,12 +110,28 @@ describe("Vercel deployment", () => {
 
     expect(result.status, diagnostic).toBe(0);
     configArtifact = readFileSync(".vercel/output/config.json", "utf8");
-    browserArtifact = textFilesUnder(".vercel/output/static")
-      .map((path) => readFileSync(path, "utf8"))
+    const browserArtifacts = textArtifactsUnder(".vercel/output/static");
+    const serverArtifacts = textArtifactsUnder(".vercel/output/functions");
+    browserArtifact = browserArtifacts.map(({ text }) => text).join("\n");
+    browserApplicationArtifact = browserArtifacts
+      .filter(({ path }) => /(?:^|[\\/])ktown-app-[^\\/]+\.js$/i.test(path))
+      .map(({ text }) => text)
       .join("\n");
-    serverArtifact = textFilesUnder(".vercel/output/functions")
-      .map((path) => readFileSync(path, "utf8"))
-      .join("\n");
+    serverArtifact = serverArtifacts.map(({ text }) => text).join("\n");
+
+    // Vinext ships generic localhost URL parsers in framework chunks. Limit
+    // literal-origin checks to app chunks and windows around stable product
+    // markers, while identifier checks still cover the complete server output.
+    serverApplicationArtifact = [
+      ...serverArtifacts
+        .filter(({ path }) => /(?:^|[\\/])(?:route|page|ktown-app)-[^\\/]+\.mjs$/i.test(path))
+        .map(({ text }) => text),
+      ...serverArtifacts.flatMap(({ text }) => windowsAround(text, [
+        "K-Town Defense —",
+        "BACKEND_NOT_CONFIGURED",
+        "KTOWN_API_BASE_URL",
+      ])),
+    ].join("\n");
   }, 120_000);
 
   it("keeps the Vercel build config isolated from Cloudflare runtime imports", () => {
@@ -133,5 +178,31 @@ describe("Vercel deployment", () => {
       expect(browserArtifact, `browser artifact leaked ${sentinel}`).not.toContain(sentinel);
       expect(serverArtifact, `server artifact leaked ${sentinel}`).not.toContain(sentinel);
     }
+  });
+
+  it("rejects forbidden runtime identifiers at their config, browser, and server boundaries", () => {
+    expectNoMatch("Vercel config private identifier", configArtifact, browserForbiddenIdentifierPattern);
+    expectNoMatch("browser private identifier", browserArtifact, browserForbiddenIdentifierPattern);
+    expectNoMatch("server private identifier", serverArtifact, privateRuntimeIdentifierPattern);
+
+    expectNoMatch("Vercel config database URL", configArtifact, databaseUrlPattern);
+    expectNoMatch("browser database URL", browserArtifact, databaseUrlPattern);
+    expectNoMatch("server database URL", serverArtifact, databaseUrlPattern);
+    expectNoMatch("Vercel config development identity", configArtifact, developmentIdentityPattern);
+    expectNoMatch("browser development identity", browserArtifact, developmentIdentityPattern);
+    expectNoMatch("server development identity", serverArtifact, developmentIdentityPattern);
+  });
+
+  it("keeps the integrated API base server-only without bundling an app-owned local default", () => {
+    expectNoMatch("Vercel config local origin", configArtifact, localOriginPattern);
+    expectNoMatch("Vercel config local host", configArtifact, localHostWithPortPattern);
+    expectNoMatch("browser app local origin", browserApplicationArtifact, localOriginPattern);
+    expectNoMatch("browser app local host", browserApplicationArtifact, localHostWithPortPattern);
+    expectNoMatch("server app local origin", serverApplicationArtifact, localOriginPattern);
+    expectNoMatch("server app local host", serverApplicationArtifact, localHostWithPortPattern);
+
+    expectNoMatch("Vercel config API base identifier", configArtifact, /\bKTOWN_API_BASE_URL\b/);
+    expectNoMatch("browser API base identifier", browserArtifact, /\bKTOWN_API_BASE_URL\b/);
+    expect(serverArtifact).toMatch(/\bKTOWN_API_BASE_URL\b/);
   });
 });

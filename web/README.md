@@ -66,6 +66,14 @@ npm run build:vercel
 ```
 
 성공하면 `.vercel/output/config.json`, 정적 자산, `__server.func`가 생성된다.
+산출물 경계 검사에서 config와 브라우저 정적 자산은 서버 전용 식별자와 데이터베이스
+URL을 모두 거부하고, app-owned chunk는 로컬 origin도 거부한다.
+`KTOWN_API_BASE_URL` 식별자는 통합 모드의
+same-origin gateway가 런타임에 읽어야 하므로 `__server.func`에만 허용하지만,
+실제 값이나 `localhost`/IPv4/IPv6 loopback 기본값은 어느 app-owned chunk에도
+고정하지 않는다. Vinext framework chunk가 URL 파싱을 위해 포함하는 일반
+`http://localhost` 문자열은 앱 설정이 아니므로, 값 sentinel과 private 식별자는
+전체 산출물에서 검사하고 local-origin literal은 app-owned chunk에서 검사한다.
 Git 연동은 PR/브랜치 push에 Preview를 만들고 `main` push에 Production 배포를
 만든다. 첫 배포에서는 Preview URL에서 다음을 확인한 후 Production으로
 승격한다.

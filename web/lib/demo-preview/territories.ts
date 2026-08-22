@@ -2,7 +2,7 @@ import type { ArtistId, PreviewTerritory } from "@/features/team-preview/types";
 import { artists } from "./artists";
 
 const koreaTourismSource = "https://korean.visitkorea.or.kr/";
-const populationDeclineSource = "https://www.mois.go.kr/eng/a01/engMain.do";
+const populationDeclineSource = "https://www.mois.go.kr/frt/sub/a06/b06/populationDecline/screen.do";
 
 function fandomName(artistId: ArtistId) {
   return artists.find((artist) => artist.id === artistId)!.fandomName;
@@ -43,9 +43,9 @@ export const territories: PreviewTerritory[] = [
   territory("gwangju", "광주", "Gwangju", 35.1595, 126.8526, "boynextdoor"),
   territory("gunpo", "군포", "Gunpo", 37.3617, 126.9352, "blackpink"),
   territory("seongnam", "성남", "Seongnam", 37.4200, 127.1267, "blackpink"),
-  territory("geoje", "거제", "Geoje", 34.8806, 128.6211, "rescene", true),
+  territory("geoje", "거제", "Geoje", 34.8806, 128.6211, "rescene"),
   territory("suwon", "수원", "Suwon", 37.2636, 127.0286, "aespa"),
-  territory("gyeongju", "경주", "Gyeongju", 35.8562, 129.2247, "rescene", true),
+  territory("gyeongju", "경주", "Gyeongju", 35.8562, 129.2247, "rescene"),
   territory("daejeon", "대전", "Daejeon", 36.3504, 127.3845, "ive"),
   territory("seoul", "서울", "Seoul", 37.5665, 126.9780, "iu"),
   territory("yongin", "용인", "Yongin", 37.2411, 127.1776, "btob"),
@@ -60,4 +60,5 @@ export const territories: PreviewTerritory[] = [
   territory("chuncheon", "춘천", "Chuncheon", 37.8813, 127.7300, "newjeans"),
   territory("uijeongbu", "의정부", "Uijeongbu", 37.7381, 127.0337, "iu"),
   territory("namyangju", "남양주", "Namyangju", 37.6360, 127.2165, "seventeen"),
+  territory("yeongwol", "영월", "Yeongwol", 37.1836, 128.4618, "bts", true),
 ];

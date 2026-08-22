@@ -36,7 +36,7 @@ const sourceUrls = {
   seventeen: "https://www.seventeen-17.jp/pages/profile",
 } as const;
 
-export const connections: ArtistConnection[] = [
+const primaryConnections: ArtistConnection[] = [
   {
     id: "bts-busan-jimin", artistId: "bts", territoryId: "busan", memberName: { ko: "지민", en: "Jimin" }, relationType: "hometown", evidenceClass: "verified",
     story: { ko: "KBS World가 지민과 정국의 고향으로 확인한 부산을, 공공 관광지에서 시작하는 BTS 원정의 지역 앵커로 삼습니다.", en: "Busan, identified by KBS World as Jimin and Jungkook's hometown, anchors this BTS route through public attractions." }, sourceUrls: [sourceUrls.bts],
@@ -98,3 +98,55 @@ export const connections: ArtistConnection[] = [
     story: { ko: "SEVENTEEN 공식 프로필에 수록된 호시를 기준으로 남양주를 CARAT 대표 지역으로 정하고, 공공 정원과 역사 공간을 연결합니다.", en: "Using HOSHI in SEVENTEEN's official profile, Namyangju is selected as CARAT's representative region with public garden and history stops." }, sourceUrls: [sourceUrls.seventeen],
   },
 ];
+
+function regionalConnection(
+  id: string,
+  artistId: ArtistConnection["artistId"],
+  territoryId: string,
+  memberKo: string,
+  memberEn: string,
+  relationType: ArtistConnection["relationType"],
+  sourceUrl: string,
+): ArtistConnection {
+  return {
+    id,
+    artistId,
+    territoryId,
+    memberName: { ko: memberKo, en: memberEn },
+    relationType,
+    evidenceClass: "verified",
+    story: {
+      ko: `${memberKo}의 공개 출신·성장 이력으로 검토한 ${territoryId} 지역 연결입니다. 원정은 개인 주소가 아닌 공공 관광지만 안내합니다.`,
+      en: `This ${territoryId} connection is reviewed against ${memberEn}'s public origin or upbringing record; the route uses public attractions, not private addresses.`,
+    },
+    sourceUrls: [sourceUrl],
+  };
+}
+
+const representativeConnections: ArtistConnection[] = [
+  regionalConnection("bts-daegu-suga", "bts", "daegu", "슈가", "SUGA", "hometown", sourceUrls.bts),
+  regionalConnection("bts-gwangju-jhope", "bts", "gwangju", "제이홉", "j-hope", "hometown", sourceUrls.bts),
+  regionalConnection("blackpink-seongnam-jennie", "blackpink", "seongnam", "제니", "JENNIE", "hometown", sourceUrls.blackpink),
+  regionalConnection("rescene-suwon-riiv", "rescene", "suwon", "리브", "RIIV", "birthplace", sourceUrls.rescene),
+  regionalConnection("rescene-gyeongju-zena", "rescene", "gyeongju", "제나", "ZENA", "hometown", sourceUrls.rescene),
+  regionalConnection("cortis-seoul-martin", "cortis", "seoul", "마틴", "MARTIN", "birthplace", sourceUrls.cortis),
+  regionalConnection("cortis-suwon-gunho", "cortis", "suwon", "건호", "GUNHO", "hometown", sourceUrls.cortis),
+  regionalConnection("btob-yongin-eunkwang", "btob", "yongin", "서은광", "SEO EUNKWANG", "hometown", sourceUrls.btob),
+  regionalConnection("btob-goyang-hyunsik", "btob", "goyang", "임현식", "LIM HYUNSIK", "hometown", sourceUrls.btob),
+  regionalConnection("ive-incheon-gaeul", "ive", "incheon", "가을", "GAEUL", "hometown", sourceUrls.ive),
+  regionalConnection("ive-jeju-liz", "ive", "jeju", "리즈", "LIZ", "hometown", sourceUrls.ive),
+  regionalConnection("kiiikiii-seoul-leesol", "kiiikiii", "seoul", "리솔", "LEESOL", "hometown", sourceUrls.kiiikiii),
+  regionalConnection("riize-siheung-sohee", "riize", "siheung", "소희", "SOHEE", "hometown", sourceUrls.riize),
+  regionalConnection("riize-seoul-eunseok", "riize", "seoul", "은석", "EUNSEOK", "birthplace", sourceUrls.riize),
+  regionalConnection("zerobaseone-pohang-jiwoong", "zerobaseone", "pohang", "김지웅", "KIM JIWOONG", "birthplace", sourceUrls.zerobaseone),
+  regionalConnection("zerobaseone-wonju-jiwoong", "zerobaseone", "wonju", "김지웅", "KIM JIWOONG", "hometown", sourceUrls.zerobaseone),
+  regionalConnection("boynextdoor-gwangju-taesan", "boynextdoor", "gwangju", "태산", "TAESAN", "hometown", sourceUrls.boynextdoor),
+  regionalConnection("boynextdoor-busan-leehan", "boynextdoor", "busan", "이한", "LEEHAN", "hometown", sourceUrls.boynextdoor),
+  regionalConnection("boynextdoor-suwon-woonhak", "boynextdoor", "suwon", "운학", "WOONHAK", "hometown", sourceUrls.boynextdoor),
+  regionalConnection("aespa-busan-winter", "aespa", "busan", "윈터", "WINTER", "hometown", sourceUrls.aespa),
+  regionalConnection("newjeans-incheon-hyein", "newjeans", "incheon", "혜인", "HYEIN", "hometown", sourceUrls.newjeans),
+  regionalConnection("newjeans-seoul-haerin", "newjeans", "seoul", "해린", "HAERIN", "birthplace", sourceUrls.newjeans),
+  regionalConnection("iu-uijeongbu-upbringing", "iu", "uijeongbu", "아이유", "IU", "hometown", sourceUrls.iu),
+];
+
+export const connections = [...primaryConnections, ...representativeConnections];

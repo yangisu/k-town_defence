@@ -47,4 +47,62 @@ describe("team preview content", () => {
       }
     }
   });
+
+  it("sources every declared representative territory", () => {
+    for (const artist of previewContent.artists) {
+      const connectedTerritoryIds = new Set(
+        previewContent.connections
+          .filter((connection) => connection.artistId === artist.id)
+          .map((connection) => connection.territoryId),
+      );
+      expect(connectedTerritoryIds, artist.id).toEqual(new Set(artist.representativeTerritoryIds));
+    }
+  });
+
+  it("keeps expeditions, stops, and direct relationship claims referentially honest", () => {
+    const placesById = new Map(previewContent.places.map((place) => [place.id, place]));
+    const connectionsById = new Map(previewContent.connections.map((connection) => [connection.id, connection]));
+
+    for (const expedition of previewContent.expeditions) {
+      const connection = connectionsById.get(expedition.connectionId);
+      expect(connection, expedition.id).toMatchObject({
+        artistId: expedition.artistId,
+        territoryId: expedition.territoryId,
+      });
+
+      for (const stopId of expedition.stopIds) {
+        const place = placesById.get(stopId);
+        expect(place, `${expedition.id}:${stopId}`).toBeDefined();
+        expect(place?.territoryId, `${expedition.id}:${stopId}`).toBe(expedition.territoryId);
+      }
+    }
+
+    for (const place of previewContent.places) {
+      if (place.relationship === "artist_connection") {
+        const connection = connectionsById.get(place.artistConnectionId!);
+        expect(connection, place.id).toBeDefined();
+        expect(connection?.territoryId, place.id).toBe(place.territoryId);
+      }
+    }
+  });
+
+  it("uses place-specific public-source locations with accurate categories", () => {
+    for (const place of previewContent.places) {
+      expect(place.sourceUrls, place.id).not.toContain("https://korean.visitkorea.or.kr/");
+      expect(place.sourceUrls.every((url) => new URL(url).pathname !== "/"), place.id).toBe(true);
+      expect(place.address.ko, place.id).toMatch(/[시군구읍면동로길]/);
+      expect(Number.isFinite(place.coordinates.latitude), place.id).toBe(true);
+      expect(Number.isFinite(place.coordinates.longitude), place.id).toBe(true);
+      if (place.category === "local_food") {
+        expect(place.name.ko, place.id).toMatch(/시장|마을/);
+      }
+    }
+  });
+
+  it("backs every population-decline multiplier with a designation document", () => {
+    for (const territory of previewContent.territories.filter((item) => item.populationDecline)) {
+      expect(territory.balanceMultiplier, territory.id).toBe(1.8);
+      expect(territory.sourceUrls.some((url) => /population|인구감소|download|board/i.test(url)), territory.id).toBe(true);
+    }
+  });
 });

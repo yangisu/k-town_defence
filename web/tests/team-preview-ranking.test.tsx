@@ -1,7 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { RankingView } from "@/components/team-preview/ranking-view";
-import { createInitialDemoSession } from "@/features/team-preview/demo-session";
+import { createInitialDemoSession, demoSessionReducer } from "@/features/team-preview/demo-session";
+import type { MissionAward } from "@/features/team-preview/game-rules";
 import type { FandomStanding } from "@/features/team-preview/types";
 
 it("keeps strongholds ahead of points and shows the selected fandom's exact next-rank gap", () => {
@@ -60,4 +61,55 @@ it("keeps strongholds ahead of points and shows the selected fandom's exact next
     expect.stringContaining("광주 · 40P 차이"),
     expect.stringContaining("부산 · 80P 차이"),
   ]);
+});
+
+it("excludes a territory once mission impact widens its gap beyond the shared contested limit", () => {
+  const initial = createInitialDemoSession();
+  const territories = initial.territories.slice(0, 3).map((territory, index) => ({
+    ...territory,
+    standings: index === 0
+      ? [
+          { artistId: "bts" as const, fandomName: "ARMY", validPoints: 920 },
+          { artistId: "blackpink" as const, fandomName: "BLINK", validPoints: 840 },
+        ]
+      : index === 1
+        ? [
+            { artistId: "bts" as const, fandomName: "ARMY", validPoints: 700 },
+            { artistId: "blackpink" as const, fandomName: "BLINK", validPoints: 690 },
+          ]
+        : [
+            { artistId: "bts" as const, fandomName: "ARMY", validPoints: 640 },
+            { artistId: "blackpink" as const, fandomName: "BLINK", validPoints: 600 },
+          ],
+  }));
+  const award: MissionAward = {
+    visit: 260,
+    dwell: 0,
+    localSpend: 0,
+    accommodation: 0,
+    subtotal: 260,
+    multiplier: 1,
+    validPoints: 260,
+    cappedPoints: 260,
+  };
+  const afterMission = demoSessionReducer(
+    { ...initial, territories },
+    { type: "completeMission", missionId: "busan-1", award },
+  );
+
+  render(
+    <RankingView
+      locale="ko"
+      fandoms={afterMission.fandoms}
+      territories={afterMission.territories}
+      selectedArtistId="bts"
+    />,
+  );
+
+  const contested = within(screen.getByRole("list", { name: "접전 중" })).getAllByRole("listitem");
+  expect(contested.map((item) => item.textContent)).toEqual([
+    expect.stringContaining("대구 · 10P 차이"),
+    expect.stringContaining("광주 · 40P 차이"),
+  ]);
+  expect(within(screen.getByRole("list", { name: "접전 중" })).queryByText(/부산/)).not.toBeInTheDocument();
 });

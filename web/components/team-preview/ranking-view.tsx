@@ -1,6 +1,7 @@
 import { previewContent } from "@/features/team-preview/content";
 import { rankFandoms } from "@/features/team-preview/game-rules";
 import { t } from "@/features/team-preview/i18n";
+import { isContestedTerritory, territoryGap } from "@/features/team-preview/territory-rules";
 import type { ArtistId, FandomStanding, Locale, PreviewTerritory } from "@/features/team-preview/types";
 
 interface Props {
@@ -16,11 +17,6 @@ const trendKeys = {
   same: "rankingTrendSame",
 } as const;
 
-function gapBetweenLeaders(territory: PreviewTerritory) {
-  const points = territory.standings.map((standing) => standing.validPoints).sort((a, b) => b - a);
-  return points.length > 1 ? Math.abs(points[0] - points[1]) : null;
-}
-
 function strongholdsToNextRank(fandoms: ReturnType<typeof rankFandoms>, selectedIndex: number) {
   if (selectedIndex <= 0) return null;
   const selected = fandoms[selectedIndex];
@@ -34,8 +30,8 @@ export function RankingView({ locale, fandoms, territories, selectedArtistId }: 
   const selectedIndex = ranked.findIndex((row) => row.artistId === selectedArtistId);
   const nextRankGap = strongholdsToNextRank(ranked, selectedIndex);
   const contested = territories
-    .map((territory) => ({ territory, gap: gapBetweenLeaders(territory) }))
-    .filter((entry): entry is { territory: PreviewTerritory; gap: number } => entry.gap !== null)
+    .filter(isContestedTerritory)
+    .map((territory) => ({ territory, gap: territoryGap(territory) }))
     .sort((a, b) => a.gap - b.gap || a.territory.name.ko.localeCompare(b.territory.name.ko, "ko"));
 
   return (

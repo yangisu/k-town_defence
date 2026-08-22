@@ -12,6 +12,7 @@ import {
   type DemoSession,
 } from "@/features/team-preview/demo-session";
 import { DemoSessionProvider } from "@/features/team-preview/demo-session-context";
+import { KTownApp } from "@/features/ktown-app";
 
 beforeEach(() => window.localStorage.clear());
 
@@ -107,4 +108,45 @@ it("routes an empty region to a sourced playable recommendation without fabricat
     const saved = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as DemoSession;
     expect(saved.selectedTerritoryId).toBe("busan");
   });
+});
+
+it.each([
+  ["gwangju", "광주"],
+  ["yeongwol", "영월"],
+] as const)("keeps %s battle context separate from the actionable Busan projection", async (territoryId, territoryName) => {
+  renderPreviewWithArtist({ selectedTerritoryId: territoryId });
+
+  const panel = await screen.findByRole("complementary", { name: `${territoryName} 전술 패널` });
+  expect(within(panel).getByRole("heading", { name: territoryName })).toBeVisible();
+  expect(within(panel).getByRole("button", { name: "부산 원정 시작" })).toBeEnabled();
+
+  const projection = within(panel).getByRole("region", { name: "부산 추천 원정 영향" });
+  expect(projection).toHaveTextContent("지역균형 보너스 1×");
+  expect(projection).toHaveTextContent("기본 지역균형 배율");
+  expect(projection).toHaveTextContent(/영토 영향.*방어 유지.*씨앗 → 나무/);
+  expect(projection).toHaveTextContent(/팬덤 순위 영향.*#1.*현재 순위 유지/);
+});
+
+it("normalizes a stale local filter after reset and artist reselection", async () => {
+  const user = userEvent.setup();
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  await user.click(await screen.findByRole("button", { name: "아티스트 선택" }));
+  await user.click(screen.getByRole("radio", { name: /BTS.*ARMY/ }));
+  await user.click(screen.getByRole("button", { name: "인구감소지역 보너스" }));
+
+  expect(await screen.findByRole("complementary", { name: "영월 전술 패널" })).toBeVisible();
+  expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getAllByRole("button"))
+    .toHaveLength(1);
+
+  await user.click(screen.getByRole("button", { name: "데모 초기화" }));
+  await user.click(screen.getByRole("button", { name: "아티스트 선택" }));
+  await user.click(screen.getByRole("radio", { name: /aespa.*MY/i }));
+
+  const panel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
+  expect(panel).toBeVisible();
+  expect(screen.getByRole("button", { name: "추천 지역" })).toHaveAttribute("aria-pressed", "true");
+  const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
+  expect(within(list).getAllByRole("button")).toHaveLength(23);
+  expect(within(list).getByRole("button", { name: /^부산/ })).toHaveAttribute("aria-pressed", "true");
 });

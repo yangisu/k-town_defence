@@ -229,3 +229,62 @@ it("keeps GeoJSON feature IDs identical to preview territory IDs", () => {
     }));
   })).toBe(true);
 });
+
+it("keeps configured boundary, click, and mission layers equivalent to the filtered territory list", () => {
+  const onSelectTerritory = vi.fn();
+  const completeSession = createInitialDemoSession();
+  const yeongwolSession = {
+    ...completeSession,
+    artistConfirmed: true,
+    selectedArtistId: "bts" as const,
+    selectedTerritoryId: "yeongwol",
+    territories: completeSession.territories.filter((territory) => territory.id === "yeongwol"),
+  };
+  const { rerender } = render(
+    <TerritoryMap
+      mapConfig={config}
+      session={yeongwolSession}
+      selectedTerritoryId="yeongwol"
+      onSelectTerritory={onSelectTerritory}
+    />,
+  );
+
+  const map = mapHarness.instances[0];
+  map.emit("load");
+  const yeongwolBoundaryFilter = ["in", ["id"], ["literal", ["yeongwol"]]];
+  const yeongwolMissionFilter = ["in", ["get", "territoryId"], ["literal", ["yeongwol"]]];
+
+  expect(map.layers.find((layer) => layer.id === "preview-territory-fill")?.filter)
+    .toEqual(yeongwolBoundaryFilter);
+  expect(map.layers.find((layer) => layer.id === "preview-territory-outline")?.filter)
+    .toEqual(yeongwolBoundaryFilter);
+  expect(map.layers.find((layer) => layer.id === "preview-mission-points")?.filter)
+    .toEqual(yeongwolMissionFilter);
+
+  map.emitLayer("click", "preview-territory-fill", { features: [{ id: "busan" }] });
+  expect(onSelectTerritory).not.toHaveBeenCalled();
+  map.emitLayer("click", "preview-territory-fill", { features: [{ id: "yeongwol" }] });
+  expect(onSelectTerritory).toHaveBeenCalledWith("yeongwol");
+
+  const busanSession = {
+    ...completeSession,
+    artistConfirmed: true,
+    selectedArtistId: "bts" as const,
+    selectedTerritoryId: "busan",
+    territories: completeSession.territories.filter((territory) => territory.id === "busan"),
+  };
+  rerender(
+    <TerritoryMap
+      mapConfig={config}
+      session={busanSession}
+      selectedTerritoryId="busan"
+      onSelectTerritory={onSelectTerritory}
+    />,
+  );
+
+  const busanBoundaryFilter = ["in", ["id"], ["literal", ["busan"]]];
+  const busanMissionFilter = ["in", ["get", "territoryId"], ["literal", ["busan"]]];
+  expect(map.setFilter).toHaveBeenCalledWith("preview-territory-fill", busanBoundaryFilter);
+  expect(map.setFilter).toHaveBeenCalledWith("preview-territory-outline", busanBoundaryFilter);
+  expect(map.setFilter).toHaveBeenCalledWith("preview-mission-points", busanMissionFilter);
+});

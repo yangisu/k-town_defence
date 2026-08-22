@@ -132,6 +132,7 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
         setCheckInPlace={setCheckInPlace}
         demoExplore={(
           <TerritoryView
+            key={session.state.artistConfirmed ? `artist:${session.state.selectedArtistId}` : "unconfirmed"}
             mapConfig={mapConfig}
             onChooseArtist={() => setDrawerOpen(true)}
             onSelectTerritory={(territoryId) => dispatch({ type: "selectRegion", regionId: territoryId })}

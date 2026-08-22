@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import maplibregl, { type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from "maplibre-gl";
+import maplibregl, { type FilterSpecification, type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { TerritoryList } from "@/components/team-preview/territory-list";
 import { previewContent } from "@/features/team-preview/content";
@@ -81,6 +81,14 @@ function updateGeoJsonSource(map: MapLibreMap, sourceId: string, data: GeoJSONSo
   (map.getSource(sourceId) as GeoJSONSource | undefined)?.setData(data);
 }
 
+function visibleLayerFilters(territories: readonly PreviewTerritory[]) {
+  const territoryIds = territories.map((territory) => territory.id);
+  return {
+    boundaries: ["in", ["id"], ["literal", territoryIds]] as FilterSpecification,
+    missions: ["in", ["get", "territoryId"], ["literal", territoryIds]] as FilterSpecification,
+  };
+}
+
 export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelectTerritory }: TerritoryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -120,6 +128,7 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
     map.on("load", () => {
       if (!active) return;
       styleLoaded = true;
+      const visibleFilters = visibleLayerFilters(sessionRef.current.territories);
       map.addSource(boundarySourceId, {
         type: "geojson",
         data: "/data/preview-territories.geojson",
@@ -141,6 +150,7 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
         id: territoryLayerId,
         type: "fill",
         source: boundarySourceId,
+        filter: visibleFilters.boundaries,
         paint: { "fill-color": "#7559ff", "fill-opacity": 0.24 },
       });
       map.addLayer({
@@ -154,6 +164,7 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
         id: "preview-territory-outline",
         type: "line",
         source: boundarySourceId,
+        filter: visibleFilters.boundaries,
         paint: { "line-color": "#fffef9", "line-width": 1.4 },
       });
       map.addLayer({
@@ -166,6 +177,7 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
         id: "preview-mission-points",
         type: "circle",
         source: missionSourceId,
+        filter: visibleFilters.missions,
         paint: {
           "circle-color": "#dfff59",
           "circle-radius": 4,
@@ -205,6 +217,10 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
     const map = mapRef.current;
     if (!map) return;
     updateGeoJsonSource(map, strongholdSourceId, pointCollection(session.territories));
+    const visibleFilters = visibleLayerFilters(session.territories);
+    if (map.getLayer(territoryLayerId)) map.setFilter(territoryLayerId, visibleFilters.boundaries);
+    if (map.getLayer("preview-territory-outline")) map.setFilter("preview-territory-outline", visibleFilters.boundaries);
+    if (map.getLayer("preview-mission-points")) map.setFilter("preview-mission-points", visibleFilters.missions);
   }, [session.territories]);
 
   useEffect(() => {

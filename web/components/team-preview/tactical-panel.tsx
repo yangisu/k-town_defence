@@ -136,11 +136,15 @@ export function TacticalPanel({
   const captureGap = Math.max(ownerPoints - selectedPoints + 1, 1);
   const buildGap = nextStageGap(selectedPoints);
   const award = estimateAward(expedition, expeditionTerritory, session);
-  const projectedPoints = selectedPoints + award.cappedPoints;
-  const rank = projectRank(session, artist, territory, award.cappedPoints);
+  const expeditionStanding = expeditionTerritory.standings.find((standing) => standing.artistId === artist.id);
+  const expeditionPoints = expeditionStanding?.validPoints ?? 0;
+  const projectedPoints = expeditionPoints + award.cappedPoints;
+  const rank = projectRank(session, artist, expeditionTerritory, award.cappedPoints);
   const predictedStage = stageForPoints(projectedPoints);
   const stageCopy = copy[territory.strongholdStage];
   const selectedOwns = territory.ownerArtistId === artist.id;
+  const expeditionStageCopy = copy[expeditionTerritory.strongholdStage];
+  const expeditionSelectedOwns = expeditionTerritory.ownerArtistId === artist.id;
   const sourceUrl = connection?.sourceUrls[0] ?? territory.sourceUrls[0];
   const actionLabel = expedition.territoryId === territory.id
     ? copy.start
@@ -206,9 +210,12 @@ export function TacticalPanel({
         </dl>
       </section>
 
-      <section className="tactical-impact">
-        <p><strong>{copy.multiplier} {territory.balanceMultiplier}×</strong> · {territory.balanceReason[locale]}</p>
-        <p><strong>{copy.territoryImpact}</strong>: {rank.captures ? copy.captureExpected : selectedOwns ? copy.hold : copy.advance} · {stageCopy} → {copy[predictedStage]}</p>
+      <section
+        className="tactical-impact"
+        aria-label={`${expeditionTerritory.name[locale]} ${locale === "ko" ? "추천 원정 영향" : "recommended expedition impact"}`}
+      >
+        <p><strong>{copy.multiplier} {expeditionTerritory.balanceMultiplier}×</strong> · {expeditionTerritory.balanceReason[locale]}</p>
+        <p><strong>{copy.territoryImpact}</strong>: {rank.captures ? copy.captureExpected : expeditionSelectedOwns ? copy.hold : copy.advance} · {expeditionStageCopy} → {copy[predictedStage]}</p>
         <p><strong>{copy.rankImpact}</strong>: #{rank.currentRank}{rank.currentRank === rank.projectedRank ? ` · ${copy.rankHold}` : ` → #${rank.projectedRank}`}</p>
       </section>
 

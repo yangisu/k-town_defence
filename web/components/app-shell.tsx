@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactNode, SyntheticEvent } from "react";
 import type { AppTab } from "@/features/app-controller";
 import { Compass, Flag, Trophy, UserRound } from "@/components/ui/icons";
 import { t } from "@/features/team-preview/i18n";
@@ -21,13 +21,33 @@ interface Props {
   rank: number | null;
   onLocaleChange(locale: Locale): void;
   onTabChange(tab: AppTab): void;
+  interactionDisabled?: boolean;
   children: ReactNode;
 }
 
-export function AppShell({ variant, activeTab, locale, fandomName, rank, onLocaleChange, onTabChange, children }: Props) {
+export function AppShell({
+  variant,
+  activeTab,
+  locale,
+  fandomName,
+  rank,
+  onLocaleChange,
+  onTabChange,
+  interactionDisabled = false,
+  children,
+}: Props) {
   const demo = variant === "demo";
+  const blockInteraction = (event: SyntheticEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      inert={interactionDisabled ? true : undefined}
+      onPointerDownCapture={interactionDisabled ? blockInteraction : undefined}
+      onClickCapture={interactionDisabled ? blockInteraction : undefined}
+    >
       <aside className="side-rail">
         <div className="brand-mark" aria-label="K-Town Defense">
           <span>K</span><strong>K‑TOWN<br />DEFENSE</strong>

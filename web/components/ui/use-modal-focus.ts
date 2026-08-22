@@ -11,6 +11,18 @@ const focusableSelector = [
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
 
+function isRadioGroupTabStop(element: HTMLElement, candidates: readonly HTMLElement[]) {
+  if (!(element instanceof HTMLInputElement) || element.type !== "radio" || !element.name) return true;
+
+  const group = candidates.filter((candidate): candidate is HTMLInputElement => (
+    candidate instanceof HTMLInputElement
+    && candidate.type === "radio"
+    && candidate.name === element.name
+    && candidate.form === element.form
+  ));
+  return element === (group.find((radio) => radio.checked) ?? group[0]);
+}
+
 export function useModalFocus(
   active: boolean,
   containerRef: RefObject<HTMLElement | null>,
@@ -39,9 +51,10 @@ export function useModalFocus(
       }
       if (event.key !== "Tab") return;
 
-      const focusable = Array.from(
+      const candidates = Array.from(
         containerRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? [],
       ).filter((element) => !element.hidden && element.getAttribute("aria-hidden") !== "true");
+      const focusable = candidates.filter((element) => isRadioGroupTabStop(element, candidates));
       if (focusable.length === 0) {
         event.preventDefault();
         initialFocusRef.current?.focus();
@@ -58,9 +71,19 @@ export function useModalFocus(
       }
     };
 
+    const handleFocusIn = (event: FocusEvent) => {
+      const container = containerRef.current;
+      if (container && event.target instanceof Node && !container.contains(event.target)) {
+        event.stopPropagation();
+        initialFocusRef.current?.focus();
+      }
+    };
+
     document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("focusin", handleFocusIn, true);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("focusin", handleFocusIn, true);
       if (invokingControl?.isConnected) invokingControl.focus();
     };
   }, [active, containerRef, initialFocusRef]);

@@ -30,13 +30,18 @@ it("keeps a 52dvh map and scrollable safe-area tactical sheet below 768px", () =
   expect(mobile).toContain("env(safe-area-inset-bottom)");
 });
 
-it("keeps visible focus and removes all nonessential motion for reduced-motion users", () => {
+it("keeps visible focus and removes motion without disabling layout transforms", () => {
   expect(compactCss).toContain(":focus-visible");
   expect(compactCss).toContain("@media(prefers-reduced-motion:reduce)");
   const reducedMotion = compactCss.slice(compactCss.indexOf("@media(prefers-reduced-motion:reduce)"));
   expect(reducedMotion).toContain("transition:none!important");
   expect(reducedMotion).toContain("animation:none!important");
-  expect(reducedMotion).toContain("transform:none!important");
+  expect(reducedMotion).not.toMatch(/\*,\*::before,\*::after\{[^}]*transform:none!important/);
+});
+
+it("centers the reset dialog with an interaction-blocking inset overlay", () => {
+  expect(compactCss).toMatch(/\.reset-dialog-overlay\{[^}]*position:fixed[^}]*inset:0[^}]*display:grid[^}]*place-items:center/);
+  expect(compactCss).not.toMatch(/\.reset-dialog\{[^}]*transform:translate/);
 });
 
 it("never reinstates the decorative map grid in preview components", () => {

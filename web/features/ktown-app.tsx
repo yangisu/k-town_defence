@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { createPortal } from "react-dom";
 import { AppShell } from "@/components/app-shell";
 import { ExploreView } from "@/components/explore/explore-view";
 import { ExpeditionView } from "@/components/expedition/expedition-view";
@@ -131,72 +132,78 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
   useModalFocus(resetOpen, resetDialogRef, resetTitleRef, () => setResetOpen(false));
 
   return (
-    <AppShell
-      variant="demo"
-      activeTab={state.activeTab}
-      locale={session.state.locale}
-      fandomName={selectedArtist?.fandomName ?? null}
-      rank={rank}
-      onLocaleChange={(locale) => session.dispatch({ type: "setLocale", locale })}
-      onTabChange={(tab) => dispatch({ type: "changeTab", tab })}
-    >
-      <ObjectiveStrip
+    <>
+      <AppShell
+        variant="demo"
+        activeTab={state.activeTab}
         locale={session.state.locale}
         fandomName={selectedArtist?.fandomName ?? null}
-        territoryName={selectedTerritory?.name[session.state.locale] ?? null}
-        onReset={() => setResetOpen(true)}
-      />
-      <ServiceViews
-        mode="demo"
-        services={services}
-        state={state}
-        dispatch={dispatch}
-        checkInPlace={checkInPlace}
-        setCheckInPlace={setCheckInPlace}
-        demoExplore={(
-          <TerritoryView
-            key={session.state.artistConfirmed ? `artist:${session.state.selectedArtistId}` : "unconfirmed"}
-            mapConfig={mapConfig}
-            onChooseArtist={() => setDrawerOpen(true)}
-            onSelectTerritory={(territoryId) => dispatch({ type: "selectRegion", regionId: territoryId })}
-            onOpenExpedition={(territoryId, expeditionId) => dispatch(openExpedition(territoryId, expeditionId))}
-          />
-        )}
-        demoExpedition={(
-          <PreviewExpeditionView
-            expeditionId={state.selectedExpeditionId}
-            checkInService={services.checkIn}
-            onBack={() => dispatch({ type: "changeTab", tab: "explore" })}
-          />
-        )}
-        demoBattle={(
-          <RankingView
-            locale={session.state.locale}
-            fandoms={session.state.fandoms}
-            territories={session.state.territories}
-            selectedArtistId={session.state.artistConfirmed ? session.state.selectedArtistId : null}
-          />
-        )}
-        demoJourney={<RecordView locale={session.state.locale} session={session.state} />}
-      />
-      <ArtistDrawer
-        open={drawerOpen}
-        locale={session.state.locale}
-        selectedArtistId={session.state.artistConfirmed ? session.state.selectedArtistId : null}
-        onClose={() => setDrawerOpen(false)}
-        onSelect={chooseArtist}
-      />
-      {resetOpen ? (
-        <div className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title" ref={resetDialogRef}>
-          <h2 id="reset-dialog-title" tabIndex={-1} ref={resetTitleRef}>{t(session.state.locale, "resetConfirmTitle")}</h2>
-          <p>{t(session.state.locale, "resetConfirmBody")}</p>
-          <div>
-            <button type="button" onClick={() => setResetOpen(false)}>{t(session.state.locale, "resetCancel")}</button>
-            <button type="button" onClick={resetDemo}>{t(session.state.locale, "resetConfirmAction")}</button>
+        rank={rank}
+        interactionDisabled={resetOpen}
+        onLocaleChange={(locale) => session.dispatch({ type: "setLocale", locale })}
+        onTabChange={(tab) => dispatch({ type: "changeTab", tab })}
+      >
+        <ObjectiveStrip
+          locale={session.state.locale}
+          fandomName={selectedArtist?.fandomName ?? null}
+          territoryName={selectedTerritory?.name[session.state.locale] ?? null}
+          onReset={() => setResetOpen(true)}
+        />
+        <ServiceViews
+          mode="demo"
+          services={services}
+          state={state}
+          dispatch={dispatch}
+          checkInPlace={checkInPlace}
+          setCheckInPlace={setCheckInPlace}
+          demoExplore={(
+            <TerritoryView
+              key={session.state.artistConfirmed ? `artist:${session.state.selectedArtistId}` : "unconfirmed"}
+              mapConfig={mapConfig}
+              onChooseArtist={() => setDrawerOpen(true)}
+              onSelectTerritory={(territoryId) => dispatch({ type: "selectRegion", regionId: territoryId })}
+              onOpenExpedition={(territoryId, expeditionId) => dispatch(openExpedition(territoryId, expeditionId))}
+            />
+          )}
+          demoExpedition={(
+            <PreviewExpeditionView
+              expeditionId={state.selectedExpeditionId}
+              checkInService={services.checkIn}
+              onBack={() => dispatch({ type: "changeTab", tab: "explore" })}
+            />
+          )}
+          demoBattle={(
+            <RankingView
+              locale={session.state.locale}
+              fandoms={session.state.fandoms}
+              territories={session.state.territories}
+              selectedArtistId={session.state.artistConfirmed ? session.state.selectedArtistId : null}
+            />
+          )}
+          demoJourney={<RecordView locale={session.state.locale} session={session.state} />}
+        />
+        <ArtistDrawer
+          open={drawerOpen}
+          locale={session.state.locale}
+          selectedArtistId={session.state.artistConfirmed ? session.state.selectedArtistId : null}
+          onClose={() => setDrawerOpen(false)}
+          onSelect={chooseArtist}
+        />
+      </AppShell>
+      {resetOpen && typeof document !== "undefined" ? createPortal(
+        <div className="reset-dialog-overlay">
+          <div className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title" ref={resetDialogRef}>
+            <h2 id="reset-dialog-title" tabIndex={-1} ref={resetTitleRef}>{t(session.state.locale, "resetConfirmTitle")}</h2>
+            <p>{t(session.state.locale, "resetConfirmBody")}</p>
+            <div>
+              <button type="button" onClick={() => setResetOpen(false)}>{t(session.state.locale, "resetCancel")}</button>
+              <button type="button" onClick={resetDemo}>{t(session.state.locale, "resetConfirmAction")}</button>
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
-    </AppShell>
+    </>
   );
 }
 

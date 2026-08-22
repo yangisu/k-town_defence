@@ -14,8 +14,8 @@ import {
 interface DemoSessionContextValue {
   state: DemoSession;
   dispatch: Dispatch<DemoSessionAction>;
-  selectedArtist: (typeof previewContent.artists)[number];
-  selectedTerritory: DemoSession["territories"][number];
+  selectedArtist: (typeof previewContent.artists)[number] | null;
+  selectedTerritory: DemoSession["territories"][number] | null;
   reset: () => void;
 }
 
@@ -45,8 +45,8 @@ export function DemoSessionProvider({ children, storage }: { children: ReactNode
   }, [sessionStorage, state]);
 
   const value = useMemo(() => {
-    const selectedArtist = previewContent.artists.find((artist) => artist.id === state.selectedArtistId)!;
-    const selectedTerritory = state.territories.find((territory) => territory.id === state.selectedTerritoryId)!;
+    const selectedArtist = previewContent.artists.find((artist) => artist.id === state.selectedArtistId) ?? null;
+    const selectedTerritory = state.territories.find((territory) => territory.id === state.selectedTerritoryId) ?? null;
     return { state, dispatch, selectedArtist, selectedTerritory, reset: () => dispatch({ type: "reset" }) };
   }, [state]);
 

@@ -40,16 +40,27 @@ describe("demo preview session", () => {
     expect(localized.locale).toBe("ko");
   });
 
-  it("completes a mission, grows a stronghold at the exact threshold, and records the mission", () => {
+  it("completes a mission, counts every owned territory as a stronghold, and records the mission", () => {
     const state = demoSessionReducer(createInitialDemoSession(), { type: "completeMission", missionId: "busan-1", award: award(80) });
     const busan = state.territories.find((territory) => territory.id === "busan")!;
     const army = state.fandoms.find((fandom) => fandom.artistId === "bts")!;
 
     expect(busan.standings.find((standing) => standing.artistId === "bts")!.validPoints).toBe(1000);
     expect(busan.strongholdStage).toBe("tree");
-    expect(army.strongholds).toBe(1);
+    expect(army.strongholds).toBe(3);
     expect(state.completedMissionIds).toContain("busan-1");
     expect(state.contributedToday).toBe(80);
+  });
+
+  it("uses all owned territories as the primary stronghold ranking metric, including seed stages", () => {
+    const state = createInitialDemoSession();
+    const army = state.fandoms.find((fandom) => fandom.artistId === "bts")!;
+    const seedOwnedByArmy = state.territories.filter(
+      (territory) => territory.ownerArtistId === "bts" && territory.strongholdStage === "seed",
+    );
+
+    expect(seedOwnedByArmy).toHaveLength(3);
+    expect(army.strongholds).toBe(3);
   });
 
   it("transfers territory ownership only when the challenger becomes the strict leader", () => {
@@ -70,9 +81,36 @@ describe("demo preview session", () => {
     expect(reset).toEqual(createInitialDemoSession());
   });
 
+  it("limits a stale award to the remaining daily allowance everywhere it is applied", () => {
+    const nearlyCapped = { ...createInitialDemoSession(), contributedToday: 1190 };
+    const state = demoSessionReducer(nearlyCapped, { type: "completeMission", missionId: "busan-1", award: award(100) });
+    const busan = state.territories.find((territory) => territory.id === "busan")!;
+
+    expect(busan.standings.find((standing) => standing.artistId === "bts")!.validPoints).toBe(930);
+    expect(state.contributedToday).toBe(1200);
+    expect(state.missionVisitCounts["busan-1"]).toBe(1);
+  });
+
   it("falls back to a new session for corrupt or version-mismatched persistence", () => {
     expect(loadDemoSession(storageWith("not json"))).toEqual(createInitialDemoSession());
     expect(loadDemoSession(storageWith(JSON.stringify({ ...createInitialDemoSession(), version: DEMO_SESSION_VERSION + 1 })))).toEqual(createInitialDemoSession());
+  });
+
+  it("rejects structurally invalid but correctly versioned persisted sessions", () => {
+    const initial = createInitialDemoSession();
+    const malformed = [
+      { version: DEMO_SESSION_VERSION },
+      { ...initial, locale: "fr" },
+      { ...initial, selectedArtistId: "unknown-artist" },
+      { ...initial, selectedTerritoryId: "unknown-territory" },
+      { ...initial, territories: [{}] },
+      { ...initial, completedMissionIds: {} },
+      { ...initial, missionVisitCounts: [] },
+    ];
+
+    for (const saved of malformed) {
+      expect(loadDemoSession(storageWith(JSON.stringify(saved)))).toEqual(initial);
+    }
   });
 
   it("saves the versioned session under its dedicated key", () => {

@@ -1,14 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import Page from "@/app/page";
 
 async function selectDemoMembership(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole("radio", { name: /ARMY/ }));
-  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시즌 시작" }));
+  await user.click(await screen.findByRole("button", { name: "아티스트 선택" }));
+  await user.click(screen.getByRole("radio", { name: /BTS.*ARMY/ }));
 }
 
 describe("fan tourism journey", () => {
+  beforeEach(() => window.localStorage.clear());
+
   it("moves from regional discovery through an approved check-in", async () => {
     const user = userEvent.setup();
     render(<Page />);
@@ -37,9 +39,9 @@ describe("fan tourism journey", () => {
     render(<Page />);
     await selectDemoMembership(user);
 
-    await user.click((await screen.findAllByRole("button", { name: "전투" }))[0]);
+    await user.click((await screen.findAllByRole("button", { name: "랭킹" }))[0]);
     expect(await screen.findByRole("heading", { name: "시즌 01 지역 전선" })).toBeVisible();
-    await user.click(screen.getAllByRole("button", { name: "내 여정" })[0]);
+    await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
     expect(await screen.findByLabelText("방문 지역 4곳")).toBeVisible();
     expect(screen.getByLabelText("검토 중 1건")).toBeVisible();
   });

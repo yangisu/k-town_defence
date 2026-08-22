@@ -72,7 +72,7 @@ export function createInitialDemoSession(): DemoSession {
   const territories = copyTerritories().map(recomputeTerritory);
   return {
     version: DEMO_SESSION_VERSION,
-    locale: "en",
+    locale: "ko",
     selectedArtistId: "bts",
     selectedTerritoryId: "busan",
     territories,

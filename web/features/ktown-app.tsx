@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useReducer, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { AppShell } from "@/components/app-shell";
 import { ExploreView } from "@/components/explore/explore-view";
 import { ExpeditionView } from "@/components/expedition/expedition-view";
@@ -13,6 +13,7 @@ import { TerritoryView } from "@/components/team-preview/territory-view";
 import { PreviewExpeditionView } from "@/components/team-preview/expedition-view";
 import { RankingView } from "@/components/team-preview/ranking-view";
 import { RecordView } from "@/components/team-preview/record-view";
+import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { appReducer, initialAppState, openExpedition, type AppAction, type AppState } from "@/features/app-controller";
 import { MembershipProvider } from "@/features/membership/membership-context";
 import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/demo-session-context";
@@ -100,6 +101,8 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
   const [checkInPlace, setCheckInPlace] = useState<Place | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const resetDialogRef = useRef<HTMLDivElement>(null);
+  const resetTitleRef = useRef<HTMLHeadingElement>(null);
   const session = useDemoSession();
   const ranked = rankFandoms(session.state.fandoms);
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
@@ -125,6 +128,7 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
     setDrawerOpen(false);
     setResetOpen(false);
   };
+  useModalFocus(resetOpen, resetDialogRef, resetTitleRef, () => setResetOpen(false));
 
   return (
     <AppShell
@@ -183,8 +187,8 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
         onSelect={chooseArtist}
       />
       {resetOpen ? (
-        <div className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title">
-          <h2 id="reset-dialog-title">{t(session.state.locale, "resetConfirmTitle")}</h2>
+        <div className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title" ref={resetDialogRef}>
+          <h2 id="reset-dialog-title" tabIndex={-1} ref={resetTitleRef}>{t(session.state.locale, "resetConfirmTitle")}</h2>
           <p>{t(session.state.locale, "resetConfirmBody")}</p>
           <div>
             <button type="button" onClick={() => setResetOpen(false)}>{t(session.state.locale, "resetCancel")}</button>

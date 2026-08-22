@@ -2,6 +2,7 @@ import { previewContent } from "@/features/team-preview/content";
 import type { DemoSession } from "@/features/team-preview/demo-session";
 import { t } from "@/features/team-preview/i18n";
 import type { Locale, StrongholdStage } from "@/features/team-preview/types";
+import { StrongholdMark } from "@/components/team-preview/stronghold-mark";
 
 const stageOrder: Record<StrongholdStage, number> = { seed: 0, tree: 1, landmark: 2 };
 
@@ -59,7 +60,12 @@ export function RecordView({ locale, session }: { locale: Locale; session: DemoS
         <ul aria-label={t(locale, "recordRewards")}>
           {badges.map(({ stage, label }) => {
             const unlocked = stageOrder[stage] <= highestStage;
-            return <li key={stage}>{t(locale, label)} · {t(locale, unlocked ? "recordUnlocked" : "recordLocked")}</li>;
+            return (
+              <li key={stage}>
+                <StrongholdMark stage={stage} locale={locale} />
+                <span>{t(locale, label)} · {t(locale, unlocked ? "recordUnlocked" : "recordLocked")}</span>
+              </li>
+            );
           })}
         </ul>
         <button type="button" disabled>{t(locale, "recordCharacterFuture")}</button>

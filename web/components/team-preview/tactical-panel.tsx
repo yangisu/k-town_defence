@@ -12,6 +12,7 @@ import type {
   PreviewTerritory,
   TerritoryStanding,
 } from "@/features/team-preview/types";
+import { StrongholdMark } from "@/components/team-preview/stronghold-mark";
 
 const panelCopy = {
   ko: {
@@ -141,7 +142,6 @@ export function TacticalPanel({
   const projectedPoints = expeditionPoints + award.cappedPoints;
   const rank = projectRank(session, artist, expeditionTerritory, award.cappedPoints);
   const predictedStage = stageForPoints(projectedPoints);
-  const stageCopy = copy[territory.strongholdStage];
   const selectedOwns = territory.ownerArtistId === artist.id;
   const expeditionStageCopy = copy[expeditionTerritory.strongholdStage];
   const expeditionSelectedOwns = expeditionTerritory.ownerArtistId === artist.id;
@@ -166,7 +166,7 @@ export function TacticalPanel({
       <dl className="tactical-standings">
         <div><dt>{copy.owner}</dt><dd>{standingName(owner)}</dd></div>
         <div><dt>{copy.challenger}</dt><dd>{standingName(challenger)}</dd></div>
-        <div><dt>{copy.stronghold}</dt><dd>{stageCopy}</dd></div>
+        <div><dt>{copy.stronghold}</dt><dd><StrongholdMark stage={territory.strongholdStage} locale={locale} /></dd></div>
         <div>
           <dt>{selectedOwns ? copy.defense : copy.capture}</dt>
           <dd>

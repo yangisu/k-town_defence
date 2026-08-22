@@ -8,6 +8,7 @@ import type { Locale } from "@/features/team-preview/types";
 import { Camera, Check, LocateFixed, Shield, X } from "@/components/ui/icons";
 import { checkInReducer, createInitialCheckInState, deriveCheckInProgress } from "./check-in-reducer";
 import { StateMessage } from "@/components/ui/state-message";
+import { useModalFocus } from "@/components/ui/use-modal-focus";
 
 export type DemoAwardInput = Omit<MissionAwardInput, "dwellMinutes" | "localSpendVerified" | "accommodationVerified">;
 
@@ -35,7 +36,7 @@ const demoCopy = {
     pending: "대기", extra: "추가 지역 기여", includeSpend: "로컬 소비 인증 포함", includeStay: "숙박 인증 포함",
     saveFailed: "체크인 저장에 실패했어요", saveFailedBody: "네트워크 연결을 확인하고 다시 시도해 주세요.",
     runDemo: "데모 인증 진행", review: "포인트 검토", submit: "체크인 제출", retry: "다시 제출",
-    privacy: "이 화면은 실제 위치나 사진을 전송하지 않는 데모입니다.",
+    privacy: "이 화면은 실제 위치나 사진을 전송하지 않는 데모입니다.", impactSummary: "미션 영향 요약",
   },
   en: {
     pill: "Demo check-in", title: "On-site check-in", close: "Close check-in", approved: "Check-in approved",
@@ -47,7 +48,7 @@ const demoCopy = {
     pending: "Pending", extra: "Additional local contribution", includeSpend: "Include local spend verification", includeStay: "Include accommodation verification",
     saveFailed: "Could not save the check-in", saveFailedBody: "Check your network connection and try again.",
     runDemo: "Run demo verification", review: "Review points", submit: "Submit check-in", retry: "Submit again",
-    privacy: "This demo does not transmit a real location or photo.",
+    privacy: "This demo does not transmit a real location or photo.", impactSummary: "Mission impact summary",
   },
 } as const;
 
@@ -72,14 +73,16 @@ export function CheckInFlow({
   const [busy, setBusy] = useState(false);
   const [evidenceIssue, setEvidenceIssue] = useState<string | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const progress = deriveCheckInProgress(state);
   const demoLabels = demoCopy[locale];
   const demoEvidenceComplete = progress.gpsCount === 3
     && Boolean(state.photoAssetId)
     && state.demoEvidence.simulatedDwellMinutes > 0;
 
+  useModalFocus(true, dialogRef, titleRef, onClose);
+
   useEffect(() => {
-    titleRef.current?.focus();
     let active = true;
     void service.create(place.id)
       .then((session) => { if (active) dispatch({ type: "sessionCreated", sessionId: session.id }); })
@@ -166,7 +169,7 @@ export function CheckInFlow({
   const approvedDemo = mode === "demo" && result?.decision === "approved";
 
   return (
-    <div className="checkin-overlay" role="dialog" aria-modal="true" aria-labelledby="checkin-title">
+    <div className="checkin-overlay" role="dialog" aria-modal="true" aria-labelledby="checkin-title" ref={dialogRef}>
       <div className="checkin-dialog">
         <header className="checkin-top">
           <div>
@@ -196,7 +199,7 @@ export function CheckInFlow({
                 ) : null}
                 {award ? <p><strong>{demoLabels.validPoints} +{award.cappedPoints}P</strong></p> : null}
                 {impact ? (
-                  <div className="mission-impact" role="status" aria-live="polite">
+                  <div className="mission-impact" role="status" aria-live="polite" aria-label={demoLabels.impactSummary}>
                     <p>{impact.territoryName} {demoLabels.territoryShare} · {impact.territoryShareBefore.toFixed(1)}% → {impact.territoryShareAfter.toFixed(1)}%</p>
                     <p>{demoLabels.stronghold} · {impact.strongholdBefore} → {impact.strongholdAfter}</p>
                     <p>{demoLabels.fandomRank} · #{impact.fandomRankBefore} → #{impact.fandomRankAfter}</p>

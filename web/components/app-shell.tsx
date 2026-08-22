@@ -45,7 +45,7 @@ export function AppShell({ variant, activeTab, locale, fandomName, rank, onLocal
         {demo ? (
           <header className="shell-status">
             <div><span>{t(locale, "guestDemo")}</span>{fandomName ? <strong>{fandomName}{rank ? ` · #${rank}` : ""}</strong> : null}</div>
-            <div className="locale-switch" aria-label="Language">
+            <div className="locale-switch" role="group" aria-label={locale === "ko" ? "언어 선택" : "Language selection"}>
               <button type="button" aria-pressed={locale === "ko"} onClick={() => onLocaleChange("ko")}>한국어</button>
               <button type="button" aria-pressed={locale === "en"} onClick={() => onLocaleChange("en")}>EN</button>
             </div>

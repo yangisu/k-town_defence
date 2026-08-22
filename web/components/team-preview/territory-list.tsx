@@ -1,6 +1,7 @@
 "use client";
 
 import type { ArtistId, Locale, PreviewTerritory, TerritoryId } from "@/features/team-preview/types";
+import { StrongholdMark } from "@/components/team-preview/stronghold-mark";
 
 interface TerritoryListProps {
   territories: readonly PreviewTerritory[];
@@ -12,7 +13,7 @@ interface TerritoryListProps {
 
 export function TerritoryList({ territories, locale, selectedArtistId, selectedTerritoryId, onSelectTerritory }: TerritoryListProps) {
   return (
-    <ul className="preview-territory-list" aria-label="지도와 같은 영토 목록">
+    <ul className="preview-territory-list" aria-label={locale === "ko" ? "지도와 같은 영토 목록" : "Map-equivalent territory list"}>
       {territories.map((territory) => {
         const owner = territory.standings.find((standing) => standing.artistId === territory.ownerArtistId);
         const selected = territory.standings.find((standing) => standing.artistId === selectedArtistId);
@@ -30,6 +31,7 @@ export function TerritoryList({ territories, locale, selectedArtistId, selectedT
           >
             <strong>{territory.name[locale]}</strong>
             <span>{owner?.fandomName ?? "—"}</span>
+            <StrongholdMark stage={territory.strongholdStage} locale={locale} />
             {territory.populationDecline ? <small>{territory.balanceMultiplier}×</small> : null}
             {selectedArtistId ? (
               <small>{territory.ownerArtistId === selectedArtistId

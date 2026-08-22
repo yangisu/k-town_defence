@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { X } from "@/components/ui/icons";
+import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { getArtistHomeTerritories, previewContent } from "@/features/team-preview/content";
 import { t } from "@/features/team-preview/i18n";
 import type { ArtistId, Locale } from "@/features/team-preview/types";
@@ -16,6 +17,8 @@ interface Props {
 
 export function ArtistDrawer({ open, locale, selectedArtistId, onClose, onSelect }: Props) {
   const [query, setQuery] = useState("");
+  const dialogRef = useRef<HTMLElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const artists = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     if (!needle) return previewContent.artists;
@@ -25,16 +28,17 @@ export function ArtistDrawer({ open, locale, selectedArtistId, onClose, onSelect
       artist.fandomName,
     ].some((value) => value.toLocaleLowerCase().includes(needle)));
   }, [query]);
+  useModalFocus(open, dialogRef, titleRef, onClose);
 
   if (!open) return null;
 
   return (
     <div className="artist-drawer-overlay">
-      <section className="artist-drawer" role="dialog" aria-modal="true" aria-label={t(locale, "artistDialogTitle")}>
+      <section className="artist-drawer" role="dialog" aria-modal="true" aria-labelledby="artist-drawer-title" ref={dialogRef}>
         <header>
           <div>
             <span>{t(locale, "seasonName")}</span>
-            <h2>{t(locale, "artistDialogTitle")}</h2>
+            <h2 id="artist-drawer-title" tabIndex={-1} ref={titleRef}>{t(locale, "artistDialogTitle")}</h2>
           </div>
           <button className="icon-button" type="button" aria-label={t(locale, "close")} onClick={onClose}>
             <X aria-hidden="true" size={20} />

@@ -10,6 +10,7 @@ import { JourneyView } from "@/components/journey/journey-view";
 import { ArtistDrawer } from "@/components/team-preview/artist-drawer";
 import { ObjectiveStrip } from "@/components/team-preview/objective-strip";
 import { StartPanel } from "@/components/team-preview/start-panel";
+import { TerritoryMap } from "@/components/team-preview/territory-map";
 import { appReducer, initialAppState, type AppAction, type AppState } from "@/features/app-controller";
 import { MembershipProvider } from "@/features/membership/membership-context";
 import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/demo-session-context";
@@ -18,6 +19,7 @@ import { rankFandoms } from "@/features/team-preview/game-rules";
 import { t } from "@/features/team-preview/i18n";
 import { MembershipGate } from "@/components/membership/membership-gate";
 import type { AppServices, Place } from "@/lib/domain";
+import type { MapConfig } from "@/lib/map-config";
 import { createServices, type ServiceMode } from "@/lib/service-factory";
 
 interface ServiceViewsProps {
@@ -28,10 +30,11 @@ interface ServiceViewsProps {
   checkInPlace: Place | null;
   setCheckInPlace: Dispatch<SetStateAction<Place | null>>;
   exploreAside?: ReactNode;
+  exploreMap?: ReactNode;
   exploreHeading?: string;
 }
 
-function ServiceViews({ mode, services, state, dispatch, checkInPlace, setCheckInPlace, exploreAside, exploreHeading }: ServiceViewsProps) {
+function ServiceViews({ mode, services, state, dispatch, checkInPlace, setCheckInPlace, exploreAside, exploreMap, exploreHeading }: ServiceViewsProps) {
   const explore = state.activeTab === "explore" ? (
     <>
       {exploreHeading ? <h1 className="preview-page-title">{exploreHeading}</h1> : null}
@@ -39,6 +42,7 @@ function ServiceViews({ mode, services, state, dispatch, checkInPlace, setCheckI
         <ExploreView
           services={services}
           mode={mode}
+          territoryMap={exploreMap}
           selectedRegionId={state.selectedRegionId}
           onSelectRegion={(regionId) => dispatch({ type: "selectRegion", regionId })}
           onOpenExpedition={(regionId, expeditionId) => dispatch({ type: "openExpedition", regionId, expeditionId })}
@@ -83,7 +87,7 @@ function ServiceViews({ mode, services, state, dispatch, checkInPlace, setCheckI
   );
 }
 
-function DemoProduct({ services }: { services: AppServices }) {
+function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig: MapConfig | null }) {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const [checkInPlace, setCheckInPlace] = useState<Place | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -112,6 +116,11 @@ function DemoProduct({ services }: { services: AppServices }) {
     setCheckInPlace(null);
   };
 
+  const chooseTerritory = (territoryId: string) => {
+    session.dispatch({ type: "selectTerritory", territoryId });
+    dispatch({ type: "selectRegion", regionId: territoryId });
+  };
+
   return (
     <AppShell
       variant="demo"
@@ -136,6 +145,14 @@ function DemoProduct({ services }: { services: AppServices }) {
         checkInPlace={checkInPlace}
         setCheckInPlace={setCheckInPlace}
         exploreHeading={t(session.state.locale, "navTerritory")}
+        exploreMap={(
+          <TerritoryMap
+            mapConfig={mapConfig}
+            session={session.state}
+            selectedTerritoryId={session.state.artistConfirmed ? session.state.selectedTerritoryId : null}
+            onSelectTerritory={chooseTerritory}
+          />
+        )}
         exploreAside={(
           <StartPanel
             locale={session.state.locale}
@@ -183,11 +200,11 @@ function IntegratedProduct({ services }: { services: AppServices }) {
   );
 }
 
-export function KTownApp({ mode }: { mode: ServiceMode }) {
+export function KTownApp({ mode, mapConfig }: { mode: ServiceMode; mapConfig: MapConfig | null }) {
   const services = useMemo(() => createServices(mode), [mode]);
 
   if (mode === "demo") {
-    return <DemoSessionProvider><DemoProduct services={services} /></DemoSessionProvider>;
+    return <DemoSessionProvider><DemoProduct services={services} mapConfig={mapConfig} /></DemoSessionProvider>;
   }
 
   return (

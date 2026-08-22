@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { AppServices, Expedition, Place, PlaceCategory, Region } from "@/lib/domain";
 import { KoreaTerritoryMap } from "./korea-territory-map";
 import { RegionSheet } from "./region-sheet";
@@ -11,7 +11,7 @@ const filters: { label: string; value: PlaceCategory | "all" }[] = [
   { label: "전체", value: "all" }, { label: "K-POP", value: "kpop" }, { label: "문화", value: "culture" }, { label: "먹거리", value: "local_food" }, { label: "행사", value: "event" },
 ];
 
-export function ExploreView({ services, selectedRegionId, mode = "demo", onSelectRegion, onOpenExpedition, onStartCheckIn }: { services: AppServices; selectedRegionId: string; mode?: "demo" | "integrated"; onSelectRegion: (id: string) => void; onOpenExpedition: (regionId: string, expeditionId: string) => void; onStartCheckIn?: (place: Place) => void }) {
+export function ExploreView({ services, selectedRegionId, mode = "demo", territoryMap, onSelectRegion, onOpenExpedition, onStartCheckIn }: { services: AppServices; selectedRegionId: string; mode?: "demo" | "integrated"; territoryMap?: ReactNode; onSelectRegion: (id: string) => void; onOpenExpedition: (regionId: string, expeditionId: string) => void; onStartCheckIn?: (place: Place) => void }) {
   const [regions, setRegions] = useState<Region[]>([]);
   const [expeditions, setExpeditions] = useState<Expedition[]>([]);
   const [filter, setFilter] = useState<PlaceCategory | "all">("all");
@@ -28,7 +28,7 @@ export function ExploreView({ services, selectedRegionId, mode = "demo", onSelec
       </header>
       <div className="filter-bar" aria-label="관광 유형 필터">{filters.map((item) => <button key={item.value} className={filter === item.value ? "active" : ""} aria-pressed={filter === item.value} onClick={() => setFilter(item.value)}>{item.value === "all" ? <Sparkles size={15} /> : null}{item.label}</button>)}</div>
       <div className="explore-grid">
-        <KoreaTerritoryMap regions={regions} selectedId={selectedRegionId} onSelect={onSelectRegion} />
+        {territoryMap ?? <KoreaTerritoryMap regions={regions} selectedId={selectedRegionId} onSelect={onSelectRegion} />}
         {selected ? <RegionSheet region={selected} expedition={expeditions[0]} onOpen={() => expeditions[0] && onOpenExpedition(selected.id, expeditions[0].id)} /> : <div className="panel-loading"><Map size={24} /><span>지역 지도를 준비하고 있어요</span></div>}
       </div>
       {mode === "integrated" && selectedRegionId === "busan" && onStartCheckIn ? <LivePlacesPanel service={services.tourism} onStartCheckIn={onStartCheckIn} /> : null}

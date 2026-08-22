@@ -16,12 +16,11 @@ describe("fan tourism journey", () => {
     render(<Page />);
     await selectDemoMembership(user);
 
-    expect(await screen.findByRole("heading", { name: /팬덤으로 여는 한국 여행/ })).toBeVisible();
-    await user.click(screen.getAllByRole("button", { name: /부산 지역 탐험/ })[0]);
-    expect(await screen.findByText("바다를 따라 부산 방어전")).toBeVisible();
-    expect(screen.getAllByText(/K-POP의 기억과 영도 로컬/)[0]).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
+    expect(screen.getByRole("complementary", { name: "부산 전술 패널" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "연결 근거 출처" })).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: /원정 자세히/ }));
+    await user.click(screen.getAllByRole("button", { name: "원정" })[0]);
     expect(await screen.findByRole("heading", { name: "바다를 따라 부산 방어전" })).toBeVisible();
     expect(screen.getByText("2 / 5 완료")).toBeVisible();
     expect(screen.getByText("영도 흰여울길")).toBeVisible();

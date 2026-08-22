@@ -24,6 +24,10 @@ export const initialAppState: AppState = {
   checkInPlaceId: null,
 };
 
+export function openExpedition(regionId: string, expeditionId: string): AppAction {
+  return { type: "openExpedition", regionId, expeditionId };
+}
+
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case "changeTab": return { ...state, activeTab: action.tab, checkInPlaceId: null };

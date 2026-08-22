@@ -50,9 +50,9 @@ it("searches localized artists and recommends their first home territory", async
   await user.click(screen.getByRole("radio", { name: /aespa.*MY/i }));
 
   expect(screen.queryByRole("dialog", { name: "아티스트 선택" })).not.toBeInTheDocument();
-  const recommendation = screen.getByRole("complementary", { name: "추천 영토" });
-  expect(within(recommendation).getByText("2. 추천 영토 확인")).toBeVisible();
-  expect(within(recommendation).getByText("부산")).toBeVisible();
+  const recommendation = screen.getByRole("complementary", { name: "부산 전술 패널" });
+  expect(within(recommendation).getByRole("heading", { name: "부산" })).toBeVisible();
+  expect(within(recommendation).getByRole("button", { name: /원정 시작/ })).toBeEnabled();
   expect(within(screen.getByRole("region", { name: "현재 목표" })).getByText(/MY/)).toBeVisible();
 });
 

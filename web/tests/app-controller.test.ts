@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { appReducer, initialAppState } from "@/features/app-controller";
+import { appReducer, initialAppState, openExpedition } from "@/features/app-controller";
 
 describe("app controller", () => {
   it("opens an expedition from a selected region and returns to exploration", () => {
-    const selected = appReducer(initialAppState, {
-      type: "openExpedition",
-      regionId: "busan",
-      expeditionId: "busan-coast-defense",
-    });
+    const selected = appReducer(initialAppState, openExpedition("busan", "busan-coast-defense"));
     expect(selected).toMatchObject({
       activeTab: "expedition",
       selectedRegionId: "busan",

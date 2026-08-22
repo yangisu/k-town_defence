@@ -9,14 +9,12 @@ import { BattleView } from "@/components/battle/battle-view";
 import { JourneyView } from "@/components/journey/journey-view";
 import { ArtistDrawer } from "@/components/team-preview/artist-drawer";
 import { ObjectiveStrip } from "@/components/team-preview/objective-strip";
-import { StartPanel } from "@/components/team-preview/start-panel";
-import { TerritoryMap } from "@/components/team-preview/territory-map";
-import { appReducer, initialAppState, type AppAction, type AppState } from "@/features/app-controller";
+import { TerritoryView } from "@/components/team-preview/territory-view";
+import { appReducer, initialAppState, openExpedition, type AppAction, type AppState } from "@/features/app-controller";
 import { MembershipProvider } from "@/features/membership/membership-context";
 import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/demo-session-context";
 import { getArtistHomeTerritories } from "@/features/team-preview/content";
 import { rankFandoms } from "@/features/team-preview/game-rules";
-import { t } from "@/features/team-preview/i18n";
 import { MembershipGate } from "@/components/membership/membership-gate";
 import type { AppServices, Place } from "@/lib/domain";
 import type { MapConfig } from "@/lib/map-config";
@@ -29,31 +27,24 @@ interface ServiceViewsProps {
   dispatch: Dispatch<AppAction>;
   checkInPlace: Place | null;
   setCheckInPlace: Dispatch<SetStateAction<Place | null>>;
-  exploreAside?: ReactNode;
-  exploreMap?: ReactNode;
-  exploreHeading?: string;
+  demoExplore?: ReactNode;
 }
 
-function ServiceViews({ mode, services, state, dispatch, checkInPlace, setCheckInPlace, exploreAside, exploreMap, exploreHeading }: ServiceViewsProps) {
+function ServiceViews({ mode, services, state, dispatch, checkInPlace, setCheckInPlace, demoExplore }: ServiceViewsProps) {
   const explore = state.activeTab === "explore" ? (
-    <>
-      {exploreHeading ? <h1 className="preview-page-title">{exploreHeading}</h1> : null}
-      <div className={exploreAside ? "team-preview-entry-layout" : undefined}>
+    mode === "demo" && demoExplore ? demoExplore : (
         <ExploreView
           services={services}
           mode={mode}
-          territoryMap={exploreMap}
           selectedRegionId={state.selectedRegionId}
           onSelectRegion={(regionId) => dispatch({ type: "selectRegion", regionId })}
-          onOpenExpedition={(regionId, expeditionId) => dispatch({ type: "openExpedition", regionId, expeditionId })}
+          onOpenExpedition={(regionId, expeditionId) => dispatch(openExpedition(regionId, expeditionId))}
           onStartCheckIn={(place) => {
             setCheckInPlace(place);
             dispatch({ type: "startCheckIn", placeId: place.id });
           }}
         />
-        {exploreAside}
-      </div>
-    </>
+    )
   ) : null;
 
   return (
@@ -116,11 +107,6 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
     setCheckInPlace(null);
   };
 
-  const chooseTerritory = (territoryId: string) => {
-    session.dispatch({ type: "selectTerritory", territoryId });
-    dispatch({ type: "selectRegion", regionId: territoryId });
-  };
-
   return (
     <AppShell
       variant="demo"
@@ -144,22 +130,12 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
         dispatch={dispatch}
         checkInPlace={checkInPlace}
         setCheckInPlace={setCheckInPlace}
-        exploreHeading={t(session.state.locale, "navTerritory")}
-        exploreMap={(
-          <TerritoryMap
+        demoExplore={(
+          <TerritoryView
             mapConfig={mapConfig}
-            session={session.state}
-            selectedTerritoryId={session.state.artistConfirmed ? session.state.selectedTerritoryId : null}
-            onSelectTerritory={chooseTerritory}
-          />
-        )}
-        exploreAside={(
-          <StartPanel
-            locale={session.state.locale}
-            artist={selectedArtist}
-            recommendedTerritory={selectedTerritory}
-            artistConfirmed={session.state.artistConfirmed}
             onChooseArtist={() => setDrawerOpen(true)}
+            onSelectTerritory={(territoryId) => dispatch({ type: "selectRegion", regionId: territoryId })}
+            onOpenExpedition={(territoryId, expeditionId) => dispatch(openExpedition(territoryId, expeditionId))}
           />
         )}
       />

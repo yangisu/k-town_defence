@@ -250,6 +250,7 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
       <TerritoryList
         territories={session.territories}
         locale={session.locale}
+        selectedArtistId={session.artistConfirmed ? session.selectedArtistId : null}
         selectedTerritoryId={selectedTerritoryId}
         onSelectTerritory={onSelectTerritory}
       />

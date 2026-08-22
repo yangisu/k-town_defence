@@ -21,16 +21,19 @@ describe("fan tourism journey", () => {
     expect(screen.getByRole("link", { name: "연결 근거 출처" })).toBeVisible();
 
     await user.click(screen.getAllByRole("button", { name: "원정" })[0]);
-    expect(await screen.findByRole("heading", { name: "바다를 따라 부산 방어전" })).toBeVisible();
-    expect(screen.getByText("2 / 5 완료")).toBeVisible();
-    expect(screen.getByText("영도 흰여울길")).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "BTS 부산 바다 원정" })).toBeVisible();
+    expect(screen.getByText("감천문화마을")).toBeVisible();
+    expect(screen.getByText("자갈치시장")).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: /영도 흰여울길 체크인/ }));
+    await user.click(screen.getByRole("button", { name: "감천문화마을 체크인" }));
     expect(await screen.findByRole("heading", { name: "현장 체크인" })).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "인증 과정 진행" }));
+    await user.click(screen.getByRole("button", { name: "데모 인증 진행" }));
+    await user.click(screen.getByRole("checkbox", { name: "로컬 소비 인증 포함" }));
+    await user.click(screen.getByRole("button", { name: "포인트 검토" }));
     await user.click(screen.getByRole("button", { name: "체크인 제출" }));
-    expect(await screen.findByText("부산 여행에 120P를 보탰어요")).toBeVisible();
-    expect(screen.getByLabelText("부산 탈환까지 300P")).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "체크인 승인 완료" })).toBeVisible();
+    expect(screen.getByText("유효 포인트 +260P")).toBeVisible();
+    expect(screen.getByText(/지역 점유율/)).toBeVisible();
   });
 
   it("navigates to battle and travel record views", async () => {

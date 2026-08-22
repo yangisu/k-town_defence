@@ -152,6 +152,18 @@ export interface CheckInResult {
   message: string;
 }
 
+export interface CheckInImpact {
+  territoryName: string;
+  territoryShareBefore: number;
+  territoryShareAfter: number;
+  strongholdBefore: string;
+  strongholdAfter: string;
+  fandomRankBefore: number;
+  fandomRankAfter: number;
+  personalRankBefore: number;
+  personalRankAfter: number;
+}
+
 export interface GpsEvidence {
   sequence: number;
   latitude: number;

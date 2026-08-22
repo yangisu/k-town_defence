@@ -10,6 +10,7 @@ import { JourneyView } from "@/components/journey/journey-view";
 import { ArtistDrawer } from "@/components/team-preview/artist-drawer";
 import { ObjectiveStrip } from "@/components/team-preview/objective-strip";
 import { TerritoryView } from "@/components/team-preview/territory-view";
+import { PreviewExpeditionView } from "@/components/team-preview/expedition-view";
 import { appReducer, initialAppState, openExpedition, type AppAction, type AppState } from "@/features/app-controller";
 import { MembershipProvider } from "@/features/membership/membership-context";
 import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/demo-session-context";
@@ -28,9 +29,10 @@ interface ServiceViewsProps {
   checkInPlace: Place | null;
   setCheckInPlace: Dispatch<SetStateAction<Place | null>>;
   demoExplore?: ReactNode;
+  demoExpedition?: ReactNode;
 }
 
-function ServiceViews({ mode, services, state, dispatch, checkInPlace, setCheckInPlace, demoExplore }: ServiceViewsProps) {
+function ServiceViews({ mode, services, state, dispatch, checkInPlace, setCheckInPlace, demoExplore, demoExpedition }: ServiceViewsProps) {
   const explore = state.activeTab === "explore" ? (
     mode === "demo" && demoExplore ? demoExplore : (
         <ExploreView
@@ -51,15 +53,17 @@ function ServiceViews({ mode, services, state, dispatch, checkInPlace, setCheckI
     <>
       {explore}
       {state.activeTab === "expedition" ? (
-        <ExpeditionView
-          expeditionId={state.selectedExpeditionId}
-          services={services}
-          onStartCheckIn={(place) => {
-            setCheckInPlace(place);
-            dispatch({ type: "startCheckIn", placeId: place.id });
-          }}
-          onBack={() => dispatch({ type: "changeTab", tab: "explore" })}
-        />
+        mode === "demo" && demoExpedition ? demoExpedition : (
+          <ExpeditionView
+            expeditionId={state.selectedExpeditionId}
+            services={services}
+            onStartCheckIn={(place) => {
+              setCheckInPlace(place);
+              dispatch({ type: "startCheckIn", placeId: place.id });
+            }}
+            onBack={() => dispatch({ type: "changeTab", tab: "explore" })}
+          />
+        )
       ) : null}
       {state.activeTab === "battle" ? <BattleView service={services.battle} selectedRegionId={state.selectedRegionId} /> : null}
       {state.activeTab === "journey" ? <JourneyView service={services.battle} /> : null}
@@ -137,6 +141,13 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
             onChooseArtist={() => setDrawerOpen(true)}
             onSelectTerritory={(territoryId) => dispatch({ type: "selectRegion", regionId: territoryId })}
             onOpenExpedition={(territoryId, expeditionId) => dispatch(openExpedition(territoryId, expeditionId))}
+          />
+        )}
+        demoExpedition={(
+          <PreviewExpeditionView
+            expeditionId={state.selectedExpeditionId}
+            checkInService={services.checkIn}
+            onBack={() => dispatch({ type: "changeTab", tab: "explore" })}
           />
         )}
       />

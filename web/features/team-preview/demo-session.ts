@@ -8,6 +8,7 @@ export const DEMO_SESSION_KEY = "ktown-team-preview-v1";
 export interface DemoSession {
   version: typeof DEMO_SESSION_VERSION;
   locale: Locale;
+  artistConfirmed: boolean;
   selectedArtistId: ArtistId | null;
   selectedTerritoryId: TerritoryId | null;
   territories: PreviewTerritory[];
@@ -73,6 +74,7 @@ export function createInitialDemoSession(): DemoSession {
   return {
     version: DEMO_SESSION_VERSION,
     locale: "ko",
+    artistConfirmed: false,
     selectedArtistId: "bts",
     selectedTerritoryId: "busan",
     territories,
@@ -119,7 +121,7 @@ export function applyMissionImpact(state: DemoSession, missionId: string, award:
 
 export function demoSessionReducer(state: DemoSession, action: DemoSessionAction): DemoSession {
   switch (action.type) {
-    case "selectArtist": return { ...state, selectedArtistId: action.artistId };
+    case "selectArtist": return { ...state, artistConfirmed: true, selectedArtistId: action.artistId };
     case "selectTerritory": return { ...state, selectedTerritoryId: action.territoryId };
     case "setLocale": return { ...state, locale: action.locale };
     case "completeMission": return applyMissionImpact(state, action.missionId, action.award);
@@ -196,6 +198,7 @@ function isValidDemoSession(value: unknown): value is DemoSession {
   if (!isRecord(value)
     || value.version !== DEMO_SESSION_VERSION
     || (value.locale !== "ko" && value.locale !== "en")
+    || typeof value.artistConfirmed !== "boolean"
     || (value.selectedArtistId !== null && !isArtistId(value.selectedArtistId))
     || (value.selectedTerritoryId !== null && !isTerritoryId(value.selectedTerritoryId))
     || !Array.isArray(value.territories)

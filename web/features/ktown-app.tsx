@@ -87,10 +87,13 @@ function DemoProduct({ services }: { services: AppServices }) {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const [checkInPlace, setCheckInPlace] = useState<Place | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [artistConfirmed, setArtistConfirmed] = useState(false);
   const session = useDemoSession();
   const ranked = rankFandoms(session.state.fandoms);
-  const rank = ranked.find((entry) => entry.artistId === session.state.selectedArtistId)?.rank ?? null;
+  const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
+  const selectedTerritory = session.state.artistConfirmed ? session.selectedTerritory : null;
+  const rank = session.state.artistConfirmed
+    ? ranked.find((entry) => entry.artistId === session.state.selectedArtistId)?.rank ?? null
+    : null;
 
   const chooseArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
     const homeTerritory = getArtistHomeTerritories(artistId)[0] ?? null;
@@ -99,7 +102,6 @@ function DemoProduct({ services }: { services: AppServices }) {
       session.dispatch({ type: "selectTerritory", territoryId: homeTerritory.id });
       dispatch({ type: "selectRegion", regionId: homeTerritory.id });
     }
-    setArtistConfirmed(true);
     setDrawerOpen(false);
   };
 
@@ -108,22 +110,22 @@ function DemoProduct({ services }: { services: AppServices }) {
     dispatch({ type: "selectRegion", regionId: initialAppState.selectedRegionId });
     dispatch({ type: "changeTab", tab: initialAppState.activeTab });
     setCheckInPlace(null);
-    setArtistConfirmed(false);
   };
 
   return (
     <AppShell
+      variant="demo"
       activeTab={state.activeTab}
       locale={session.state.locale}
-      fandomName={session.selectedArtist?.fandomName ?? null}
+      fandomName={selectedArtist?.fandomName ?? null}
       rank={rank}
       onLocaleChange={(locale) => session.dispatch({ type: "setLocale", locale })}
       onTabChange={(tab) => dispatch({ type: "changeTab", tab })}
     >
       <ObjectiveStrip
         locale={session.state.locale}
-        fandomName={session.selectedArtist?.fandomName ?? null}
-        territoryName={session.selectedTerritory?.name[session.state.locale] ?? null}
+        fandomName={selectedArtist?.fandomName ?? null}
+        territoryName={selectedTerritory?.name[session.state.locale] ?? null}
         onReset={resetDemo}
       />
       <ServiceViews
@@ -137,9 +139,9 @@ function DemoProduct({ services }: { services: AppServices }) {
         exploreAside={(
           <StartPanel
             locale={session.state.locale}
-            artist={session.selectedArtist}
-            recommendedTerritory={session.selectedTerritory}
-            artistConfirmed={artistConfirmed}
+            artist={selectedArtist}
+            recommendedTerritory={selectedTerritory}
+            artistConfirmed={session.state.artistConfirmed}
             onChooseArtist={() => setDrawerOpen(true)}
           />
         )}
@@ -147,7 +149,7 @@ function DemoProduct({ services }: { services: AppServices }) {
       <ArtistDrawer
         open={drawerOpen}
         locale={session.state.locale}
-        selectedArtistId={session.state.selectedArtistId}
+        selectedArtistId={session.state.artistConfirmed ? session.state.selectedArtistId : null}
         onClose={() => setDrawerOpen(false)}
         onSelect={chooseArtist}
       />
@@ -161,6 +163,7 @@ function IntegratedProduct({ services }: { services: AppServices }) {
 
   return (
     <AppShell
+      variant="integrated"
       activeTab={state.activeTab}
       locale="ko"
       fandomName={null}

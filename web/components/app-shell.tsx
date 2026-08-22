@@ -14,6 +14,7 @@ const tabs: { id: AppTab; label: "navTerritory" | "navExpeditions" | "navRanking
 ];
 
 interface Props {
+  variant: "demo" | "integrated";
   activeTab: AppTab;
   locale: Locale;
   fandomName: string | null;
@@ -23,8 +24,8 @@ interface Props {
   children: ReactNode;
 }
 
-export function AppShell({ activeTab, locale, fandomName, rank, onLocaleChange, onTabChange, children }: Props) {
-  const demo = fandomName !== null;
+export function AppShell({ variant, activeTab, locale, fandomName, rank, onLocaleChange, onTabChange, children }: Props) {
+  const demo = variant === "demo";
   return (
     <div className="app-shell">
       <aside className="side-rail">
@@ -41,9 +42,9 @@ export function AppShell({ activeTab, locale, fandomName, rank, onLocaleChange, 
         <div className="rail-season"><span>{demo ? t(locale, "seasonName") : "SEASON 01"}</span><strong>{t(locale, "seasonRemaining")}</strong>{rank ? <small>{fandomName} · {rank}</small> : null}</div>
       </aside>
       <div className="app-content">
-        {fandomName ? (
+        {demo ? (
           <header className="shell-status">
-            <div><span>{t(locale, "guestDemo")}</span><strong>{fandomName}{rank ? ` · #${rank}` : ""}</strong></div>
+            <div><span>{t(locale, "guestDemo")}</span>{fandomName ? <strong>{fandomName}{rank ? ` · #${rank}` : ""}</strong> : null}</div>
             <div className="locale-switch" aria-label="Language">
               <button type="button" aria-pressed={locale === "ko"} onClick={() => onLocaleChange("ko")}>한국어</button>
               <button type="button" aria-pressed={locale === "en"} onClick={() => onLocaleChange("en")}>EN</button>

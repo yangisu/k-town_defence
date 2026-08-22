@@ -36,6 +36,7 @@ describe("demo preview session", () => {
     const localized = demoSessionReducer(territory, { type: "setLocale", locale: "ko" });
 
     expect(localized.selectedArtistId).toBe("blackpink");
+    expect(localized.artistConfirmed).toBe(true);
     expect(localized.selectedTerritoryId).toBe("gunpo");
     expect(localized.locale).toBe("ko");
   });
@@ -101,6 +102,7 @@ describe("demo preview session", () => {
     const malformed = [
       { version: DEMO_SESSION_VERSION },
       { ...initial, locale: "fr" },
+      { ...initial, artistConfirmed: "yes" },
       { ...initial, selectedArtistId: "unknown-artist" },
       { ...initial, selectedTerritoryId: "unknown-territory" },
       { ...initial, territories: [{}] },

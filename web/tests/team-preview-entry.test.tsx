@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, expect, it } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
+import { AppShell } from "@/components/app-shell";
 import { KTownApp } from "@/features/ktown-app";
 
 beforeEach(() => window.localStorage.clear());
@@ -14,10 +15,16 @@ it("opens in the product shell and guides artist selection beside the service", 
   expect(screen.getByText("게스트 데모")).toBeVisible();
   expect(screen.getByText("1. 아티스트 선택")).toBeVisible();
   expect(screen.queryByRole("heading", { name: /함께 여행할 팬덤/ })).not.toBeInTheDocument();
+  expect(screen.queryByText("ARMY · #1")).not.toBeInTheDocument();
+  expect(within(screen.getByRole("region", { name: "현재 목표" })).queryByText("ARMY · 부산")).not.toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "아티스트 선택" }));
   expect(screen.getByRole("dialog", { name: "아티스트 선택" })).toBeVisible();
   expect(screen.getAllByRole("radio")).toHaveLength(15);
+  expect(screen.getAllByRole("radio").every((radio) => !(radio as HTMLInputElement).checked)).toBe(true);
+  await user.click(screen.getByRole("radio", { name: /BTS.*ARMY/ }));
+  expect(screen.getByText("ARMY · #1")).toBeVisible();
+  expect(within(screen.getByRole("region", { name: "현재 목표" })).getByText("ARMY · 부산")).toBeVisible();
 });
 
 it("searches localized artists and recommends their first home territory", async () => {
@@ -41,4 +48,26 @@ it("searches localized artists and recommends their first home territory", async
   expect(within(recommendation).getByText("2. 추천 영토 확인")).toBeVisible();
   expect(within(recommendation).getByText("부산")).toBeVisible();
   expect(within(screen.getByRole("region", { name: "현재 목표" })).getByText(/MY/)).toBeVisible();
+});
+
+it("keeps demo labels and locale controls when no fandom is selected", () => {
+  render(
+    <AppShell
+      variant="demo"
+      activeTab="explore"
+      locale="ko"
+      fandomName={null}
+      rank={null}
+      onLocaleChange={vi.fn()}
+      onTabChange={vi.fn()}
+    >
+      <div>service</div>
+    </AppShell>,
+  );
+
+  expect(screen.getAllByRole("button", { name: "영토 지도" })).toHaveLength(2);
+  expect(screen.getByText("게스트 데모")).toBeVisible();
+  expect(screen.getByRole("button", { name: "한국어" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "EN" })).toBeVisible();
+  expect(screen.queryByText(/ARMY/)).not.toBeInTheDocument();
 });

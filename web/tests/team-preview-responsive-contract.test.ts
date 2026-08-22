@@ -30,6 +30,16 @@ it("keeps a 52dvh map and scrollable safe-area tactical sheet below 768px", () =
   expect(mobile).toContain("env(safe-area-inset-bottom)");
 });
 
+it("gives objective/reset and locale controls distinct mobile rows and desktop columns", () => {
+  expect(compactCss).toMatch(/\.shell-status\{[^}]*display:grid[^}]*grid-template-columns:minmax\(0,1fr\)auto/);
+  expect(compactCss).toMatch(/\.shell-status>\.objective-strip\{[^}]*grid-column:1\/-1[^}]*min-width:0/);
+  expect(compactCss).toMatch(/\.objective-stripbutton\{[^}]*flex-shrink:0/);
+
+  const desktop = compactCss.slice(compactCss.indexOf("@media(min-width:768px)"));
+  expect(desktop).toMatch(/\.shell-status\{[^}]*grid-template-columns:autominmax\(0,1fr\)auto/);
+  expect(desktop).toMatch(/\.shell-status>\.objective-strip\{[^}]*grid-column:auto/);
+});
+
 it("keeps visible focus and removes motion without disabling layout transforms", () => {
   expect(compactCss).toContain(":focus-visible");
   expect(compactCss).toContain("@media(prefers-reduced-motion:reduce)");

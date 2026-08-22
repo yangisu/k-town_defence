@@ -22,6 +22,7 @@ interface Props {
   onLocaleChange(locale: Locale): void;
   onTabChange(tab: AppTab): void;
   interactionDisabled?: boolean;
+  statusContent?: ReactNode;
   children: ReactNode;
 }
 
@@ -34,6 +35,7 @@ export function AppShell({
   onLocaleChange,
   onTabChange,
   interactionDisabled = false,
+  statusContent,
   children,
 }: Props) {
   const demo = variant === "demo";
@@ -64,8 +66,9 @@ export function AppShell({
       <div className="app-content">
         {demo ? (
           <header className="shell-status">
-            <div><span>{t(locale, "guestDemo")}</span>{fandomName ? <strong>{fandomName}{rank ? ` · #${rank}` : ""}</strong> : null}</div>
-            <div className="locale-switch" role="group" aria-label={locale === "ko" ? "언어 선택" : "Language selection"}>
+            <div data-shell-region="identity"><span>{t(locale, "guestDemo")}</span>{fandomName ? <strong>{fandomName}{rank ? ` · #${rank}` : ""}</strong> : null}</div>
+            {statusContent}
+            <div className="locale-switch" data-shell-region="locale" role="group" aria-label={locale === "ko" ? "언어 선택" : "Language selection"}>
               <button type="button" aria-pressed={locale === "ko"} onClick={() => onLocaleChange("ko")}>한국어</button>
               <button type="button" aria-pressed={locale === "en"} onClick={() => onLocaleChange("en")}>EN</button>
             </div>

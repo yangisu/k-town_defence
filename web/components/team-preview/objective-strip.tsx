@@ -10,7 +10,7 @@ interface Props {
 
 export function ObjectiveStrip({ locale, fandomName, territoryName, onReset }: Props) {
   return (
-    <section className="objective-strip" aria-label={t(locale, "currentObjective")}>
+    <section className="objective-strip" data-shell-region="objective" aria-label={t(locale, "currentObjective")}>
       <div>
         <span>{t(locale, "currentObjective")}</span>
         <strong>

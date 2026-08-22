@@ -77,3 +77,17 @@ it("keeps demo labels and locale controls when no fandom is selected", () => {
   expect(screen.getByRole("button", { name: "EN" })).toBeVisible();
   expect(screen.queryByText(/ARMY/)).not.toBeInTheDocument();
 });
+
+it("keeps the current objective, reset, and locale controls in one non-overlapping shell header", async () => {
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  const header = await screen.findByRole("banner");
+  const objective = screen.getByRole("region", { name: "현재 목표" });
+  const locale = screen.getByRole("group", { name: "언어 선택" });
+
+  expect(header).toContainElement(objective);
+  expect(header).toContainElement(locale);
+  expect(objective).toHaveAttribute("data-shell-region", "objective");
+  expect(locale).toHaveAttribute("data-shell-region", "locale");
+  expect(within(objective).getByRole("button", { name: "데모 초기화" })).toBeVisible();
+});

@@ -142,13 +142,15 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
         interactionDisabled={resetOpen}
         onLocaleChange={(locale) => session.dispatch({ type: "setLocale", locale })}
         onTabChange={(tab) => dispatch({ type: "changeTab", tab })}
+        statusContent={(
+          <ObjectiveStrip
+            locale={session.state.locale}
+            fandomName={selectedArtist?.fandomName ?? null}
+            territoryName={selectedTerritory?.name[session.state.locale] ?? null}
+            onReset={() => setResetOpen(true)}
+          />
+        )}
       >
-        <ObjectiveStrip
-          locale={session.state.locale}
-          fandomName={selectedArtist?.fandomName ?? null}
-          territoryName={selectedTerritory?.name[session.state.locale] ?? null}
-          onReset={() => setResetOpen(true)}
-        />
         <ServiceViews
           mode="demo"
           services={services}

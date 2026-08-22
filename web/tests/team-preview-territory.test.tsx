@@ -185,6 +185,8 @@ it("normalizes a stale local filter after reset and artist reselection", async (
     .toHaveLength(1);
 
   await user.click(screen.getByRole("button", { name: "데모 초기화" }));
+  await user.click(within(screen.getByRole("dialog", { name: "데모를 초기화할까요?" }))
+    .getByRole("button", { name: "초기화" }));
   await user.click(screen.getByRole("button", { name: "아티스트 선택" }));
   await user.click(screen.getByRole("radio", { name: /aespa.*MY/i }));
 

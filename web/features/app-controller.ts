@@ -14,7 +14,8 @@ export type AppAction =
   | { type: "selectPlace"; placeId: string }
   | { type: "openExpedition"; regionId: string; expeditionId: string }
   | { type: "startCheckIn"; placeId: string }
-  | { type: "closeCheckIn" };
+  | { type: "closeCheckIn" }
+  | { type: "reset" };
 
 export const initialAppState: AppState = {
   activeTab: "explore",
@@ -36,5 +37,6 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "openExpedition": return { ...state, activeTab: "expedition", selectedRegionId: action.regionId, selectedExpeditionId: action.expeditionId };
     case "startCheckIn": return { ...state, checkInPlaceId: action.placeId };
     case "closeCheckIn": return { ...state, checkInPlaceId: null };
+    case "reset": return initialAppState;
   }
 }

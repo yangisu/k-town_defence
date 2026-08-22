@@ -4,6 +4,7 @@ import { createContext, type Dispatch, type ReactNode, useContext, useEffect, us
 import { previewContent } from "./content";
 import {
   createInitialDemoSession,
+  DEMO_SESSION_KEY,
   demoSessionReducer,
   loadDemoSession,
   saveDemoSession,
@@ -24,6 +25,7 @@ const DemoSessionContext = createContext<DemoSessionContextValue | null>(null);
 export function DemoSessionProvider({ children, storage }: { children: ReactNode; storage?: Storage }) {
   const [state, dispatch] = useReducer(demoSessionReducer, undefined, createInitialDemoSession);
   const loaded = useRef(false);
+  const skipNextSave = useRef(false);
   const sessionStorage = storage ?? (typeof window === "undefined" ? undefined : window.localStorage);
 
   useEffect(() => {
@@ -41,14 +43,23 @@ export function DemoSessionProvider({ children, storage }: { children: ReactNode
 
   useEffect(() => {
     if (!sessionStorage || !loaded.current) return;
+    if (skipNextSave.current) {
+      skipNextSave.current = false;
+      return;
+    }
     saveDemoSession(sessionStorage, state);
   }, [sessionStorage, state]);
 
   const value = useMemo(() => {
     const selectedArtist = previewContent.artists.find((artist) => artist.id === state.selectedArtistId) ?? null;
     const selectedTerritory = state.territories.find((territory) => territory.id === state.selectedTerritoryId) ?? null;
-    return { state, dispatch, selectedArtist, selectedTerritory, reset: () => dispatch({ type: "reset" }) };
-  }, [state]);
+    const reset = () => {
+      sessionStorage?.removeItem(DEMO_SESSION_KEY);
+      skipNextSave.current = true;
+      dispatch({ type: "reset" });
+    };
+    return { state, dispatch, selectedArtist, selectedTerritory, reset };
+  }, [sessionStorage, state]);
 
   return <DemoSessionContext.Provider value={value}>{children}</DemoSessionContext.Provider>;
 }

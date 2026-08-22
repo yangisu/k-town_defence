@@ -11,11 +11,14 @@ import { ArtistDrawer } from "@/components/team-preview/artist-drawer";
 import { ObjectiveStrip } from "@/components/team-preview/objective-strip";
 import { TerritoryView } from "@/components/team-preview/territory-view";
 import { PreviewExpeditionView } from "@/components/team-preview/expedition-view";
+import { RankingView } from "@/components/team-preview/ranking-view";
+import { RecordView } from "@/components/team-preview/record-view";
 import { appReducer, initialAppState, openExpedition, type AppAction, type AppState } from "@/features/app-controller";
 import { MembershipProvider } from "@/features/membership/membership-context";
 import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/demo-session-context";
 import { getArtistHomeTerritories } from "@/features/team-preview/content";
 import { rankFandoms } from "@/features/team-preview/game-rules";
+import { t } from "@/features/team-preview/i18n";
 import { MembershipGate } from "@/components/membership/membership-gate";
 import type { AppServices, Place } from "@/lib/domain";
 import type { MapConfig } from "@/lib/map-config";
@@ -30,9 +33,11 @@ interface ServiceViewsProps {
   setCheckInPlace: Dispatch<SetStateAction<Place | null>>;
   demoExplore?: ReactNode;
   demoExpedition?: ReactNode;
+  demoBattle?: ReactNode;
+  demoJourney?: ReactNode;
 }
 
-function ServiceViews({ mode, services, state, dispatch, checkInPlace, setCheckInPlace, demoExplore, demoExpedition }: ServiceViewsProps) {
+function ServiceViews({ mode, services, state, dispatch, checkInPlace, setCheckInPlace, demoExplore, demoExpedition, demoBattle, demoJourney }: ServiceViewsProps) {
   const explore = state.activeTab === "explore" ? (
     mode === "demo" && demoExplore ? demoExplore : (
         <ExploreView
@@ -65,8 +70,16 @@ function ServiceViews({ mode, services, state, dispatch, checkInPlace, setCheckI
           />
         )
       ) : null}
-      {state.activeTab === "battle" ? <BattleView service={services.battle} selectedRegionId={state.selectedRegionId} /> : null}
-      {state.activeTab === "journey" ? <JourneyView service={services.battle} /> : null}
+      {state.activeTab === "battle"
+        ? mode === "demo" && demoBattle
+          ? demoBattle
+          : <BattleView service={services.battle} selectedRegionId={state.selectedRegionId} />
+        : null}
+      {state.activeTab === "journey"
+        ? mode === "demo" && demoJourney
+          ? demoJourney
+          : <JourneyView service={services.battle} />
+        : null}
       {checkInPlace ? (
         <CheckInFlow
           place={checkInPlace}
@@ -86,6 +99,7 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const [checkInPlace, setCheckInPlace] = useState<Place | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
   const session = useDemoSession();
   const ranked = rankFandoms(session.state.fandoms);
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
@@ -106,9 +120,10 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
 
   const resetDemo = () => {
     session.reset();
-    dispatch({ type: "selectRegion", regionId: initialAppState.selectedRegionId });
-    dispatch({ type: "changeTab", tab: initialAppState.activeTab });
+    dispatch({ type: "reset" });
     setCheckInPlace(null);
+    setDrawerOpen(false);
+    setResetOpen(false);
   };
 
   return (
@@ -125,7 +140,7 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
         locale={session.state.locale}
         fandomName={selectedArtist?.fandomName ?? null}
         territoryName={selectedTerritory?.name[session.state.locale] ?? null}
-        onReset={resetDemo}
+        onReset={() => setResetOpen(true)}
       />
       <ServiceViews
         mode="demo"
@@ -150,6 +165,15 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
             onBack={() => dispatch({ type: "changeTab", tab: "explore" })}
           />
         )}
+        demoBattle={(
+          <RankingView
+            locale={session.state.locale}
+            fandoms={session.state.fandoms}
+            territories={session.state.territories}
+            selectedArtistId={session.state.artistConfirmed ? session.state.selectedArtistId : null}
+          />
+        )}
+        demoJourney={<RecordView locale={session.state.locale} session={session.state} />}
       />
       <ArtistDrawer
         open={drawerOpen}
@@ -158,6 +182,16 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
         onClose={() => setDrawerOpen(false)}
         onSelect={chooseArtist}
       />
+      {resetOpen ? (
+        <div className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title">
+          <h2 id="reset-dialog-title">{t(session.state.locale, "resetConfirmTitle")}</h2>
+          <p>{t(session.state.locale, "resetConfirmBody")}</p>
+          <div>
+            <button type="button" onClick={() => setResetOpen(false)}>{t(session.state.locale, "resetCancel")}</button>
+            <button type="button" onClick={resetDemo}>{t(session.state.locale, "resetConfirmAction")}</button>
+          </div>
+        </div>
+      ) : null}
     </AppShell>
   );
 }

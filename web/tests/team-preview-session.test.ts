@@ -79,7 +79,11 @@ describe("demo preview session", () => {
     const impacted = demoSessionReducer(createInitialDemoSession(), { type: "completeMission", missionId: "busan-1", award: award(80) });
     const reset = demoSessionReducer(impacted, { type: "reset" });
 
-    expect(reset).toEqual(createInitialDemoSession());
+    expect(reset).toEqual({
+      ...createInitialDemoSession(),
+      selectedArtistId: null,
+      selectedTerritoryId: null,
+    });
   });
 
   it("limits a stale award to the remaining daily allowance everywhere it is applied", () => {

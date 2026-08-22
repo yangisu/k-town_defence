@@ -1,9 +1,16 @@
 import { previewContent } from "./content";
 import { GAME_RULES, stageForPoints, type MissionAward } from "./game-rules";
-import type { ArtistId, FandomStanding, Locale, PreviewTerritory, TerritoryId } from "./types";
+import type { ArtistId, FandomStanding, Locale, PreviewTerritory, StrongholdStage, TerritoryId } from "./types";
 
 export const DEMO_SESSION_VERSION = 1;
 export const DEMO_SESSION_KEY = "ktown-team-preview-v1";
+
+export interface CompletedMissionRecord {
+  missionId: string;
+  territoryId: TerritoryId;
+  awardedPoints: number;
+  strongholdStage: StrongholdStage;
+}
 
 export interface DemoSession {
   version: typeof DEMO_SESSION_VERSION;
@@ -14,6 +21,7 @@ export interface DemoSession {
   territories: PreviewTerritory[];
   fandoms: FandomStanding[];
   completedMissionIds: string[];
+  missionHistory: CompletedMissionRecord[];
   missionVisitCounts: Record<string, number>;
   contributedToday: number;
 }
@@ -80,6 +88,7 @@ export function createInitialDemoSession(): DemoSession {
     territories,
     fandoms: recomputeFandoms(territories),
     completedMissionIds: [],
+    missionHistory: [],
     missionVisitCounts: {},
     contributedToday: 0,
   };
@@ -109,11 +118,18 @@ export function applyMissionImpact(state: DemoSession, missionId: string, award:
     return recomputeTerritory({ ...territory, standings });
   });
 
+  const influencedTerritory = territories.find((territory) => territory.id === mission.territoryId)!;
   return {
     ...state,
     territories,
     fandoms: recomputeFandoms(territories),
     completedMissionIds: [...new Set([...state.completedMissionIds, missionId])],
+    missionHistory: [...state.missionHistory, {
+      missionId,
+      territoryId: mission.territoryId,
+      awardedPoints: actualApplied,
+      strongholdStage: influencedTerritory.strongholdStage,
+    }],
     missionVisitCounts: { ...state.missionVisitCounts, [missionId]: (state.missionVisitCounts[missionId] ?? 0) + 1 },
     contributedToday: state.contributedToday + actualApplied,
   };
@@ -126,7 +142,12 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
     case "setLocale": return { ...state, locale: action.locale };
     case "completeMission": return applyMissionImpact(state, action.missionId, action.award);
     case "hydrate": return action.state;
-    case "reset": return createInitialDemoSession();
+    case "reset": return {
+      ...createInitialDemoSession(),
+      locale: state.locale,
+      selectedArtistId: null,
+      selectedTerritoryId: null,
+    };
   }
 }
 
@@ -194,6 +215,16 @@ function isValidFandom(value: unknown): value is FandomStanding {
     && ["up", "down", "same"].includes(value.trend as string);
 }
 
+function isValidMissionRecord(value: unknown): value is CompletedMissionRecord {
+  return isRecord(value)
+    && typeof value.missionId === "string"
+    && missionIds.has(value.missionId)
+    && isTerritoryId(value.territoryId)
+    && isNonNegativeFinite(value.awardedPoints)
+    && value.awardedPoints > 0
+    && ["seed", "tree", "landmark"].includes(value.strongholdStage as string);
+}
+
 function isValidDemoSession(value: unknown): value is DemoSession {
   if (!isRecord(value)
     || value.version !== DEMO_SESSION_VERSION
@@ -210,12 +241,15 @@ function isValidDemoSession(value: unknown): value is DemoSession {
     || !Array.isArray(value.completedMissionIds)
     || !value.completedMissionIds.every((missionId) => typeof missionId === "string" && missionIds.has(missionId))
     || new Set(value.completedMissionIds).size !== value.completedMissionIds.length
+    || !Array.isArray(value.missionHistory)
+    || !value.missionHistory.every(isValidMissionRecord)
     || !isRecord(value.missionVisitCounts)
     || !Object.entries(value.missionVisitCounts).every(([missionId, count]) => missionIds.has(missionId) && Number.isInteger(count) && isNonNegativeFinite(count))
     || !isNonNegativeFinite(value.contributedToday)
     || value.contributedToday > GAME_RULES.dailyCap) return false;
 
-  return value.completedMissionIds.every((missionId) => (value.missionVisitCounts[missionId] ?? 0) > 0);
+  return value.completedMissionIds.every((missionId) => (value.missionVisitCounts[missionId] ?? 0) > 0)
+    && value.missionHistory.every((entry) => value.completedMissionIds.includes(entry.missionId));
 }
 
 export function loadDemoSession(storage: Pick<Storage, "getItem">): DemoSession {

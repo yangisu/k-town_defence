@@ -42,9 +42,11 @@ describe("fan tourism journey", () => {
     await selectDemoMembership(user);
 
     await user.click((await screen.findAllByRole("button", { name: "랭킹" }))[0]);
-    expect(await screen.findByRole("heading", { name: "시즌 01 지역 전선" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "랭킹" })).toBeVisible();
+    expect(screen.getByRole("list", { name: "팬덤 랭킹" })).toBeVisible();
     await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
-    expect(await screen.findByLabelText("방문 지역 4곳")).toBeVisible();
-    expect(screen.getByLabelText("검토 중 1건")).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "내 기록" })).toBeVisible();
+    expect(screen.getByText("완료한 원정").parentElement).toHaveTextContent("완료한 원정0");
+    expect(screen.getByRole("list", { name: "승인된 체크인" })).toBeEmptyDOMElement();
   });
 });

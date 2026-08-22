@@ -52,7 +52,7 @@ export function MapFilters({ locale, activeFilter, onChange }: {
   onChange(filter: TerritoryFilter): void;
 }) {
   return (
-    <div className="map-filters" aria-label={locale === "ko" ? "영토 필터" : "Territory filters"}>
+    <div className="map-filters" role="group" aria-label={locale === "ko" ? "영토 필터" : "Territory filters"}>
       {TERRITORY_FILTERS.map((filter) => (
         <button
           key={filter.id}

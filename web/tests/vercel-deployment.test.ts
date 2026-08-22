@@ -47,6 +47,22 @@ describe("Vercel deployment", () => {
     expect(config).not.toMatch(/@cloudflare|sites-vite-plugin|\.openai\/hosting/);
   });
 
+  it("documents the exact restricted public map environment contract", () => {
+    const environment = readFileSync(".env.example", "utf8");
+    const readme = readFileSync("README.md", "utf8");
+
+    expect(environment).toMatch(/^KTOWN_SERVICE_MODE=demo$/m);
+    expect(environment).toMatch(/^NEXT_PUBLIC_AWS_LOCATION_API_KEY=example-restricted-map-key$/m);
+    expect(environment).toMatch(/^NEXT_PUBLIC_AWS_LOCATION_REGION=ap-northeast-2$/m);
+    expect(environment).toMatch(/^NEXT_PUBLIC_AWS_LOCATION_STYLE=Standard$/m);
+    expect(readme).toMatch(/map actions?/i);
+    expect(readme).toMatch(/Preview[^\n]*(?:origin|referrer)/i);
+    expect(readme).toMatch(/Production[^\n]*(?:origin|referrer)/i);
+    expect(readme).toMatch(/Amazon Location[^\n]*geoBoundaries/i);
+    expect(readme).toMatch(/deterministic/i);
+    expect(readme).toMatch(/Reset demo/i);
+  });
+
   it("emits the Nitro server function and static assets", () => {
     expect(existsSync(".vercel/output/config.json"), diagnostic).toBe(true);
     expect(
@@ -62,7 +78,7 @@ describe("Vercel deployment", () => {
 
   it("does not bundle local backend or secret configuration", () => {
     expect(artifact).not.toMatch(
-      /KTOUR_SERVICE_KEY|postgresql\+asyncpg|KTOWN_DEV_USER_ID=|127\.0\.0\.1:8000/,
+      /KTOUR_SERVICE_KEY|KTOWN_DATABASE_URL|(?:postgres|mysql|mongodb)(?:ql)?(?:\+\w+)?:\/\/|KTOWN_DEV_USER_ID(?:=|\b)|local-member|https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(?:3000|8000)\b/i,
     );
   });
 });

@@ -6,6 +6,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { TerritoryList } from "@/components/team-preview/territory-list";
 import { previewContent } from "@/features/team-preview/content";
 import type { DemoSession } from "@/features/team-preview/demo-session";
+import { t } from "@/features/team-preview/i18n";
 import type { PreviewTerritory, TerritoryId } from "@/features/team-preview/types";
 import { amazonLocationStyleUrl, type MapConfig } from "@/lib/map-config";
 
@@ -250,13 +251,13 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
           ref={containerRef}
           className="preview-territory-map"
           role="region"
-          aria-label="대한민국 팬덤 영토 지도"
+          aria-label={session.locale === "ko" ? "대한민국 팬덤 영토 지도" : "Korea fandom territory map"}
           style={{ minHeight: "32rem", width: "100%" }}
         />
       ) : (
         <div className="preview-map-configuration" role="status">
-          <strong>지도를 연결하려면 Amazon Location 설정이 필요해요</strong>
-          {mapError ? <button type="button" onClick={retry}>다시 시도</button> : null}
+          <strong>{t(session.locale, "mapConfigError")}</strong>
+          {mapError ? <button type="button" onClick={retry}>{t(session.locale, "retry")}</button> : null}
         </div>
       )}
       <p className="preview-map-attribution">

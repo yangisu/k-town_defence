@@ -11,8 +11,10 @@
 개발 사용자를 지정할 수 있지만 production에서는 이 값을 무시하고 Sites의
 `oai-authenticated-user-id`만 전달한다.
 
-로컬 통합 모드는 `Copy-Item .env.example .env.local` 후 실행한다. `.env.local`은
-Git에서 제외되며 vinext가 개발 서버 시작 시 자동으로 읽는다.
+로컬 통합 모드는 `.env.local`을 직접 만들고 `KTOWN_SERVICE_MODE=integrated`,
+`KTOWN_API_BASE_URL`, `KTOWN_DEV_USER_ID`를 로컬 값으로 설정한다. `.env.local`은
+Git에서 제외되며 vinext가 개발 서버 시작 시 자동으로 읽는다. 배포용
+`.env.example`을 통합 모드 파일로 사용하지 않는다.
 
 ## Vercel demo deployment
 
@@ -25,8 +27,31 @@ AWS 백엔드 연결 전에는 프론트엔드만 데모 모드로 배포한다.
 - Build Command: `npm run build:vercel` (`vercel.json`이 지정)
 - Output Directory: override를 켜지 않는다. Nitro가 Vercel Build Output API
   규격의 `.vercel/output`을 생성한다.
-- Environment Variable: Preview와 Production 모두
-  `KTOWN_SERVICE_MODE=demo`
+- Environment Variables: Preview와 Production 모두 `web/.env.example`의
+  다음 네 값을 각각 등록한다.
+
+```dotenv
+KTOWN_SERVICE_MODE=demo
+NEXT_PUBLIC_AWS_LOCATION_API_KEY=example-restricted-map-key
+NEXT_PUBLIC_AWS_LOCATION_REGION=ap-northeast-2
+NEXT_PUBLIC_AWS_LOCATION_STYLE=Standard
+```
+
+`example-restricted-map-key`는 실제 키로 교체하되, 이 키는 브라우저에서 보이는
+공개 자격증명이다. AWS Location API key의 **map actions**를 이 앱이 사용하는
+`geo-maps:GetStyleDescriptor`, `geo-maps:GetTile`, `geo-maps:GetSprites`,
+`geo-maps:GetGlyphs`로만 제한하고 Places, Routes, Trackers 등의 권한은 부여하지
+않는다. 또한 AWS Client restrictions에 아래 HTTPS referrer를 개별 등록한다.
+
+- Preview origin/referrer: 배포마다 Vercel이 표시한 정확한
+  `https://<preview-host>.vercel.app/*`
+- Production origin/referrer: 실제 운영 주소인
+  `https://<production-host>/*`
+
+> **경고:** unrestricted key나 `*.vercel.app/*`처럼 다른 프로젝트까지 허용하는
+> 광범위한 referrer를 사용하지 않는다. Preview와 Production 주소가 바뀌면 새
+> 정확한 주소를 먼저 등록하고 이전 주소는 제거한다. 키 제한을 저장한 뒤 두
+> 배포에서 실제 지도의 타일·확대/축소·이동을 확인한다.
 
 `KTOWN_API_BASE_URL`, `KTOWN_DEV_USER_ID`, `KTOUR_SERVICE_KEY`, 데이터베이스
 URL은 이 단계의 Vercel 환경변수에 추가하지 않는다. 이 값들은 브라우저 공개
@@ -46,9 +71,24 @@ Git 연동은 PR/브랜치 push에 Preview를 만들고 `main` push에 Productio
 승격한다.
 
 1. `/`가 HTTPS 200으로 열리는지 확인한다.
-2. 팬덤을 선택하고 데모 홈이 표시되는지 확인한다.
-3. 탐색 탭에서 데모 장소가 표시되는지 확인한다.
-4. 체크인 시작 버튼이 데모 체크인 단계를 여는지 확인한다.
+2. Amazon Location 지도를 확대/축소하고 이동한 뒤 영토 목록에서 같은 지역이
+   선택되는지 확인한다.
+3. BTS를 검색·선택하고 추천 원정을 연다.
+4. 데모 인증, 로컬 소비, 포인트 검토, 체크인 제출을 차례로 실행한다.
+5. 영토·랭킹·내 기록에 같은 결과가 반영되고 새로고침 뒤에도 남는지 확인한다.
+6. **Reset demo**를 눌러 확인 창에서 초기화하고 3단계 시작 패널이 돌아오는지
+   확인한다. 이 작업은 이 브라우저의 K-Town 데모 세션만 지운다.
+
+지도 화면과 설정 안내에는 `Map © Amazon Location · Boundaries © geoBoundaries`
+attribution을 항상 표시한다. 지도 스타일·타일은 Amazon Location에서 오지만,
+프리뷰의 체크인 승인, 포인트 계산, territory battle updates, 그리고 Korea
+Tourism data는 심사용으로 고정된 **deterministic demo behavior**다. 실제 GPS,
+카메라, 결제, 한국관광공사 API 또는 운영 백엔드를 호출하지 않으며 데모 결과를
+실서비스 승인으로 해석하지 않는다.
+
+커밋에는 예시 키만 둔다. 제한한 실제 키가 제공되지 않은 환경에서는 빌드와
+접근 가능한 영토 목록까지 검증하고, Preview/Production 실지도 smoke verification은
+외부 확인 항목으로 남긴다.
 
 AWS API가 준비된 뒤에만 `KTOWN_SERVICE_MODE=integrated`와 서버 전용
 `KTOWN_API_BASE_URL`을 설정한다. 그 전에 Vercel 사용자 세션을 검증해 FastAPI의

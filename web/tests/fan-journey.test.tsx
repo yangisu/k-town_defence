@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import Page from "@/app/page";
@@ -17,10 +17,11 @@ describe("fan tourism journey", () => {
     await selectDemoMembership(user);
 
     expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
-    expect(screen.getByRole("complementary", { name: "부산 전술 패널" })).toBeVisible();
+    const tacticalPanel = screen.getByRole("complementary", { name: "부산 전술 패널" });
+    expect(tacticalPanel).toBeVisible();
     expect(screen.getByRole("link", { name: "연결 근거 출처" })).toBeVisible();
 
-    await user.click(screen.getAllByRole("button", { name: "원정" })[0]);
+    await user.click(within(tacticalPanel).getByRole("button", { name: "원정 시작" }));
     expect(await screen.findByRole("heading", { name: "BTS 부산 바다 원정" })).toBeVisible();
     expect(screen.getByText("감천문화마을")).toBeVisible();
     expect(screen.getByText("자갈치시장")).toBeVisible();

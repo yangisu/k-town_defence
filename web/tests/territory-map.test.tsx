@@ -167,6 +167,50 @@ it("shows a real operable territory list when map configuration is missing", asy
   expect(onSelectTerritory).toHaveBeenCalledWith("yeongwol");
 });
 
+it("localizes the configured map and missing-configuration controls in English", () => {
+  const englishSession = { ...createInitialDemoSession(), locale: "en" as const };
+  const onSelectTerritory = vi.fn();
+  const { rerender } = render(
+    <TerritoryMap
+      mapConfig={config}
+      session={englishSession}
+      selectedTerritoryId="busan"
+      onSelectTerritory={onSelectTerritory}
+    />,
+  );
+
+  expect(screen.getByRole("region", { name: "Korea fandom territory map" })).toBeVisible();
+  expect(screen.queryByRole("region", { name: "대한민국 팬덤 영토 지도" })).not.toBeInTheDocument();
+
+  rerender(
+    <TerritoryMap
+      mapConfig={null}
+      session={englishSession}
+      selectedTerritoryId="busan"
+      onSelectTerritory={onSelectTerritory}
+    />,
+  );
+  expect(screen.getByText("Amazon Location configuration is required to connect the map")).toBeVisible();
+  expect(screen.queryByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).not.toBeInTheDocument();
+});
+
+it("localizes map failure recovery in English", async () => {
+  render(
+    <TerritoryMap
+      mapConfig={config}
+      session={{ ...createInitialDemoSession(), locale: "en" }}
+      selectedTerritoryId="busan"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+
+  mapHarness.instances[0].emit("error", { error: new Error("style failed") });
+
+  expect(await screen.findByText("Amazon Location configuration is required to connect the map")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
+});
+
 it("recovers from a map style error without losing attribution or territory controls", async () => {
   const user = userEvent.setup();
   const onSelectTerritory = vi.fn();

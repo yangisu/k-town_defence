@@ -18,7 +18,6 @@ import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { appReducer, initialAppState, openExpedition, type AppAction, type AppState } from "@/features/app-controller";
 import { MembershipProvider } from "@/features/membership/membership-context";
 import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/demo-session-context";
-import { getArtistHomeTerritories } from "@/features/team-preview/content";
 import { rankFandoms } from "@/features/team-preview/game-rules";
 import { t } from "@/features/team-preview/i18n";
 import { MembershipGate } from "@/components/membership/membership-gate";
@@ -98,8 +97,6 @@ function ServiceViews({ mode, services, state, dispatch, checkInPlace, setCheckI
 }
 
 function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig: MapConfig | null }) {
-  const [state, dispatch] = useReducer(appReducer, initialAppState);
-  const [checkInPlace, setCheckInPlace] = useState<Place | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const resetDialogRef = useRef<HTMLDivElement>(null);
@@ -113,19 +110,12 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
     : null;
 
   const chooseArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
-    const homeTerritory = getArtistHomeTerritories(artistId)[0] ?? null;
     session.dispatch({ type: "selectArtist", artistId });
-    if (homeTerritory) {
-      session.dispatch({ type: "selectTerritory", territoryId: homeTerritory.id });
-      dispatch({ type: "selectRegion", regionId: homeTerritory.id });
-    }
     setDrawerOpen(false);
   };
 
   const resetDemo = () => {
     session.reset();
-    dispatch({ type: "reset" });
-    setCheckInPlace(null);
     setDrawerOpen(false);
     setResetOpen(false);
   };
@@ -135,13 +125,13 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
     <>
       <AppShell
         variant="demo"
-        activeTab={state.activeTab}
+        activeTab={session.state.activeTab}
         locale={session.state.locale}
         fandomName={selectedArtist?.fandomName ?? null}
         rank={rank}
         interactionDisabled={resetOpen}
         onLocaleChange={(locale) => session.dispatch({ type: "setLocale", locale })}
-        onTabChange={(tab) => dispatch({ type: "changeTab", tab })}
+        onTabChange={(tab) => session.dispatch({ type: "changeTab", tab })}
         statusContent={(
           <ObjectiveStrip
             locale={session.state.locale}
@@ -151,39 +141,29 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
           />
         )}
       >
-        <ServiceViews
-          mode="demo"
-          services={services}
-          state={state}
-          dispatch={dispatch}
-          checkInPlace={checkInPlace}
-          setCheckInPlace={setCheckInPlace}
-          demoExplore={(
+        {session.state.activeTab === "explore" ? (
             <TerritoryView
               key={session.state.artistConfirmed ? `artist:${session.state.selectedArtistId}` : "unconfirmed"}
               mapConfig={mapConfig}
               onChooseArtist={() => setDrawerOpen(true)}
-              onSelectTerritory={(territoryId) => dispatch({ type: "selectRegion", regionId: territoryId })}
-              onOpenExpedition={(territoryId, expeditionId) => dispatch(openExpedition(territoryId, expeditionId))}
             />
-          )}
-          demoExpedition={(
+        ) : null}
+        {session.state.activeTab === "expedition" ? (
             <PreviewExpeditionView
-              expeditionId={state.selectedExpeditionId}
+              expeditionId={session.state.selectedExpeditionId}
               checkInService={services.checkIn}
-              onBack={() => dispatch({ type: "changeTab", tab: "explore" })}
+              onBack={() => undefined}
             />
-          )}
-          demoBattle={(
+        ) : null}
+        {session.state.activeTab === "battle" ? (
             <RankingView
               locale={session.state.locale}
               fandoms={session.state.fandoms}
               territories={session.state.territories}
               selectedArtistId={session.state.artistConfirmed ? session.state.selectedArtistId : null}
             />
-          )}
-          demoJourney={<RecordView locale={session.state.locale} session={session.state} />}
-        />
+        ) : null}
+        {session.state.activeTab === "journey" ? <RecordView locale={session.state.locale} session={session.state} /> : null}
         <ArtistDrawer
           open={drawerOpen}
           locale={session.state.locale}

@@ -4,8 +4,12 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { AppShell } from "@/components/app-shell";
 import { KTownApp } from "@/features/ktown-app";
 import { previewContent } from "@/features/team-preview/content";
+import { DEMO_SESSION_KEY, createInitialDemoSession } from "@/features/team-preview/demo-session";
 
-beforeEach(() => window.localStorage.clear());
+beforeEach(() => {
+  window.localStorage.clear();
+  document.documentElement.lang = "ko";
+});
 
 it("opens in the product shell and guides artist selection beside the service", async () => {
   const user = userEvent.setup();
@@ -50,8 +54,8 @@ it("searches localized artists and recommends their first home territory", async
   await user.click(screen.getByRole("radio", { name: /aespa.*MY/i }));
 
   expect(screen.queryByRole("dialog", { name: "아티스트 선택" })).not.toBeInTheDocument();
-  const recommendation = screen.getByRole("complementary", { name: "부산 전술 패널" });
-  expect(within(recommendation).getByRole("heading", { name: "부산" })).toBeVisible();
+  const recommendation = screen.getByRole("complementary", { name: "수원 전술 패널" });
+  expect(within(recommendation).getByRole("heading", { name: "수원" })).toBeVisible();
   expect(within(recommendation).getByRole("button", { name: /원정 시작/ })).toBeEnabled();
   expect(within(screen.getByRole("region", { name: "현재 목표" })).getByText(/MY/)).toBeVisible();
 });
@@ -90,4 +94,39 @@ it("keeps the current objective, reset, and locale controls in one non-overlappi
   expect(objective).toHaveAttribute("data-shell-region", "objective");
   expect(locale).toHaveAttribute("data-shell-region", "locale");
   expect(within(objective).getByRole("button", { name: "데모 초기화" })).toBeVisible();
+});
+
+it("switches artists without carrying the previous artist's expedition route", async () => {
+  const user = userEvent.setup();
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  await user.click(await screen.findByRole("button", { name: "아티스트 선택" }));
+  await user.click(screen.getByRole("radio", { name: /BTS.*ARMY/ }));
+  await user.click(screen.getByRole("button", { name: "원정 시작" }));
+  expect(await screen.findByRole("heading", { name: "BTS 부산 바다 원정" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "영토 지도로" }));
+
+  await user.click(screen.getByRole("button", { name: "아티스트 변경" }));
+  await user.click(screen.getByRole("radio", { name: /aespa.*MY/i }));
+  expect(await screen.findByRole("complementary", { name: "수원 전술 패널" })).toBeVisible();
+
+  await user.click(screen.getAllByRole("button", { name: "원정" })[0]);
+  expect(await screen.findByRole("heading", { name: "aespa 수원 성곽 원정" })).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "BTS 부산 바다 원정" })).not.toBeInTheDocument();
+});
+
+it("synchronizes the root document language for persisted and runtime locale changes", async () => {
+  const user = userEvent.setup();
+  window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({
+    ...createInitialDemoSession(),
+    locale: "en",
+  }));
+  const view = render(<KTownApp mode="demo" mapConfig={null} />);
+
+  expect(await screen.findByRole("button", { name: "EN", pressed: true })).toBeVisible();
+  expect(document.documentElement).toHaveAttribute("lang", "en");
+  await user.click(screen.getByRole("button", { name: "한국어" }));
+  expect(document.documentElement).toHaveAttribute("lang", "ko");
+
+  view.unmount();
 });

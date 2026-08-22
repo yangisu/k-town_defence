@@ -92,10 +92,14 @@ it("excludes a territory once mission impact widens its gap beyond the shared co
     validPoints: 260,
     cappedPoints: 260,
   };
-  const afterMission = demoSessionReducer(
-    { ...initial, territories },
-    { type: "completeMission", missionId: "busan-1", award },
-  );
+  let ready = demoSessionReducer({ ...initial, territories }, { type: "selectArtist", artistId: "bts" });
+  ready = demoSessionReducer(ready, { type: "openExpedition", expeditionId: "bts-busan-expedition" });
+  const afterMission = demoSessionReducer(ready, {
+    type: "completeCheckIn",
+    expeditionId: "bts-busan-expedition",
+    placeId: "busan-1",
+    award,
+  });
 
   render(
     <RankingView

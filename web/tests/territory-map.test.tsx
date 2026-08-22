@@ -15,12 +15,13 @@ interface MapEvent {
 
 interface MapHarness {
   options: Record<string, unknown>;
-  sources: Map<string, { setData: ReturnType<typeof vi.fn> }>;
+  sources: Map<string, { setData: ReturnType<typeof vi.fn>; initialData?: unknown }>;
   layers: Array<Record<string, unknown>>;
   handlers: Map<string, Array<(event: MapEvent) => void>>;
   layerHandlers: Map<string, Array<(event: MapEvent) => void>>;
   flyTo: ReturnType<typeof vi.fn>;
   setFilter: ReturnType<typeof vi.fn>;
+  setPaintProperty: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
   emit: (event: string, value?: MapEvent) => void;
   emitLayer: (event: string, layer: string, value?: MapEvent) => void;
@@ -31,12 +32,13 @@ const mapHarness = vi.hoisted(() => ({ instances: [] as MapHarness[] }));
 vi.mock("maplibre-gl", () => {
   class MockMap {
     options: Record<string, unknown>;
-    sources = new Map<string, { setData: ReturnType<typeof vi.fn> }>();
+    sources = new Map<string, { setData: ReturnType<typeof vi.fn>; initialData?: unknown }>();
     layers: Array<Record<string, unknown>> = [];
     handlers = new Map<string, Array<(event: MapEvent) => void>>();
     layerHandlers = new Map<string, Array<(event: MapEvent) => void>>();
     flyTo = vi.fn();
     setFilter = vi.fn();
+    setPaintProperty = vi.fn();
     remove = vi.fn();
 
     constructor(options: Record<string, unknown>) {
@@ -55,8 +57,8 @@ vi.mock("maplibre-gl", () => {
     }
 
     addControl() { return this; }
-    addSource(id: string) {
-      this.sources.set(id, { setData: vi.fn() });
+    addSource(id: string, specification?: { data?: unknown }) {
+      this.sources.set(id, { setData: vi.fn(), initialData: specification?.data });
       return this;
     }
     getSource(id: string) { return this.sources.get(id); }
@@ -331,4 +333,124 @@ it("keeps configured boundary, click, and mission layers equivalent to the filte
   expect(map.setFilter).toHaveBeenCalledWith("preview-territory-fill", busanBoundaryFilter);
   expect(map.setFilter).toHaveBeenCalledWith("preview-territory-outline", busanBoundaryFilter);
   expect(map.setFilter).toHaveBeenCalledWith("preview-mission-points", busanMissionFilter);
+});
+
+it("encodes owner fandom colors and selected-artist connection pins in configured MapLibre data", () => {
+  const session = {
+    ...createInitialDemoSession(),
+    artistConfirmed: true,
+    selectedArtistId: "bts" as const,
+    selectedTerritoryId: "busan",
+  };
+  render(
+    <TerritoryMap
+      mapConfig={config}
+      session={session}
+      selectedTerritoryId="busan"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+
+  const map = mapHarness.instances[0];
+  map.emit("load");
+  const fill = map.layers.find((layer) => layer.id === "preview-territory-fill");
+  expect(JSON.stringify((fill?.paint as Record<string, unknown>)?.["fill-color"])).toContain("#7c5ce0");
+  expect(JSON.stringify((fill?.paint as Record<string, unknown>)?.["fill-color"])).toContain("#f25da5");
+
+  const strongholds = map.sources.get("preview-strongholds")?.initialData as {
+    features: Array<{ properties: Record<string, unknown> }>;
+  };
+  expect(strongholds.features.find((feature) => feature.properties.id === "busan")?.properties.ownerColor)
+    .toBe("#7c5ce0");
+
+  const connections = map.sources.get("preview-artist-connections")?.initialData as {
+    features: Array<{ properties: Record<string, unknown> }>;
+  } | undefined;
+  expect(connections?.features.length).toBeGreaterThan(0);
+  expect(connections?.features.every((feature) => feature.properties.artistId === "bts")).toBe(true);
+  expect(map.layers.some((layer) => layer.id === "preview-artist-connection-pins")).toBe(true);
+});
+
+it("replaces connection pins when the selected artist changes without a territory mutation", () => {
+  const initialSession = createInitialDemoSession();
+  const btsSession = {
+    ...initialSession,
+    artistConfirmed: true,
+    selectedArtistId: "bts" as const,
+    selectedTerritoryId: "busan",
+  };
+  const { rerender } = render(
+    <TerritoryMap
+      mapConfig={config}
+      session={btsSession}
+      selectedTerritoryId="busan"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+  const map = mapHarness.instances[0];
+  map.emit("load");
+
+  rerender(
+    <TerritoryMap
+      mapConfig={config}
+      session={{ ...btsSession, selectedArtistId: "blackpink" }}
+      selectedTerritoryId="busan"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+
+  const latestConnections = map.sources.get("preview-artist-connections")?.setData.mock.calls.at(-1)?.[0] as {
+    features: Array<{ properties: Record<string, unknown> }>;
+  } | undefined;
+  expect(latestConnections?.features.length).toBeGreaterThan(0);
+  expect(latestConnections?.features.every((feature) => feature.properties.artistId === "blackpink")).toBe(true);
+});
+
+it("recolors a captured boundary and stronghold without recreating the map", () => {
+  const session = {
+    ...createInitialDemoSession(),
+    artistConfirmed: true,
+    selectedArtistId: "bts" as const,
+    selectedTerritoryId: "busan",
+  };
+  const { rerender } = render(
+    <TerritoryMap
+      mapConfig={config}
+      session={session}
+      selectedTerritoryId="busan"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+  const map = mapHarness.instances[0];
+  map.emit("load");
+  const captured = {
+    ...session,
+    territories: session.territories.map((territory) => territory.id === "busan"
+      ? { ...territory, ownerArtistId: "blackpink" as const }
+      : territory),
+  };
+
+  rerender(
+    <TerritoryMap
+      mapConfig={config}
+      session={captured}
+      selectedTerritoryId="busan"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+
+  expect(map.setPaintProperty).toHaveBeenCalledWith(
+    "preview-territory-fill",
+    "fill-color",
+    expect.any(Array),
+  );
+  const lastColorExpression = map.setPaintProperty.mock.calls
+    .filter(([layer, property]) => layer === "preview-territory-fill" && property === "fill-color")
+    .at(-1)?.[2];
+  expect(JSON.stringify(lastColorExpression)).toMatch(/busan.*#f25da5/);
+  const latestStrongholds = map.sources.get("preview-strongholds")?.setData.mock.calls.at(-1)?.[0] as {
+    features: Array<{ properties: Record<string, unknown> }>;
+  };
+  expect(latestStrongholds.features.find((feature) => feature.properties.id === "busan")?.properties.ownerColor)
+    .toBe("#f25da5");
 });

@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import maplibregl, { type FilterSpecification, type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from "maplibre-gl";
+import maplibregl, { type ExpressionSpecification, type FilterSpecification, type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { TerritoryList } from "@/components/team-preview/territory-list";
-import { previewContent } from "@/features/team-preview/content";
+import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
 import type { DemoSession } from "@/features/team-preview/demo-session";
 import { t } from "@/features/team-preview/i18n";
 import type { PreviewTerritory, TerritoryId } from "@/features/team-preview/types";
@@ -21,6 +21,7 @@ const boundarySourceId = "preview-territory-boundaries";
 const strongholdSourceId = "preview-strongholds";
 const missionSourceId = "preview-missions";
 const expeditionSourceId = "preview-selected-expedition";
+const connectionSourceId = "preview-artist-connections";
 const territoryLayerId = "preview-territory-fill";
 const selectedLayerId = "preview-territory-selected";
 
@@ -33,6 +34,7 @@ function pointCollection(territories: readonly PreviewTerritory[]) {
       properties: {
         id: territory.id,
         ownerArtistId: territory.ownerArtistId,
+        ownerColor: previewContent.artists.find((artist) => artist.id === territory.ownerArtistId)?.color ?? "#7559ff",
         stage: territory.strongholdStage,
       },
       geometry: {
@@ -40,6 +42,38 @@ function pointCollection(territories: readonly PreviewTerritory[]) {
         coordinates: [territory.centroid.longitude, territory.centroid.latitude],
       },
     })),
+  };
+}
+
+function ownerColorExpression(territories: readonly PreviewTerritory[]): ExpressionSpecification {
+  return [
+    "match",
+    ["id"],
+    ...territories.flatMap((territory) => [
+      territory.id,
+      previewContent.artists.find((artist) => artist.id === territory.ownerArtistId)?.color ?? "#7559ff",
+    ]),
+    "#7559ff",
+  ] as ExpressionSpecification;
+}
+
+function connectionCollection(session: DemoSession) {
+  const artistId = session.artistConfirmed ? session.selectedArtistId : null;
+  const artist = previewContent.artists.find((candidate) => candidate.id === artistId);
+  return {
+    type: "FeatureCollection" as const,
+    features: artist ? previewContent.connections
+      .filter((connection) => connection.artistId === artist.id)
+      .map((connection) => {
+        const territory = session.territories.find((candidate) => candidate.id === connection.territoryId);
+        return territory ? {
+          type: "Feature" as const,
+          id: connection.id,
+          properties: { id: connection.id, artistId: artist.id, territoryId: territory.id, artistColor: artist.color },
+          geometry: { type: "Point" as const, coordinates: [territory.centroid.longitude, territory.centroid.latitude] },
+        } : null;
+      })
+      .filter((feature) => feature !== null) : [],
   };
 }
 
@@ -59,10 +93,9 @@ function missionCollection() {
 }
 
 function expeditionCollection(session: DemoSession, selectedTerritoryId: TerritoryId | null) {
-  const expedition = previewContent.expeditions.find((candidate) => (
-    candidate.territoryId === selectedTerritoryId
-      && candidate.artistId === session.selectedArtistId
-  ));
+  const expedition = session.selectedArtistId && selectedTerritoryId
+    ? getPlayableExpedition(session.selectedArtistId, selectedTerritoryId)
+    : null;
   const coordinates = expedition?.stopIds
     .map((stopId) => previewContent.places.find((place) => place.id === stopId))
     .filter((place) => place !== undefined)
@@ -146,13 +179,17 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
         type: "geojson",
         data: expeditionCollection(sessionRef.current, selectedTerritoryIdRef.current),
       });
+      map.addSource(connectionSourceId, {
+        type: "geojson",
+        data: connectionCollection(sessionRef.current),
+      });
 
       map.addLayer({
         id: territoryLayerId,
         type: "fill",
         source: boundarySourceId,
         filter: visibleFilters.boundaries,
-        paint: { "fill-color": "#7559ff", "fill-opacity": 0.24 },
+        paint: { "fill-color": ownerColorExpression(sessionRef.current.territories), "fill-opacity": 0.24 },
       });
       map.addLayer({
         id: selectedLayerId,
@@ -187,6 +224,17 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
         },
       });
       map.addLayer({
+        id: "preview-artist-connection-pins",
+        type: "circle",
+        source: connectionSourceId,
+        paint: {
+          "circle-color": ["get", "artistColor"],
+          "circle-radius": 7,
+          "circle-stroke-color": "#fffef9",
+          "circle-stroke-width": 2,
+        },
+      });
+      map.addLayer({
         id: "preview-stronghold-symbols",
         type: "symbol",
         source: strongholdSourceId,
@@ -195,7 +243,7 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
           "text-size": 17,
           "text-allow-overlap": true,
         },
-        paint: { "text-color": "#16231d", "text-halo-color": "#fffef9", "text-halo-width": 1.5 },
+        paint: { "text-color": ["get", "ownerColor"], "text-halo-color": "#fffef9", "text-halo-width": 1.5 },
       });
 
       map.on("click", territoryLayerId, (event) => {
@@ -218,11 +266,15 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
     const map = mapRef.current;
     if (!map) return;
     updateGeoJsonSource(map, strongholdSourceId, pointCollection(session.territories));
+    updateGeoJsonSource(map, connectionSourceId, connectionCollection(session));
+    if (map.getLayer(territoryLayerId)) {
+      map.setPaintProperty(territoryLayerId, "fill-color", ownerColorExpression(session.territories));
+    }
     const visibleFilters = visibleLayerFilters(session.territories);
     if (map.getLayer(territoryLayerId)) map.setFilter(territoryLayerId, visibleFilters.boundaries);
     if (map.getLayer("preview-territory-outline")) map.setFilter("preview-territory-outline", visibleFilters.boundaries);
     if (map.getLayer("preview-mission-points")) map.setFilter("preview-mission-points", visibleFilters.missions);
-  }, [session.territories]);
+  }, [session]);
 
   useEffect(() => {
     const map = mapRef.current;

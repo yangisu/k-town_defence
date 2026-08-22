@@ -5,6 +5,7 @@ import { previewContent } from "./content";
 import {
   createInitialDemoSession,
   DEMO_SESSION_KEY,
+  LEGACY_DEMO_SESSION_KEY,
   demoSessionReducer,
   loadDemoSession,
   saveDemoSession,
@@ -33,6 +34,7 @@ export function DemoSessionProvider({ children, storage }: { children: ReactNode
     let active = true;
     loaded.current = false;
     const savedState = loadDemoSession(sessionStorage);
+    sessionStorage.removeItem(LEGACY_DEMO_SESSION_KEY);
     queueMicrotask(() => {
       if (!active) return;
       dispatch({ type: "hydrate", state: savedState });
@@ -55,6 +57,7 @@ export function DemoSessionProvider({ children, storage }: { children: ReactNode
     const selectedTerritory = state.territories.find((territory) => territory.id === state.selectedTerritoryId) ?? null;
     const reset = () => {
       sessionStorage?.removeItem(DEMO_SESSION_KEY);
+      sessionStorage?.removeItem(LEGACY_DEMO_SESSION_KEY);
       skipNextSave.current = true;
       dispatch({ type: "reset" });
     };

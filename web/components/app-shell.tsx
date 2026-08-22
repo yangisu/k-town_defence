@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode, SyntheticEvent } from "react";
+import { useEffect, type ReactNode, type SyntheticEvent } from "react";
 import type { AppTab } from "@/features/app-controller";
 import { Compass, Flag, Trophy, UserRound } from "@/components/ui/icons";
 import { t } from "@/features/team-preview/i18n";
@@ -39,6 +39,9 @@ export function AppShell({
   children,
 }: Props) {
   const demo = variant === "demo";
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
   const blockInteraction = (event: SyntheticEvent) => {
     event.preventDefault();
     event.stopPropagation();

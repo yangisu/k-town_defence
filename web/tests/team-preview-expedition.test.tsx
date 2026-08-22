@@ -46,8 +46,9 @@ it("renders sourced connection context and honest nearby route stops", async () 
     </DemoSessionProvider>,
   );
 
-  expect(await screen.findByText(/지민과 정국의 고향/)).toBeVisible();
-  expect(screen.getByText("검증")).toBeVisible();
+  expect(await screen.findByText(/검토 후보로 제안/)).toBeVisible();
+  expect(screen.getByText("팀 데이터 · 미검증 제안")).toBeVisible();
+  expect(screen.queryByText(/지민과 정국의 고향/)).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "아티스트 연결 출처" }))
     .toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
   expect(screen.getByText(/대중교통 기준 약 90분/)).toBeVisible();
@@ -67,4 +68,25 @@ it("renders sourced connection context and honest nearby route stops", async () 
   const standings = screen.getByRole("region", { name: "부산 영토 현황" });
   expect(within(standings).getByText(/ARMY.*920P/)).toBeVisible();
   expect(within(standings).getByText(/BLINK.*840P/)).toBeVisible();
+});
+
+it("rejects an expedition that belongs to a different selected artist", async () => {
+  window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({
+    ...createInitialDemoSession(),
+    artistConfirmed: true,
+    selectedArtistId: "aespa",
+    selectedTerritoryId: "suwon",
+  }));
+  render(
+    <DemoSessionProvider storage={window.localStorage}>
+      <PreviewExpeditionView
+        expeditionId="bts-busan-expedition"
+        checkInService={services.checkIn}
+        onBack={() => undefined}
+      />
+    </DemoSessionProvider>,
+  );
+
+  expect(await screen.findByText("선택한 원정을 찾지 못했어요.")).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "BTS 부산 바다 원정" })).not.toBeInTheDocument();
 });

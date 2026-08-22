@@ -16,8 +16,8 @@ function contributionRank(points: number) {
 }
 
 export function RecordView({ locale, session }: { locale: Locale; session: DemoSession }) {
-  const influencedTerritories = new Set(session.missionHistory.map((entry) => entry.territoryId));
-  const highestStage = session.missionHistory.reduce(
+  const influencedTerritories = new Set(session.approvedCheckIns.map((entry) => entry.territoryId));
+  const highestStage = session.approvedCheckIns.reduce(
     (highest, entry) => Math.max(highest, stageOrder[entry.strongholdStage]),
     -1,
   );
@@ -31,7 +31,7 @@ export function RecordView({ locale, session }: { locale: Locale; session: DemoS
     <div className="view record-view">
       <h1>{t(locale, "navRecord")}</h1>
       <dl className="record-summary">
-        <div><dt>{t(locale, "recordCompleted")}</dt><dd>{session.completedMissionIds.length}</dd></div>
+        <div><dt>{t(locale, "recordCompleted")}</dt><dd>{session.completedExpeditionIds.length}</dd></div>
         <div><dt>{t(locale, "rankingPoints")}</dt><dd>{session.contributedToday.toLocaleString(locale === "ko" ? "ko-KR" : "en-US")}P</dd></div>
         <div><dt>{t(locale, "recordContributionRank")}</dt><dd>#{contributionRank(session.contributedToday)}</dd></div>
         <div><dt>{t(locale, "recordTerritories")}</dt><dd>{influencedTerritories.size}</dd></div>
@@ -40,12 +40,12 @@ export function RecordView({ locale, session }: { locale: Locale; session: DemoS
       <section className="record-history">
         <h2>{t(locale, "recordCheckIns")}</h2>
         <ol aria-label={t(locale, "recordCheckIns")}>
-          {[...session.missionHistory].reverse().map((entry, index) => {
-            const place = previewContent.places.find((candidate) => candidate.id === entry.missionId);
+          {[...session.approvedCheckIns].reverse().map((entry, index) => {
+            const place = previewContent.places.find((candidate) => candidate.id === entry.placeId);
             const territory = session.territories.find((candidate) => candidate.id === entry.territoryId);
             return (
-              <li key={`${entry.missionId}-${session.missionHistory.length - index}`}>
-                <strong>{place?.name[locale] ?? entry.missionId}</strong>
+              <li key={`${entry.expeditionId}-${entry.placeId}-${session.approvedCheckIns.length - index}`}>
+                <strong>{place?.name[locale] ?? entry.placeId}</strong>
                 <span>{territory?.name[locale] ?? entry.territoryId}</span>
                 <span>{entry.awardedPoints.toLocaleString(locale === "ko" ? "ko-KR" : "en-US")}P</span>
                 <span>{stageCopy[locale][entry.strongholdStage]} {t(locale, "recordStronghold")}</span>

@@ -37,6 +37,7 @@ const panelCopy = {
     captureExpected: "점령 예상",
     rankHold: "현재 순위 유지",
     start: "원정 시작",
+    changeArtist: "아티스트 변경",
   },
   en: {
     owner: "Current owner",
@@ -60,6 +61,7 @@ const panelCopy = {
     captureExpected: "Capture expected",
     rankHold: "Current rank held",
     start: "Start expedition",
+    changeArtist: "Change artist",
   },
 } as const;
 
@@ -116,6 +118,7 @@ export function TacticalPanel({
   expedition,
   expeditionTerritory,
   onStartExpedition,
+  onChangeArtist,
 }: {
   session: DemoSession;
   artist: ArtistProfile;
@@ -124,6 +127,7 @@ export function TacticalPanel({
   expedition: PreviewExpedition;
   expeditionTerritory: PreviewTerritory;
   onStartExpedition(): void;
+  onChangeArtist(): void;
 }) {
   const locale: Locale = session.locale;
   const copy = panelCopy[locale];
@@ -146,9 +150,7 @@ export function TacticalPanel({
   const expeditionStageCopy = copy[expeditionTerritory.strongholdStage];
   const expeditionSelectedOwns = expeditionTerritory.ownerArtistId === artist.id;
   const sourceUrl = connection?.sourceUrls[0] ?? territory.sourceUrls[0];
-  const actionLabel = expedition.territoryId === territory.id
-    ? copy.start
-    : `${expeditionTerritory.name[locale]} ${copy.start}`;
+  const actionLabel = copy.start;
 
   const standingName = (standing: TerritoryStanding | undefined) => {
     if (!standing) return "—";
@@ -182,7 +184,7 @@ export function TacticalPanel({
             <div>
               <strong>{connection.memberName[locale]}</strong>
               <span aria-label={locale === "ko" ? "연결 근거 등급" : "Connection evidence class"}>
-                {t(locale, connection.evidenceClass === "official" ? "evidenceOfficial" : "evidenceVerified")}
+                {t(locale, connection.evidenceClass === "official" ? "evidenceOfficial" : connection.evidenceClass === "verified" ? "evidenceVerified" : "evidenceTeamData")}
               </span>
             </div>
             <p>{connection.story[locale]}</p>
@@ -222,6 +224,7 @@ export function TacticalPanel({
       <button className="primary-button" type="button" onClick={onStartExpedition}>
         {actionLabel}
       </button>
+      <button className="text-button" type="button" onClick={onChangeArtist}>{copy.changeArtist}</button>
     </aside>
   );
 }

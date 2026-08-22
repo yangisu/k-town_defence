@@ -30,6 +30,7 @@ const copy = {
     tree: "나무",
     landmark: "랜드마크",
     missing: "선택한 원정을 찾지 못했어요.",
+    publicRoute: "공식 관광 출처 기반 공공 원정 · 아티스트 직접 연관 주장 없음",
   },
   en: {
     back: "Back to territory map",
@@ -49,6 +50,7 @@ const copy = {
     tree: "Tree",
     landmark: "Landmark",
     missing: "The selected expedition could not be found.",
+    publicRoute: "Public route from official tourism sources · no direct artist claim",
   },
 } as const;
 
@@ -133,10 +135,12 @@ export function PreviewExpeditionView({
   const session = useDemoSession();
   const locale = session.state.locale;
   const labels = copy[locale];
-  const expedition = previewContent.expeditions.find((candidate) => candidate.id === expeditionId)
-    ?? (expeditionId === null
-      ? previewContent.expeditions.find((candidate) => candidate.artistId === session.state.selectedArtistId)
-      : null);
+  const requestedExpeditionId = expeditionId ?? session.state.selectedExpeditionId;
+  const expedition = previewContent.expeditions.find((candidate) => (
+    candidate.id === requestedExpeditionId
+    && candidate.territoryId === session.state.selectedTerritoryId
+    && (candidate.artistId === null || candidate.artistId === session.state.selectedArtistId)
+  )) ?? null;
   const connection = previewContent.connections.find((candidate) => candidate.id === expedition?.connectionId) ?? null;
   const territory = session.state.territories.find((candidate) => candidate.id === expedition?.territoryId) ?? null;
   const places = expedition?.stopIds
@@ -149,7 +153,7 @@ export function PreviewExpeditionView({
     [checkInPlace, impactBefore, session.state],
   );
 
-  if (!expedition || !connection || !territory) {
+  if (!expedition || !territory) {
     return <div className="panel-loading">{labels.missing}</div>;
   }
 
@@ -166,12 +170,15 @@ export function PreviewExpeditionView({
   const applyApprovedAward = (_result: CheckInResult, award: MissionAward) => {
     if (!checkInPlace) return;
     setImpactBefore(session.state);
-    session.dispatch({ type: "completeMission", missionId: checkInPlace.id, award });
+    session.dispatch({ type: "completeCheckIn", expeditionId: expedition.id, placeId: checkInPlace.id, award });
   };
 
   return (
     <div className="view preview-expedition-view">
-      <button className="text-button" type="button" onClick={onBack}><ArrowLeft size={17} /> {labels.back}</button>
+      <button className="text-button" type="button" onClick={() => {
+        session.dispatch({ type: "changeTab", tab: "explore" });
+        onBack();
+      }}><ArrowLeft size={17} /> {labels.back}</button>
       <section className="expedition-hero">
         <div className="expedition-title">
           <span className="eyebrow">{territory.name[locale]} · {session.selectedArtist?.fandomName}</span>
@@ -187,12 +194,16 @@ export function PreviewExpeditionView({
       </section>
 
       <section className="tactical-connection preview-expedition-connection">
-        <div>
-          <strong>{connection.memberName[locale]}</strong>
-          <span>{t(locale, connection.evidenceClass === "official" ? "evidenceOfficial" : "evidenceVerified")}</span>
-        </div>
-        <p>{connection.story[locale]}</p>
-        <a href={connection.sourceUrls[0]} target="_blank" rel="noreferrer">{labels.connectionSource}</a>
+        {connection ? (
+          <>
+            <div>
+              <strong>{connection.memberName[locale]}</strong>
+              <span>{t(locale, connection.evidenceClass === "official" ? "evidenceOfficial" : connection.evidenceClass === "verified" ? "evidenceVerified" : "evidenceTeamData")}</span>
+            </div>
+            <p>{connection.story[locale]}</p>
+            <a href={connection.sourceUrls[0]} target="_blank" rel="noreferrer">{labels.connectionSource}</a>
+          </>
+        ) : <p>{labels.publicRoute}</p>}
       </section>
 
       <div className="expedition-layout">

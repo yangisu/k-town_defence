@@ -1,12 +1,16 @@
-import { previewContent } from "./content";
+import type { AppTab } from "@/features/app-controller";
+import { getArtistHomeTerritories, getPlayableExpedition, previewContent } from "./content";
 import { GAME_RULES, stageForPoints, type MissionAward } from "./game-rules";
 import type { ArtistId, FandomStanding, Locale, PreviewTerritory, StrongholdStage, TerritoryId } from "./types";
 
-export const DEMO_SESSION_VERSION = 1;
-export const DEMO_SESSION_KEY = "ktown-team-preview-v1";
+export const DEMO_SESSION_VERSION = 2;
+export const DEMO_SESSION_KEY = "ktown-team-preview-v2";
+export const LEGACY_DEMO_SESSION_KEY = "ktown-team-preview-v1";
 
-export interface CompletedMissionRecord {
-  missionId: string;
+export interface ApprovedCheckInRecord {
+  expeditionId: string;
+  placeId: string;
+  artistId: ArtistId;
   territoryId: TerritoryId;
   awardedPoints: number;
   strongholdStage: StrongholdStage;
@@ -18,10 +22,12 @@ export interface DemoSession {
   artistConfirmed: boolean;
   selectedArtistId: ArtistId | null;
   selectedTerritoryId: TerritoryId | null;
+  activeTab: AppTab;
+  selectedExpeditionId: string | null;
   territories: PreviewTerritory[];
   fandoms: FandomStanding[];
-  completedMissionIds: string[];
-  missionHistory: CompletedMissionRecord[];
+  completedExpeditionIds: string[];
+  approvedCheckIns: ApprovedCheckInRecord[];
   missionVisitCounts: Record<string, number>;
   contributedToday: number;
 }
@@ -29,8 +35,10 @@ export interface DemoSession {
 export type DemoSessionAction =
   | { type: "selectArtist"; artistId: ArtistId }
   | { type: "selectTerritory"; territoryId: TerritoryId }
+  | { type: "changeTab"; tab: AppTab }
+  | { type: "openExpedition"; expeditionId: string }
   | { type: "setLocale"; locale: Locale }
-  | { type: "completeMission"; missionId: string; award: MissionAward }
+  | { type: "completeCheckIn"; expeditionId: string; placeId: string; award: MissionAward }
   | { type: "hydrate"; state: DemoSession }
   | { type: "reset" };
 
@@ -54,27 +62,26 @@ function getArtistFandom(artistId: ArtistId) {
 }
 
 function recomputeTerritory(territory: PreviewTerritory): PreviewTerritory {
-  const owner = territory.standings.find((standing) => standing.artistId === territory.ownerArtistId)!;
   const leader = territory.standings.reduce((best, standing) => standing.validPoints > best.validPoints ? standing : best);
-  const ownerArtistId = leader.validPoints > owner.validPoints ? leader.artistId : territory.ownerArtistId;
-  const ownerPoints = territory.standings.find((standing) => standing.artistId === ownerArtistId)!.validPoints;
+  const currentOwner = territory.standings.find((standing) => standing.artistId === territory.ownerArtistId);
+  const ownerArtistId = !currentOwner || leader.validPoints > currentOwner.validPoints
+    ? leader.artistId
+    : currentOwner.artistId;
+  const ownerPoints = territory.standings.find((standing) => standing.artistId === ownerArtistId)?.validPoints ?? 0;
   return { ...territory, ownerArtistId, strongholdStage: stageForPoints(ownerPoints) };
 }
 
 function recomputeFandoms(territories: PreviewTerritory[]): FandomStanding[] {
-  return previewContent.artists.map((artist) => {
-    const owned = territories.filter((territory) => territory.ownerArtistId === artist.id);
-    return {
-      artistId: artist.id,
-      fandomName: artist.fandomName,
-      strongholds: owned.length,
-      validPoints: territories.reduce(
-        (total, territory) => total + (territory.standings.find((standing) => standing.artistId === artist.id)?.validPoints ?? 0),
-        0,
-      ),
-      trend: "same",
-    };
-  });
+  return previewContent.artists.map((artist) => ({
+    artistId: artist.id,
+    fandomName: artist.fandomName,
+    strongholds: territories.filter((territory) => territory.ownerArtistId === artist.id).length,
+    validPoints: territories.reduce(
+      (total, territory) => total + (territory.standings.find((standing) => standing.artistId === artist.id)?.validPoints ?? 0),
+      0,
+    ),
+    trend: "same",
+  }));
 }
 
 export function createInitialDemoSession(): DemoSession {
@@ -83,71 +90,112 @@ export function createInitialDemoSession(): DemoSession {
     version: DEMO_SESSION_VERSION,
     locale: "ko",
     artistConfirmed: false,
-    selectedArtistId: "bts",
-    selectedTerritoryId: "busan",
+    selectedArtistId: null,
+    selectedTerritoryId: null,
+    activeTab: "explore",
+    selectedExpeditionId: null,
     territories,
     fandoms: recomputeFandoms(territories),
-    completedMissionIds: [],
-    missionHistory: [],
+    completedExpeditionIds: [],
+    approvedCheckIns: [],
     missionVisitCounts: {},
     contributedToday: 0,
   };
 }
 
-export function applyMissionImpact(state: DemoSession, missionId: string, award: MissionAward): DemoSession {
-  const mission = previewContent.places.find((place) => place.id === missionId);
+function compatibleExpedition(expeditionId: string, artistId: ArtistId, territoryId: TerritoryId) {
+  const expedition = previewContent.expeditions.find((candidate) => candidate.id === expeditionId);
+  return expedition && expedition.territoryId === territoryId && (expedition.artistId === null || expedition.artistId === artistId)
+    ? expedition
+    : null;
+}
+
+function deriveCompletedExpeditionIds(records: ApprovedCheckInRecord[]) {
+  const approvedByExpedition = new Map<string, Set<string>>();
+  for (const record of records) {
+    const approved = approvedByExpedition.get(record.expeditionId) ?? new Set<string>();
+    approved.add(record.placeId);
+    approvedByExpedition.set(record.expeditionId, approved);
+  }
+  return previewContent.expeditions
+    .filter((expedition) => expedition.stopIds.every((placeId) => approvedByExpedition.get(expedition.id)?.has(placeId)))
+    .map((expedition) => expedition.id);
+}
+
+export function applyCheckInImpact(state: DemoSession, expeditionId: string, placeId: string, award: MissionAward): DemoSession {
   const artistId = state.selectedArtistId;
+  const territoryId = state.selectedTerritoryId;
+  if (!state.artistConfirmed || artistId === null || territoryId === null || state.selectedExpeditionId !== expeditionId) return state;
+  const expedition = compatibleExpedition(expeditionId, artistId, territoryId);
+  const place = previewContent.places.find((candidate) => candidate.id === placeId);
   const actualApplied = Math.min(
     Math.max(Number.isFinite(award.cappedPoints) ? award.cappedPoints : 0, 0),
     Math.max(GAME_RULES.dailyCap - state.contributedToday, 0),
   );
-  if (!mission || artistId === null || actualApplied <= 0) return state;
+  if (!expedition || !place || place.territoryId !== expedition.territoryId || !expedition.stopIds.includes(place.id) || actualApplied <= 0) return state;
 
   const territories = state.territories.map((territory) => {
-    if (territory.id !== mission.territoryId) return territory;
+    if (territory.id !== expedition.territoryId) return territory;
     const existing = territory.standings.find((standing) => standing.artistId === artistId);
     const standings = existing
       ? territory.standings.map((standing) => standing.artistId === artistId
         ? { ...standing, validPoints: standing.validPoints + actualApplied }
         : standing)
-      : [...territory.standings, {
-        artistId,
-        fandomName: getArtistFandom(artistId),
-        validPoints: actualApplied,
-      }];
+      : [...territory.standings, { artistId, fandomName: getArtistFandom(artistId), validPoints: actualApplied }];
     return recomputeTerritory({ ...territory, standings });
   });
-
-  const influencedTerritory = territories.find((territory) => territory.id === mission.territoryId)!;
+  const influencedTerritory = territories.find((territory) => territory.id === expedition.territoryId)!;
+  const approvedCheckIns = [...state.approvedCheckIns, {
+    expeditionId,
+    placeId,
+    artistId,
+    territoryId: expedition.territoryId,
+    awardedPoints: actualApplied,
+    strongholdStage: influencedTerritory.strongholdStage,
+  }];
   return {
     ...state,
     territories,
     fandoms: recomputeFandoms(territories),
-    completedMissionIds: [...new Set([...state.completedMissionIds, missionId])],
-    missionHistory: [...state.missionHistory, {
-      missionId,
-      territoryId: mission.territoryId,
-      awardedPoints: actualApplied,
-      strongholdStage: influencedTerritory.strongholdStage,
-    }],
-    missionVisitCounts: { ...state.missionVisitCounts, [missionId]: (state.missionVisitCounts[missionId] ?? 0) + 1 },
+    completedExpeditionIds: deriveCompletedExpeditionIds(approvedCheckIns),
+    approvedCheckIns,
+    missionVisitCounts: { ...state.missionVisitCounts, [placeId]: (state.missionVisitCounts[placeId] ?? 0) + 1 },
     contributedToday: state.contributedToday + actualApplied,
   };
 }
 
 export function demoSessionReducer(state: DemoSession, action: DemoSessionAction): DemoSession {
   switch (action.type) {
-    case "selectArtist": return { ...state, artistConfirmed: true, selectedArtistId: action.artistId };
-    case "selectTerritory": return { ...state, selectedTerritoryId: action.territoryId };
+    case "selectArtist": {
+      const territory = getArtistHomeTerritories(action.artistId)[0];
+      return {
+        ...state,
+        artistConfirmed: true,
+        selectedArtistId: action.artistId,
+        selectedTerritoryId: territory?.id ?? null,
+        activeTab: "explore",
+        selectedExpeditionId: null,
+      };
+    }
+    case "selectTerritory":
+      return state.artistConfirmed
+        ? { ...state, selectedTerritoryId: action.territoryId, activeTab: "explore", selectedExpeditionId: null }
+        : state;
+    case "changeTab": {
+      if (action.tab !== "expedition") return { ...state, activeTab: action.tab, selectedExpeditionId: null };
+      if (!state.selectedArtistId || !state.selectedTerritoryId) return state;
+      const expedition = getPlayableExpedition(state.selectedArtistId, state.selectedTerritoryId);
+      return expedition ? { ...state, activeTab: "expedition", selectedExpeditionId: expedition.id } : state;
+    }
+    case "openExpedition": {
+      if (!state.selectedArtistId || !state.selectedTerritoryId) return state;
+      const expedition = compatibleExpedition(action.expeditionId, state.selectedArtistId, state.selectedTerritoryId);
+      return expedition ? { ...state, activeTab: "expedition", selectedExpeditionId: expedition.id } : state;
+    }
     case "setLocale": return { ...state, locale: action.locale };
-    case "completeMission": return applyMissionImpact(state, action.missionId, action.award);
+    case "completeCheckIn": return applyCheckInImpact(state, action.expeditionId, action.placeId, action.award);
     case "hydrate": return action.state;
-    case "reset": return {
-      ...createInitialDemoSession(),
-      locale: state.locale,
-      selectedArtistId: null,
-      selectedTerritoryId: null,
-    };
+    case "reset": return { ...createInitialDemoSession(), locale: state.locale };
   }
 }
 
@@ -155,13 +203,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isNonNegativeFinite(value: unknown) {
+function isNonNegativeFinite(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
 const artistIds = new Set<ArtistId>(previewContent.artists.map((artist) => artist.id));
 const territoryIds = new Set<TerritoryId>(previewContent.territories.map((territory) => territory.id));
-const missionIds = new Set(previewContent.places.map((place) => place.id));
+const placeIds = new Set(previewContent.places.map((place) => place.id));
+const expeditionIds = new Set(previewContent.expeditions.map((expedition) => expedition.id));
 
 function isArtistId(value: unknown): value is ArtistId {
   return typeof value === "string" && artistIds.has(value as ArtistId);
@@ -191,10 +240,17 @@ function isValidTerritory(value: unknown): value is PreviewTerritory {
     || !["seed", "tree", "landmark"].includes(value.strongholdStage as string)
     || !Array.isArray(value.standings)
     || value.standings.length === 0) return false;
-  return value.standings.every((standing) => isRecord(standing)
-    && isArtistId(standing.artistId)
-    && typeof standing.fandomName === "string"
-    && isNonNegativeFinite(standing.validPoints));
+  const standingIds = new Set<string>();
+  for (const standing of value.standings) {
+    if (!isRecord(standing)
+      || !isArtistId(standing.artistId)
+      || standingIds.has(standing.artistId)
+      || standing.fandomName !== getArtistFandom(standing.artistId)
+      || !isNonNegativeFinite(standing.validPoints)) return false;
+    standingIds.add(standing.artistId);
+  }
+  const owner = value.standings.find((standing) => standing.artistId === value.ownerArtistId);
+  return Boolean(owner && value.strongholdStage === stageForPoints(owner.validPoints));
 }
 
 function hasExactIds(values: unknown[], expected: Set<string>, idOf: (value: unknown) => string | null) {
@@ -208,21 +264,58 @@ function hasExactIds(values: unknown[], expected: Set<string>, idOf: (value: unk
 function isValidFandom(value: unknown): value is FandomStanding {
   return isRecord(value)
     && isArtistId(value.artistId)
-    && typeof value.fandomName === "string"
+    && value.fandomName === getArtistFandom(value.artistId)
     && Number.isInteger(value.strongholds)
     && isNonNegativeFinite(value.strongholds)
     && isNonNegativeFinite(value.validPoints)
     && ["up", "down", "same"].includes(value.trend as string);
 }
 
-function isValidMissionRecord(value: unknown): value is CompletedMissionRecord {
-  return isRecord(value)
-    && typeof value.missionId === "string"
-    && missionIds.has(value.missionId)
-    && isTerritoryId(value.territoryId)
-    && isNonNegativeFinite(value.awardedPoints)
-    && value.awardedPoints > 0
-    && ["seed", "tree", "landmark"].includes(value.strongholdStage as string);
+function isValidApprovedCheckIn(value: unknown): value is ApprovedCheckInRecord {
+  if (!isRecord(value)
+    || typeof value.expeditionId !== "string"
+    || !expeditionIds.has(value.expeditionId)
+    || typeof value.placeId !== "string"
+    || !placeIds.has(value.placeId)
+    || !isArtistId(value.artistId)
+    || !isTerritoryId(value.territoryId)
+    || !isNonNegativeFinite(value.awardedPoints)
+    || value.awardedPoints <= 0
+    || !["seed", "tree", "landmark"].includes(value.strongholdStage as string)) return false;
+  const expedition = previewContent.expeditions.find((candidate) => candidate.id === value.expeditionId);
+  const place = previewContent.places.find((candidate) => candidate.id === value.placeId);
+  return Boolean(expedition
+    && place
+    && expedition.stopIds.includes(value.placeId)
+    && expedition.territoryId === value.territoryId
+    && place.territoryId === value.territoryId
+    && (expedition.artistId === null || expedition.artistId === value.artistId));
+}
+
+function exactJson(left: unknown, right: unknown) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function rebuildTerritories(records: ApprovedCheckInRecord[]) {
+  let territories = copyTerritories().map(recomputeTerritory);
+  for (const record of records) {
+    territories = territories.map((territory) => {
+      if (territory.id !== record.territoryId) return territory;
+      const existing = territory.standings.find((standing) => standing.artistId === record.artistId);
+      const standings = existing
+        ? territory.standings.map((standing) => standing.artistId === record.artistId
+          ? { ...standing, validPoints: standing.validPoints + record.awardedPoints }
+          : standing)
+        : [...territory.standings, {
+          artistId: record.artistId,
+          fandomName: getArtistFandom(record.artistId),
+          validPoints: record.awardedPoints,
+        }];
+      const updated = recomputeTerritory({ ...territory, standings });
+      return updated.strongholdStage === record.strongholdStage ? updated : { ...updated, strongholdStage: "" as StrongholdStage };
+    });
+  }
+  return territories;
 }
 
 function isValidDemoSession(value: unknown): value is DemoSession {
@@ -232,24 +325,42 @@ function isValidDemoSession(value: unknown): value is DemoSession {
     || typeof value.artistConfirmed !== "boolean"
     || (value.selectedArtistId !== null && !isArtistId(value.selectedArtistId))
     || (value.selectedTerritoryId !== null && !isTerritoryId(value.selectedTerritoryId))
+    || !["explore", "expedition", "battle", "journey"].includes(value.activeTab as string)
+    || (value.selectedExpeditionId !== null && (typeof value.selectedExpeditionId !== "string" || !expeditionIds.has(value.selectedExpeditionId)))
     || !Array.isArray(value.territories)
     || !value.territories.every(isValidTerritory)
     || !hasExactIds(value.territories, territoryIds, (territory) => isRecord(territory) && isTerritoryId(territory.id) ? territory.id : null)
     || !Array.isArray(value.fandoms)
     || !value.fandoms.every(isValidFandom)
     || !hasExactIds(value.fandoms, artistIds, (fandom) => isRecord(fandom) && isArtistId(fandom.artistId) ? fandom.artistId : null)
-    || !Array.isArray(value.completedMissionIds)
-    || !value.completedMissionIds.every((missionId) => typeof missionId === "string" && missionIds.has(missionId))
-    || new Set(value.completedMissionIds).size !== value.completedMissionIds.length
-    || !Array.isArray(value.missionHistory)
-    || !value.missionHistory.every(isValidMissionRecord)
+    || !Array.isArray(value.completedExpeditionIds)
+    || !value.completedExpeditionIds.every((id) => typeof id === "string" && expeditionIds.has(id))
+    || new Set(value.completedExpeditionIds).size !== value.completedExpeditionIds.length
+    || !Array.isArray(value.approvedCheckIns)
+    || !value.approvedCheckIns.every(isValidApprovedCheckIn)
     || !isRecord(value.missionVisitCounts)
-    || !Object.entries(value.missionVisitCounts).every(([missionId, count]) => missionIds.has(missionId) && Number.isInteger(count) && isNonNegativeFinite(count))
+    || !Object.entries(value.missionVisitCounts).every(([placeId, count]) => placeIds.has(placeId) && Number.isInteger(count) && isNonNegativeFinite(count))
     || !isNonNegativeFinite(value.contributedToday)
     || value.contributedToday > GAME_RULES.dailyCap) return false;
 
-  return value.completedMissionIds.every((missionId) => (value.missionVisitCounts[missionId] ?? 0) > 0)
-    && value.missionHistory.every((entry) => value.completedMissionIds.includes(entry.missionId));
+  if (value.artistConfirmed !== (value.selectedArtistId !== null && value.selectedTerritoryId !== null)) return false;
+  if (!value.artistConfirmed && (value.activeTab !== "explore" || value.selectedExpeditionId !== null)) return false;
+  if (value.selectedExpeditionId !== null) {
+    if (!value.selectedArtistId || !value.selectedTerritoryId
+      || !compatibleExpedition(value.selectedExpeditionId, value.selectedArtistId, value.selectedTerritoryId)) return false;
+  }
+  if ((value.activeTab === "expedition") !== (value.selectedExpeditionId !== null)) return false;
+
+  const derivedCounts = value.approvedCheckIns.reduce<Record<string, number>>((counts, record) => {
+    counts[record.placeId] = (counts[record.placeId] ?? 0) + 1;
+    return counts;
+  }, {});
+  const rebuiltTerritories = rebuildTerritories(value.approvedCheckIns);
+  return exactJson(value.missionVisitCounts, derivedCounts)
+    && value.contributedToday === value.approvedCheckIns.reduce((total, record) => total + record.awardedPoints, 0)
+    && exactJson(value.completedExpeditionIds, deriveCompletedExpeditionIds(value.approvedCheckIns))
+    && exactJson(value.territories, rebuiltTerritories)
+    && exactJson(value.fandoms, recomputeFandoms(rebuiltTerritories));
 }
 
 export function loadDemoSession(storage: Pick<Storage, "getItem">): DemoSession {

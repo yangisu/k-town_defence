@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { previewContent } from "@/features/team-preview/content";
+import { previewContent, validateConnectionEvidence } from "@/features/team-preview/content";
 
 const expectedArtists = [
   ["bts", "ARMY"],
@@ -39,11 +39,85 @@ describe("team preview content", () => {
 
   it("labels direct connections and nearby recommendations honestly", () => {
     for (const connection of previewContent.connections) {
-      expect(["official", "verified"]).toContain(connection.evidenceClass);
+      expect(validateConnectionEvidence(connection), connection.id).toEqual([]);
+      const sources = (connection as typeof connection & {
+        sources?: Array<{
+          publisher: string;
+          reliability: "authoritative" | "reliable_public" | "team_input";
+          claimSpecific: boolean;
+        }>;
+      }).sources;
+      expect(sources, connection.id).toBeDefined();
+      if (!sources) continue;
+
+      if (connection.evidenceClass === "verified") {
+        expect(sources.length, connection.id).toBeGreaterThanOrEqual(2);
+        expect(new Set(sources.map((source) => source.publisher)).size, connection.id).toBeGreaterThanOrEqual(2);
+        expect(sources.every((source) => source.claimSpecific && source.reliability !== "team_input"), connection.id).toBe(true);
+      } else if (connection.evidenceClass === "official") {
+        expect(sources.some((source) => source.claimSpecific && source.reliability === "authoritative"), connection.id).toBe(true);
+      } else {
+        expect(connection.evidenceClass, connection.id).toBe("team_data");
+      }
     }
     for (const place of previewContent.places) {
       if (place.relationship === "nearby_recommendation") {
         expect(place.artistConnectionId).toBeNull();
+      }
+    }
+  });
+
+  it("rejects semantic evidence upgrades that do not meet their source burden", () => {
+    const connection = previewContent.connections[0];
+    expect(validateConnectionEvidence({ ...connection, evidenceClass: "verified" }))
+      .toContain("verified evidence requires two independent claim-specific reliable sources");
+    expect(validateConnectionEvidence({ ...connection, evidenceClass: "official" }))
+      .toContain("official evidence requires a claim-specific authoritative source");
+    expect(validateConnectionEvidence({
+      ...connection,
+      evidenceClass: "team_data",
+      evidenceNote: { ko: "", en: "" },
+    })).toContain("team-data evidence requires an explicit localized unverified note");
+  });
+
+  it("never upgrades generic artist profiles or team spreadsheet leads into verified facts", () => {
+    const genericProfileHosts = new Set([
+      "www.melon.com",
+      "ibighit.com",
+      "www.starship-ent.com",
+      "kiiikiii.kr",
+      "riizeofficial.com",
+      "zerobaseone.jp",
+      "boynextdoor-official.jp",
+      "www.le-sserafim.jp",
+      "www.smtown.com",
+      "newjeans.kr",
+      "www.seventeen-17.jp",
+    ]);
+
+    for (const connection of previewContent.connections) {
+      if (connection.sourceUrls.some((url) => genericProfileHosts.has(new URL(url).hostname))) {
+        expect(connection.evidenceClass, connection.id).toBe("team_data");
+      }
+    }
+  });
+
+  it("gives all 23 territories a same-territory public route with two sourced stops", () => {
+    const placesById = new Map(previewContent.places.map((place) => [place.id, place]));
+
+    for (const territory of previewContent.territories) {
+      const route = previewContent.expeditions.find((expedition) => expedition.territoryId === territory.id);
+      expect(route, territory.id).toBeDefined();
+      expect(route?.stopIds, territory.id).toHaveLength(2);
+      for (const stopId of route?.stopIds ?? []) {
+        const place = placesById.get(stopId);
+        expect(place?.territoryId, `${territory.id}:${stopId}`).toBe(territory.id);
+        const sources = (place as typeof place & {
+          sources?: Array<{ reliability: string; claimSpecific: boolean }>;
+        } | undefined)?.sources;
+        expect(sources, `${territory.id}:${stopId}`).toBeDefined();
+        expect(sources?.some((source) => source.claimSpecific
+          && ["authoritative", "official_tourism"].includes(source.reliability)), `${territory.id}:${stopId}`).toBe(true);
       }
     }
   });
@@ -64,11 +138,16 @@ describe("team preview content", () => {
     const connectionsById = new Map(previewContent.connections.map((connection) => [connection.id, connection]));
 
     for (const expedition of previewContent.expeditions) {
-      const connection = connectionsById.get(expedition.connectionId);
-      expect(connection, expedition.id).toMatchObject({
-        artistId: expedition.artistId,
-        territoryId: expedition.territoryId,
-      });
+      const connection = expedition.connectionId === null ? undefined : connectionsById.get(expedition.connectionId);
+      if (expedition.connectionId === null) {
+        expect(expedition.artistId, expedition.id).toBeNull();
+        expect(connection, expedition.id).toBeUndefined();
+      } else {
+        expect(connection, expedition.id).toMatchObject({
+          artistId: expedition.artistId,
+          territoryId: expedition.territoryId,
+        });
+      }
 
       for (const stopId of expedition.stopIds) {
         const place = placesById.get(stopId);
@@ -94,7 +173,7 @@ describe("team preview content", () => {
       expect(Number.isFinite(place.coordinates.latitude), place.id).toBe(true);
       expect(Number.isFinite(place.coordinates.longitude), place.id).toBe(true);
       if (place.category === "local_food") {
-        expect(place.name.ko, place.id).toMatch(/시장|마을/);
+        expect(place.name.ko, place.id).toMatch(/시장|마을|거리|차이나타운/);
       }
     }
   });

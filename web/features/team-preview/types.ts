@@ -9,9 +9,18 @@ export type ArtistId =
   | "ive" | "kiiikiii" | "riize" | "zerobaseone"
   | "boynextdoor" | "le-sserafim" | "aespa" | "newjeans"
   | "iu" | "seventeen";
-export type EvidenceClass = "official" | "verified";
+export type EvidenceClass = "official" | "verified" | "team_data";
 export type PlaceRelationship = "artist_connection" | "nearby_recommendation";
 export type StrongholdStage = "seed" | "tree" | "landmark";
+export type SourceReliability = "authoritative" | "reliable_public" | "team_input" | "official_tourism";
+
+export interface ContentSource {
+  id: string;
+  url: string;
+  publisher: string;
+  reliability: SourceReliability;
+  claimSpecific: boolean;
+}
 
 export interface ArtistProfile {
   id: ArtistId;
@@ -28,8 +37,10 @@ export interface ArtistConnection {
   memberName: LocalizedText;
   relationType: "birthplace" | "hometown" | "filming" | "official_activity";
   evidenceClass: EvidenceClass;
+  evidenceNote: LocalizedText;
   story: LocalizedText;
   sourceUrls: string[];
+  sources: ContentSource[];
 }
 
 export interface LocalizedTransportInfo {
@@ -81,13 +92,14 @@ export interface PreviewMissionPlace {
   visitBase: number;
   localBenefit: LocalizedText;
   sourceUrls: string[];
+  sources: ContentSource[];
 }
 
 export interface PreviewExpedition {
   id: string;
-  artistId: ArtistId;
+  artistId: ArtistId | null;
   territoryId: TerritoryId;
-  connectionId: string;
+  connectionId: string | null;
   title: LocalizedText;
   description: LocalizedText;
   stopIds: MissionPlaceId[];

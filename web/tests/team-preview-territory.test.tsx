@@ -32,20 +32,15 @@ function confirmedSession(overrides: Partial<DemoSession> = {}): DemoSession {
 function renderPreviewWithArtist(overrides: Partial<DemoSession> = {}) {
   const state = confirmedSession(overrides);
   window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(state));
-  const onOpenExpedition = vi.fn();
-
   render(
     <DemoSessionProvider storage={window.localStorage}>
       <TerritoryView
         mapConfig={null}
         onChooseArtist={vi.fn()}
-        onSelectTerritory={vi.fn()}
-        onOpenExpedition={onOpenExpedition}
       />
     </DemoSessionProvider>,
   );
 
-  return { onOpenExpedition };
 }
 
 const award = (points: number): MissionAward => ({
@@ -89,15 +84,18 @@ it("changes results when the user filters to contested territory", async () => {
 });
 
 it("shows the resolved fandom owner after a mission captures a territory", () => {
-  const tied = demoSessionReducer(createInitialDemoSession(), {
-    type: "completeMission",
-    missionId: "busan-1",
-    award: award(80),
+  let ready = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  ready = demoSessionReducer(ready, { type: "openExpedition", expeditionId: "bts-busan-expedition" });
+  const tied = demoSessionReducer(ready, {
+    type: "completeCheckIn", expeditionId: "bts-busan-expedition", placeId: "busan-1", award: award(80),
   });
-  const challenger = demoSessionReducer(tied, { type: "selectArtist", artistId: "blackpink" });
+  let challenger = demoSessionReducer(tied, { type: "selectArtist", artistId: "blackpink" });
+  challenger = demoSessionReducer(challenger, { type: "selectTerritory", territoryId: "busan" });
+  challenger = demoSessionReducer(challenger, { type: "openExpedition", expeditionId: "busan-public-expedition" });
   const captured = demoSessionReducer(challenger, {
-    type: "completeMission",
-    missionId: "busan-2",
+    type: "completeCheckIn",
+    expeditionId: "busan-public-expedition",
+    placeId: "busan-2",
     award: award(161),
   });
   const busan = captured.territories.find((territory) => territory.id === "busan")!;
@@ -135,40 +133,40 @@ it("keeps exact filter IDs and deterministic recommendation priority", () => {
     .toEqual(["gwangju", "daegu", "busan", "yeongwol"]);
 });
 
-it("routes an empty region to a sourced playable recommendation without fabricating evidence", async () => {
+it("routes an empty region to a sourced same-territory expedition without fabricating evidence", async () => {
   const user = userEvent.setup();
-  const { onOpenExpedition } = renderPreviewWithArtist({ selectedTerritoryId: "yeongwol" });
+  renderPreviewWithArtist({ selectedTerritoryId: "yeongwol" });
 
   const panel = await screen.findByRole("complementary", { name: "영월 전술 패널" });
   expect(within(panel).getByText("인근 추천")).toBeVisible();
   expect(within(panel).queryByLabelText("연결 근거 등급")).not.toBeInTheDocument();
   expect(within(panel).getByRole("link", { name: "영토 자료 출처" })).toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
 
-  const action = within(panel).getByRole("button", { name: "부산 원정 시작" });
+  const action = within(panel).getByRole("button", { name: "원정 시작" });
   expect(action).toBeEnabled();
   await user.click(action);
 
-  expect(onOpenExpedition).toHaveBeenCalledWith("busan", "bts-busan-expedition");
   await waitFor(() => {
     const saved = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as DemoSession;
-    expect(saved.selectedTerritoryId).toBe("busan");
+    expect(saved.selectedTerritoryId).toBe("yeongwol");
+    expect(saved.selectedExpeditionId).toBe("yeongwol-public-expedition");
   });
 });
 
 it.each([
   ["gwangju", "광주"],
   ["yeongwol", "영월"],
-] as const)("keeps %s battle context separate from the actionable Busan projection", async (territoryId, territoryName) => {
+] as const)("keeps %s battle context and actionable projection in the same territory", async (territoryId, territoryName) => {
   renderPreviewWithArtist({ selectedTerritoryId: territoryId });
 
   const panel = await screen.findByRole("complementary", { name: `${territoryName} 전술 패널` });
   expect(within(panel).getByRole("heading", { name: territoryName })).toBeVisible();
-  expect(within(panel).getByRole("button", { name: "부산 원정 시작" })).toBeEnabled();
+  expect(within(panel).getByRole("button", { name: "원정 시작" })).toBeEnabled();
 
-  const projection = within(panel).getByRole("region", { name: "부산 추천 원정 영향" });
-  expect(projection).toHaveTextContent("지역균형 보너스 1×");
-  expect(projection).toHaveTextContent("기본 지역균형 배율");
-  expect(projection).toHaveTextContent(/영토 영향.*방어 유지.*씨앗 → 나무/);
+  const projection = within(panel).getByRole("region", { name: `${territoryName} 추천 원정 영향` });
+  expect(projection).toHaveTextContent(territoryId === "yeongwol" ? "지역균형 보너스 1.8×" : "지역균형 보너스 1×");
+  expect(projection).toHaveTextContent(territoryId === "yeongwol" ? "인구감소지역 지정" : "기본 지역균형 배율");
+  expect(projection).toHaveTextContent(/영토 영향/);
   expect(projection).toHaveTextContent(/팬덤 순위 영향.*#1.*현재 순위 유지/);
 });
 
@@ -190,10 +188,10 @@ it("normalizes a stale local filter after reset and artist reselection", async (
   await user.click(screen.getByRole("button", { name: "아티스트 선택" }));
   await user.click(screen.getByRole("radio", { name: /aespa.*MY/i }));
 
-  const panel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
+  const panel = await screen.findByRole("complementary", { name: "수원 전술 패널" });
   expect(panel).toBeVisible();
   expect(screen.getByRole("button", { name: "추천 지역" })).toHaveAttribute("aria-pressed", "true");
   const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
   expect(within(list).getAllByRole("button")).toHaveLength(23);
-  expect(within(list).getByRole("button", { name: /^부산/ })).toHaveAttribute("aria-pressed", "true");
+  expect(within(list).getByRole("button", { name: /^수원/ })).toHaveAttribute("aria-pressed", "true");
 });

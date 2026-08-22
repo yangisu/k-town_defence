@@ -43,20 +43,18 @@ it("completes the bilingual BTS demo journey, persists its impact, and resets on
   expect(yeongwol).toHaveTextContent("1.8×");
   expect(screen.getByRole("complementary", { name: "영월 전술 패널" })).toBeVisible();
 
-  await user.click(screen.getByRole("button", { name: "부산 원정 시작" }));
-  expect(await screen.findByRole("heading", { name: "BTS 부산 바다 원정" })).toBeVisible();
-  expect(screen.getByText("검증")).toBeVisible();
-  expect(screen.getByText(/KBS World가 지민과 정국의 고향으로 확인한 부산/)).toBeVisible();
-  expect(screen.getByRole("link", { name: "아티스트 연결 출처" }))
-    .toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
-  const nearbyStop = screen.getByRole("listitem", { name: "감천문화마을" });
+  await user.click(screen.getByRole("button", { name: "원정 시작" }));
+  expect(await screen.findByRole("heading", { name: "영월 공공 관광 원정" })).toBeVisible();
+  expect(screen.getByText(/아티스트 직접 연관 주장 없음/)).toBeVisible();
+  expect(screen.queryByRole("link", { name: "아티스트 연결 출처" })).not.toBeInTheDocument();
+  const nearbyStop = screen.getByRole("listitem", { name: "청령포" });
   expect(within(nearbyStop).getByText("인근 추천")).toBeVisible();
   expect(within(nearbyStop).getByText(/직접 연관을 주장하지 않는/)).toBeVisible();
-  expect(within(nearbyStop).getByRole("link", { name: "감천문화마을 출처" }))
+  expect(within(nearbyStop).getByRole("link", { name: "청령포 출처" }))
     .toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
-  expect(within(screen.getByRole("region", { name: "부산 영토 현황" })).getByText(/ARMY.*920P/)).toBeVisible();
+  expect(within(screen.getByRole("region", { name: "영월 영토 현황" })).getByText(/ARMY.*920P/)).toBeVisible();
 
-  await user.click(within(nearbyStop).getByRole("button", { name: "감천문화마을 체크인" }));
+  await user.click(within(nearbyStop).getByRole("button", { name: "청령포 체크인" }));
   const checkIn = await screen.findByRole("dialog", { name: "현장 체크인" });
   await user.click(within(checkIn).getByRole("button", { name: "데모 인증 진행" }));
   expect(within(checkIn).getByText("GPS 위치 확인 완료")).toBeVisible();
@@ -67,17 +65,17 @@ it("completes the bilingual BTS demo journey, persists its impact, and resets on
   await user.click(within(checkIn).getByRole("button", { name: "체크인 제출" }));
 
   expect(await within(checkIn).findByRole("heading", { name: "체크인 승인 완료" })).toBeVisible();
-  expect(within(checkIn).getByText("유효 포인트 +260P")).toBeVisible();
-  expect(within(checkIn).getByText(/부산 지역 점유율.*52\.3%.*58\.4%/)).toBeVisible();
+  expect(within(checkIn).getByText("유효 포인트 +468P")).toBeVisible();
+  expect(within(checkIn).getByText(/영월 지역 점유율.*52\.3%.*62\.3%/)).toBeVisible();
   expect(within(checkIn).getByText(/거점.*씨앗.*나무/)).toBeVisible();
   expect(within(checkIn).getByText(/팬덤 순위.*#1.*#1/)).toBeVisible();
   await user.click(within(checkIn).getByRole("button", { name: "여행 계속하기" }));
 
   await waitFor(() => {
     const saved = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as DemoSession;
-    expect(saved.contributedToday).toBe(260);
-    expect(saved.missionHistory).toEqual([
-      expect.objectContaining({ missionId: "busan-1", territoryId: "busan", awardedPoints: 260 }),
+    expect(saved.contributedToday).toBe(468);
+    expect(saved.approvedCheckIns).toEqual([
+      expect.objectContaining({ expeditionId: "yeongwol-public-expedition", placeId: "yeongwol-1", territoryId: "yeongwol", awardedPoints: 468 }),
     ]);
   });
 
@@ -86,22 +84,22 @@ it("completes the bilingual BTS demo journey, persists its impact, and resets on
   const selectedFandom = within(ranking).getByRole("listitem", { current: true });
   expect(selectedFandom).toHaveTextContent("#1");
   expect(selectedFandom).toHaveTextContent("방탄소년단 · ARMY");
-  expect(selectedFandom).toHaveTextContent("19,820P");
+  expect(selectedFandom).toHaveTextContent("20,028P");
 
   await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
   expect(screen.getByRole("heading", { name: "내 기록" })).toBeVisible();
-  expect(screen.getByText("완료한 원정").parentElement).toHaveTextContent("완료한 원정1");
-  expect(within(screen.getByRole("list", { name: "승인된 체크인" })).getByText("감천문화마을")).toBeVisible();
+  expect(screen.getByText("완료한 원정").parentElement).toHaveTextContent("완료한 원정0");
+  expect(within(screen.getByRole("list", { name: "승인된 체크인" })).getByText("청령포")).toBeVisible();
 
   view.unmount();
   render(<KTownApp mode="demo" mapConfig={null} />);
   expect(await screen.findByText("ARMY · #1")).toBeVisible();
   await user.click(screen.getAllByRole("button", { name: "랭킹" })[0]);
   const persistedRanking = screen.getByRole("list", { name: "팬덤 랭킹" });
-  expect(within(persistedRanking).getByRole("listitem", { current: true })).toHaveTextContent("19,820P");
+  expect(within(persistedRanking).getByRole("listitem", { current: true })).toHaveTextContent("20,028P");
   await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
-  expect(await screen.findByText("감천문화마을")).toBeVisible();
-  expect(screen.getByText("유효 포인트").parentElement).toHaveTextContent("유효 포인트260P");
+  expect(await screen.findByText("청령포")).toBeVisible();
+  expect(screen.getByText("유효 포인트").parentElement).toHaveTextContent("유효 포인트468P");
 
   window.localStorage.setItem("ktown-neighbor", "preserve-me");
   await user.click(screen.getByRole("button", { name: "데모 초기화" }));
@@ -156,21 +154,19 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   expect(screen.getByRole("complementary", { name: "Yeongwol tactical panel" })).toBeVisible();
   expect(screen.queryByRole("group", { name: "영토 필터" })).not.toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "Busan Start expedition" }));
-  expect(await screen.findByRole("heading", { name: "BTS Busan coast expedition" })).toBeVisible();
-  expect(screen.getByText("Verified")).toBeVisible();
-  expect(screen.getByText(/identified by KBS World as Jimin and Jungkook's hometown/)).toBeVisible();
-  expect(screen.getByRole("link", { name: "Artist connection source" }))
-    .toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
-  const nearbyStop = screen.getByRole("listitem", { name: "Gamcheon Culture Village" });
+  await user.click(screen.getByRole("button", { name: "Start expedition" }));
+  expect(await screen.findByRole("heading", { name: "Yeongwol public tourism expedition" })).toBeVisible();
+  expect(screen.getByText(/no direct artist claim/)).toBeVisible();
+  expect(screen.queryByRole("link", { name: "Artist connection source" })).not.toBeInTheDocument();
+  const nearbyStop = screen.getByRole("listitem", { name: "Cheongnyeongpo" });
   expect(within(nearbyStop).getByText("Nearby recommendation")).toBeVisible();
   expect(within(nearbyStop).getByText(/makes no direct artist-connection claim/)).toBeVisible();
-  expect(within(nearbyStop).getByRole("link", { name: "Gamcheon Culture Village source" }))
+  expect(within(nearbyStop).getByRole("link", { name: "Cheongnyeongpo source" }))
     .toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
-  expect(within(screen.getByRole("region", { name: "Busan territory standings" })).getByText(/ARMY.*920P/)).toBeVisible();
+  expect(within(screen.getByRole("region", { name: "Yeongwol territory standings" })).getByText(/ARMY.*920P/)).toBeVisible();
   expect(screen.queryByRole("link", { name: "아티스트 연결 출처" })).not.toBeInTheDocument();
 
-  await user.click(within(nearbyStop).getByRole("button", { name: "Gamcheon Culture Village check in" }));
+  await user.click(within(nearbyStop).getByRole("button", { name: "Cheongnyeongpo check in" }));
   const checkIn = await screen.findByRole("dialog", { name: "On-site check-in" });
   expect(within(checkIn).queryByRole("heading", { name: "현장 체크인" })).not.toBeInTheDocument();
   await user.click(within(checkIn).getByRole("button", { name: "Run demo verification" }));
@@ -182,8 +178,8 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   await user.click(within(checkIn).getByRole("button", { name: "Submit check-in" }));
 
   expect(await within(checkIn).findByRole("heading", { name: "Check-in approved" })).toBeVisible();
-  expect(within(checkIn).getByText("Valid points +260P")).toBeVisible();
-  expect(within(checkIn).getByText(/Busan Territory share.*52\.3%.*58\.4%/)).toBeVisible();
+  expect(within(checkIn).getByText("Valid points +468P")).toBeVisible();
+  expect(within(checkIn).getByText(/Yeongwol Territory share.*52\.3%.*62\.3%/)).toBeVisible();
   expect(within(checkIn).getByText(/Stronghold.*Seed.*Tree/)).toBeVisible();
   expect(within(checkIn).getByText(/Fandom rank.*#1.*#1/)).toBeVisible();
   expect(within(checkIn).queryByText(/지역 점유율/)).not.toBeInTheDocument();
@@ -192,9 +188,9 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   await waitFor(() => {
     const saved = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as DemoSession;
     expect(saved.locale).toBe("en");
-    expect(saved.contributedToday).toBe(260);
-    expect(saved.missionHistory).toEqual([
-      expect.objectContaining({ missionId: "busan-1", territoryId: "busan", awardedPoints: 260 }),
+    expect(saved.contributedToday).toBe(468);
+    expect(saved.approvedCheckIns).toEqual([
+      expect.objectContaining({ expeditionId: "yeongwol-public-expedition", placeId: "yeongwol-1", territoryId: "yeongwol", awardedPoints: 468 }),
     ]);
   });
 
@@ -203,13 +199,13 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   const selectedFandom = within(ranking).getByRole("listitem", { current: true });
   expect(selectedFandom).toHaveTextContent("#1");
   expect(selectedFandom).toHaveTextContent("BTS · ARMY");
-  expect(selectedFandom).toHaveTextContent("19,820P");
+  expect(selectedFandom).toHaveTextContent("20,028P");
   expect(screen.queryByText("선택한 팬덤")).not.toBeInTheDocument();
 
   await user.click(screen.getAllByRole("button", { name: "My Record" })[0]);
   expect(screen.getByRole("heading", { name: "My Record" })).toBeVisible();
-  expect(screen.getByText("Completed expeditions").parentElement).toHaveTextContent("Completed expeditions1");
-  expect(within(screen.getByRole("list", { name: "Approved check-ins" })).getByText("Gamcheon Culture Village")).toBeVisible();
+  expect(screen.getByText("Completed expeditions").parentElement).toHaveTextContent("Completed expeditions0");
+  expect(within(screen.getByRole("list", { name: "Approved check-ins" })).getByText("Cheongnyeongpo")).toBeVisible();
   expect(screen.queryByRole("heading", { name: "내 기록" })).not.toBeInTheDocument();
 
   view.unmount();
@@ -218,10 +214,10 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   expect(screen.getByRole("button", { name: "EN" })).toHaveAttribute("aria-pressed", "true");
   await user.click(screen.getAllByRole("button", { name: "Ranking" })[0]);
   const persistedRanking = screen.getByRole("list", { name: "Fandom ranking" });
-  expect(within(persistedRanking).getByRole("listitem", { current: true })).toHaveTextContent("19,820P");
+  expect(within(persistedRanking).getByRole("listitem", { current: true })).toHaveTextContent("20,028P");
   await user.click(screen.getAllByRole("button", { name: "My Record" })[0]);
-  expect(await screen.findByText("Gamcheon Culture Village")).toBeVisible();
-  expect(screen.getByText("Valid points").parentElement).toHaveTextContent("Valid points260P");
+  expect(await screen.findByText("Cheongnyeongpo")).toBeVisible();
+  expect(screen.getByText("Valid points").parentElement).toHaveTextContent("Valid points468P");
 
   window.localStorage.setItem("ktown-english-neighbor", "preserve-me");
   await user.click(screen.getByRole("button", { name: "Reset demo" }));

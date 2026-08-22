@@ -29,7 +29,7 @@ export function TerritoryList({ territories, locale, selectedArtistId, selectedT
             onClick={() => onSelectTerritory(territory.id)}
           >
             <strong>{territory.name[locale]}</strong>
-            <span>{territory.standings[0]?.fandomName ?? "—"}</span>
+            <span>{owner?.fandomName ?? "—"}</span>
             {territory.populationDecline ? <small>{territory.balanceMultiplier}×</small> : null}
             {selectedArtistId ? (
               <small>{territory.ownerArtistId === selectedArtistId

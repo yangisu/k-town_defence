@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { CheckInFlow } from "@/components/check-in/check-in-flow";
@@ -77,8 +77,15 @@ it("keeps the condensed demo check-in and impact available in English", async ()
   render(<KTownApp mode="demo" mapConfig={null} />);
 
   await user.click(await screen.findByRole("button", { name: "Start expedition" }));
+  expect(await screen.findByRole("heading", { name: "BTS Busan coast expedition" })).toBeVisible();
+  expect(screen.getByText("90 min")).toBeVisible();
+  expect(screen.getAllByText("Dwell 45 min")).toHaveLength(2);
+  expect(document.body).not.toHaveTextContent("90분");
   await user.click(await screen.findByRole("button", { name: "Gamcheon Culture Village check in" }));
-  expect(await screen.findByRole("heading", { name: "On-site check-in" })).toBeVisible();
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByRole("heading", { name: "On-site check-in" })).toBeVisible();
+  expect(within(dialog).getByText("Upload the original photo for private review")).toBeVisible();
+  expect(dialog).not.toHaveTextContent("원본 사진을 비공개 검토용으로 업로드");
   await user.click(screen.getByRole("button", { name: "Run demo verification" }));
   expect(screen.getByText("GPS position verified")).toBeVisible();
   expect(screen.getByText("On-site photo verified")).toBeVisible();
@@ -92,6 +99,21 @@ it("keeps the condensed demo check-in and impact available in English", async ()
   expect(screen.getByText(/Stronghold/)).toBeVisible();
   expect(screen.getByText(/Fandom rank/)).toBeVisible();
   expect(screen.getByText(/My contribution rank/)).toBeVisible();
+});
+
+it("requires a fresh review when optional evidence changes after review", async () => {
+  const user = userEvent.setup();
+  await openPreviewCheckIn(user);
+
+  await user.click(screen.getByRole("button", { name: "데모 인증 진행" }));
+  await user.click(screen.getByRole("button", { name: "포인트 검토" }));
+  expect(screen.getByRole("button", { name: "체크인 제출" })).toBeVisible();
+
+  await user.click(screen.getByRole("checkbox", { name: "숙박 인증 포함" }));
+
+  expect(screen.getByRole("checkbox", { name: "숙박 인증 포함" })).toBeChecked();
+  expect(screen.queryByRole("button", { name: "체크인 제출" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "포인트 검토" })).toBeVisible();
 });
 
 it("retains demo evidence and the submission key when a network retry is needed", async () => {

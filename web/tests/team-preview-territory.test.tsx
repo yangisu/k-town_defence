@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { TerritoryView } from "@/components/team-preview/territory-view";
+import { TerritoryList } from "@/components/team-preview/territory-list";
 import {
   TERRITORY_FILTERS,
   filterAndOrderTerritories,
@@ -9,8 +10,10 @@ import {
 import {
   DEMO_SESSION_KEY,
   createInitialDemoSession,
+  demoSessionReducer,
   type DemoSession,
 } from "@/features/team-preview/demo-session";
+import type { MissionAward } from "@/features/team-preview/game-rules";
 import { DemoSessionProvider } from "@/features/team-preview/demo-session-context";
 import { KTownApp } from "@/features/ktown-app";
 
@@ -45,6 +48,17 @@ function renderPreviewWithArtist(overrides: Partial<DemoSession> = {}) {
   return { onOpenExpedition };
 }
 
+const award = (points: number): MissionAward => ({
+  visit: points,
+  dwell: 0,
+  localSpend: 0,
+  accommodation: 0,
+  subtotal: points,
+  multiplier: 1,
+  validPoints: points,
+  cappedPoints: points,
+});
+
 it("turns artist choice into a visible tactical recommendation", async () => {
   renderPreviewWithArtist();
 
@@ -72,6 +86,37 @@ it("changes results when the user filters to contested territory", async () => {
 
   expect(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
     .toHaveTextContent("탈환까지");
+});
+
+it("shows the resolved fandom owner after a mission captures a territory", () => {
+  const tied = demoSessionReducer(createInitialDemoSession(), {
+    type: "completeMission",
+    missionId: "busan-1",
+    award: award(80),
+  });
+  const challenger = demoSessionReducer(tied, { type: "selectArtist", artistId: "blackpink" });
+  const captured = demoSessionReducer(challenger, {
+    type: "completeMission",
+    missionId: "busan-2",
+    award: award(161),
+  });
+  const busan = captured.territories.find((territory) => territory.id === "busan")!;
+
+  expect(busan.ownerArtistId).toBe("blackpink");
+  expect(busan.standings[0]?.fandomName).toBe("ARMY");
+  render(
+    <TerritoryList
+      territories={[busan]}
+      locale="ko"
+      selectedArtistId="blackpink"
+      selectedTerritoryId="busan"
+      onSelectTerritory={vi.fn()}
+    />,
+  );
+
+  const row = screen.getByRole("button", { name: /^부산/ });
+  expect(row).toHaveTextContent("BLINK");
+  expect(row).not.toHaveTextContent("ARMY");
 });
 
 it("keeps exact filter IDs and deterministic recommendation priority", () => {

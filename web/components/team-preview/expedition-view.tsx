@@ -20,6 +20,7 @@ const copy = {
     direct: "아티스트 연관 장소",
     source: "출처",
     dwell: "체류",
+    minuteUnit: "분",
     maximum: "최대",
     multiplier: "지역 배율",
     total: "예상 총",
@@ -38,6 +39,7 @@ const copy = {
     direct: "Artist-linked place",
     source: "source",
     dwell: "Dwell",
+    minuteUnit: "min",
     maximum: "Up to",
     multiplier: "Regional multiplier",
     total: "Estimated total",
@@ -176,7 +178,7 @@ export function PreviewExpeditionView({
           <h1>{expedition.title[locale]}</h1>
           <p>{expedition.description[locale]}</p>
           <div className="hero-meta">
-            <span><Clock3 size={16} /> {expedition.estimatedMinutes}분</span>
+            <span><Clock3 size={16} /> {expedition.estimatedMinutes}{locale === "ko" ? "" : " "}{labels.minuteUnit}</span>
             <span><Navigation size={16} /> {expedition.transitSummary[locale]}</span>
             <span><Shield size={16} /> {labels.multiplier} {territory.balanceMultiplier}×</span>
             <strong>{labels.total} {totalAward.toLocaleString()}P</strong>
@@ -210,7 +212,7 @@ export function PreviewExpeditionView({
                     <div className="stop-meta">
                       <span><MapPin size={13} /> {place.address[locale]}</span>
                       <span><Navigation size={13} /> {place.transport.summary[locale]}</span>
-                      <span><Footprints size={13} /> {labels.dwell} {place.dwellMinutes}분</span>
+                      <span><Footprints size={13} /> {labels.dwell} {place.dwellMinutes}{locale === "ko" ? "" : " "}{labels.minuteUnit}</span>
                       <span className="benefit">{place.localBenefit[locale]}</span>
                     </div>
                     <a href={place.sourceUrls[0]} target="_blank" rel="noreferrer">{place.name[locale]} {labels.source}</a>

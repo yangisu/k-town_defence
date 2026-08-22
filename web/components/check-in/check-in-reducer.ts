@@ -106,9 +106,10 @@ export function checkInReducer(state: CheckInUiState, action: CheckInAction): Ch
         },
       };
     case "setDemoEvidence":
-      if (state.status !== "collecting" || state.evidenceMode !== "demo") return state;
+      if (!["collecting", "ready_to_submit"].includes(state.status) || state.evidenceMode !== "demo") return state;
       return {
         ...state,
+        status: "collecting",
         demoEvidence: { ...state.demoEvidence, [action.field]: action.value, reviewAccepted: false },
       };
     case "acceptDemoReview":

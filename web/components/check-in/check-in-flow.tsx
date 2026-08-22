@@ -31,7 +31,7 @@ const demoCopy = {
     accommodation: "숙박", validPoints: "유효 포인트", territoryShare: "지역 점유율", stronghold: "거점",
     fandomRank: "팬덤 순위", personalRank: "내 기여 순위", continue: "여행 계속하기",
     intro: "데모 인증을 진행해 주세요.", gpsTitle: "현재 위치 3회", gpsDone: "GPS 위치 확인 완료",
-    photoTitle: "현장 사진", photoDone: "현장 사진 확인 완료", dwellTitle: "체류 시간", dwellDone: "체류 45분 확인",
+    photoTitle: "현장 사진", photoPrompt: "원본 사진을 비공개 검토용으로 업로드", photoDone: "현장 사진 확인 완료", dwellTitle: "체류 시간", dwellDone: "체류 45분 확인",
     pending: "대기", extra: "추가 지역 기여", includeSpend: "로컬 소비 인증 포함", includeStay: "숙박 인증 포함",
     saveFailed: "체크인 저장에 실패했어요", saveFailedBody: "네트워크 연결을 확인하고 다시 시도해 주세요.",
     runDemo: "데모 인증 진행", review: "포인트 검토", submit: "체크인 제출", retry: "다시 제출",
@@ -43,7 +43,7 @@ const demoCopy = {
     accommodation: "Accommodation", validPoints: "Valid points", territoryShare: "Territory share", stronghold: "Stronghold",
     fandomRank: "Fandom rank", personalRank: "My contribution rank", continue: "Continue trip",
     intro: "Run demo verification to simulate the evidence sequence.", gpsTitle: "Three GPS positions", gpsDone: "GPS position verified",
-    photoTitle: "On-site photo", photoDone: "On-site photo verified", dwellTitle: "Dwell time", dwellDone: "Dwell 45 minutes verified",
+    photoTitle: "On-site photo", photoPrompt: "Upload the original photo for private review", photoDone: "On-site photo verified", dwellTitle: "Dwell time", dwellDone: "Dwell 45 minutes verified",
     pending: "Pending", extra: "Additional local contribution", includeSpend: "Include local spend verification", includeStay: "Include accommodation verification",
     saveFailed: "Could not save the check-in", saveFailedBody: "Check your network connection and try again.",
     runDemo: "Run demo verification", review: "Review points", submit: "Submit check-in", retry: "Submit again",
@@ -233,7 +233,7 @@ export function CheckInFlow({
               </article>
               <article>
                 <span className="step-icon"><Camera /></span>
-                <div><h3>{mode === "integrated" ? "현장 사진" : demoLabels.photoTitle}</h3><p>{mode === "demo" && state.photoAssetId ? demoLabels.photoDone : "원본 사진을 비공개 검토용으로 업로드"}</p></div>
+                <div><h3>{mode === "integrated" ? "현장 사진" : demoLabels.photoTitle}</h3><p>{mode === "demo" ? (state.photoAssetId ? demoLabels.photoDone : demoLabels.photoPrompt) : "원본 사진을 비공개 검토용으로 업로드"}</p></div>
                 <strong>{state.photoAssetId ? <Check /> : mode === "integrated" ? "대기" : demoLabels.pending}</strong>
               </article>
               {mode === "demo" ? (

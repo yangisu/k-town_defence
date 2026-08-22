@@ -52,6 +52,22 @@ describe("check-in reducer", () => {
     expect(reviewed.status).toBe("ready_to_submit");
   });
 
+  it("returns reviewed demo evidence to collection when an optional proof changes", () => {
+    const collecting = createInitialCheckInState("session-1", "busan-1", "submit-1", "demo");
+    const evidenced = checkInReducer(collecting, { type: "demoEvidenceCollected", dwellMinutes: 45 });
+    const reviewed = checkInReducer(evidenced, { type: "acceptDemoReview" });
+    const edited = checkInReducer(reviewed, {
+      type: "setDemoEvidence",
+      field: "accommodationVerified",
+      value: true,
+    });
+
+    expect(edited.status).toBe("collecting");
+    expect(edited.demoEvidence.accommodationVerified).toBe(true);
+    expect(edited.demoEvidence.reviewAccepted).toBe(false);
+    expect(deriveCheckInProgress(edited).canSubmit).toBe(false);
+  });
+
   it("retains all demo evidence while retrying a failed submission", () => {
     const collecting = createInitialCheckInState("session-1", "busan-1", "submit-1", "demo");
     const evidenced = checkInReducer(collecting, { type: "demoEvidenceCollected", dwellMinutes: 45 });

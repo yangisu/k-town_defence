@@ -20,6 +20,7 @@ interface MapHarness {
   handlers: Map<string, Array<(event: MapEvent) => void>>;
   layerHandlers: Map<string, Array<(event: MapEvent) => void>>;
   flyTo: ReturnType<typeof vi.fn>;
+  jumpTo: ReturnType<typeof vi.fn>;
   fitBounds: ReturnType<typeof vi.fn>;
   setFilter: ReturnType<typeof vi.fn>;
   setPaintProperty: ReturnType<typeof vi.fn>;
@@ -38,6 +39,7 @@ vi.mock("maplibre-gl", () => {
     handlers = new Map<string, Array<(event: MapEvent) => void>>();
     layerHandlers = new Map<string, Array<(event: MapEvent) => void>>();
     flyTo = vi.fn();
+    jumpTo = vi.fn();
     fitBounds = vi.fn();
     setFilter = vi.fn();
     setPaintProperty = vi.fn();
@@ -115,6 +117,8 @@ it("uses Amazon Location and keeps map selection equivalent to the territory lis
   );
 
   mapHarness.instances[0].emit("load");
+  expect(mapHarness.instances[0].flyTo).not.toHaveBeenCalled();
+  expect(mapHarness.instances[0].fitBounds).not.toHaveBeenCalled();
   mapHarness.instances[0].emitLayer("click", "preview-territory-fill", {
     features: [{ id: "daegu", properties: { id: "daegu" } }],
   });
@@ -461,6 +465,33 @@ it("recolors a captured boundary and stronghold without recreating the map", () 
     .toBe("#f25da5");
 });
 
+it("uses an immediate camera transition when reduced motion is requested and polygon bounds are unavailable", () => {
+  vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
+  const initial = {
+    ...createInitialDemoSession(),
+    artistConfirmed: true,
+    selectedArtistId: "bts" as const,
+    selectedTerritoryId: null,
+  };
+  const { rerender } = render(
+    <TerritoryMap mapConfig={config} session={initial} selectedTerritoryId={null} onSelectTerritory={() => undefined} />,
+  );
+  const map = mapHarness.instances[0];
+  map.emit("load");
+
+  rerender(
+    <TerritoryMap
+      mapConfig={config}
+      session={{ ...initial, selectedTerritoryId: "daegu" }}
+      selectedTerritoryId="daegu"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+
+  expect(map.jumpTo).toHaveBeenCalledWith({ center: [128.6014, 35.8714], zoom: 8 });
+  expect(map.flyTo).not.toHaveBeenCalled();
+});
+
 it("keeps nationwide ownership on semantic layers while filtering the accessible list and resetting the camera", async () => {
   const geoJson = JSON.parse(readFileSync(resolve(process.cwd(), "public/data/preview-territories.geojson"), "utf8"));
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => geoJson }));
@@ -498,6 +529,8 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
     .toEqual(["match", ["get", "stage"], "seed", 7, "tree", 11, "landmark", 16, 7]);
   expect(map.layers.find((layer) => layer.id === "preview-selected-fandom-outline")?.filter)
     .toEqual(["==", ["get", "ownerArtistId"], "bts"]);
+  expect(map.layers.find((layer) => layer.id === "preview-selected-fandom-outline")?.paint)
+    .toEqual({ "line-color": ["get", "ownerColor"], "line-width": 2.5 });
   expect(map.layers.find((layer) => layer.id === "preview-territory-selected"))
     .toMatchObject({ type: "line", paint: { "line-color": "#16231d", "line-width": 4 } });
   expect(JSON.stringify((fill?.paint as Record<string, unknown>)?.["fill-color"])).toMatch(/#7c5ce0.*#f25da5/);
@@ -510,16 +543,13 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
   expect(boundaryCollection.features).toHaveLength(23);
   expect(Object.fromEntries(boundaryCollection.features.map((feature) => [feature.id, feature.properties.ownerColor])))
     .toEqual(expectedOwnerColors);
-  expect(map.fitBounds).toHaveBeenLastCalledWith(
-    [[128.9504, 35.0436], [129.1993, 35.2708]],
-    { padding: { top: 56, right: 420, bottom: 56, left: 56 }, maxZoom: 9, duration: 700 },
-  );
+  expect(map.fitBounds).not.toHaveBeenCalled();
 
   rerender(
     <TerritoryMap
       mapConfig={config}
       session={{ ...session, selectedTerritoryId: "daegu" }}
-      listedTerritories={session.territories.filter((territory) => territory.id === "daegu")}
+      listedTerritories={session.territories}
       activeFilter="all"
       selectedTerritoryId="daegu"
       onSelectTerritory={() => undefined}
@@ -529,6 +559,16 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
     [[128.4813, 35.7683], [128.7623, 36.0093]],
     { padding: { top: 56, right: 420, bottom: 56, left: 56 }, maxZoom: 9, duration: 700 },
   ));
+
+  const allOpacity = map.setPaintProperty.mock.calls
+    .filter(([layer, property]) => layer === "preview-territory-fill" && property === "fill-opacity")
+    .at(-1)?.[2];
+  expect(allOpacity).toEqual(expect.arrayContaining([
+    "busan", 0.55,
+    "daegu", 0.55,
+    "yeongwol", 0.55,
+    "gwangju", 0.3,
+  ]));
 
   const initialInnerWidth = window.innerWidth;
   Object.defineProperty(window, "innerWidth", { configurable: true, value: 640 });

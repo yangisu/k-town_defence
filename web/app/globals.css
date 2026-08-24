@@ -51,3 +51,9 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px soli
 /* Cross-flow profile and dashboard layout contracts */
 .profile-setup{max-width:1180px;margin:0 auto;padding:28px 18px 56px}.profile-setup>header{max-width:680px}.profile-setup>header h1{font-size:clamp(34px,6vw,64px);letter-spacing:-.055em}.profile-menu{max-width:100%;overflow:hidden;border:1px solid var(--line);border-radius:12px;background:var(--white);padding:9px 12px;text-overflow:ellipsis;white-space:nowrap;font-weight:850;cursor:pointer}.ranking-me-card,.ranking-goal{min-width:0}.record-metrics,.record-summary{min-width:0}.record-timeline,.record-history{min-width:0}
 @media(max-width:767px){.profile-setup{padding:22px 18px 104px}.profile-menu{width:100%;text-align:left}.ranking-podium{scroll-padding-inline:2px}.ranking-me-card,.ranking-goal{padding:15px}.record-metrics,.record-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.record-timeline li,.record-history li{grid-template-columns:minmax(0,1fr) auto}}
+
+/* Contrast-safe personalized labels and locked states */
+.artist-option b{color:var(--ink)}
+.record-growth li.locked,.record-rewards li.locked{opacity:1}
+.record-growth li.locked>span:last-child,.record-rewards li.locked>span:last-child{color:var(--ink)}
+.record-growth li.locked .stronghold-silhouette,.record-rewards li.locked .stronghold-silhouette{opacity:.35}

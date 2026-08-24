@@ -158,6 +158,14 @@ export function TacticalPanel({
   const expeditionSelectedOwns = expeditionTerritory.ownerArtistId === artist.id;
   const sourceUrl = connection?.sourceUrls[0] ?? territory.sourceUrls[0];
   const actionLabel = copy.start;
+  const territoryOwnerColor = previewContent.artists.find((candidate) => candidate.id === territory.ownerArtistId)?.color;
+  const noConnectionRecommendation = expedition.artistId === null
+    ? (locale === "ko"
+        ? "이 영토에는 선택한 아티스트의 검증된 직접 연결이 없어 공공 관광 원정을 추천합니다."
+        : "This territory has no verified direct connection to the selected artist, so a public tourism expedition is recommended.")
+    : (locale === "ko"
+        ? `이 영토에는 선택한 아티스트의 검증된 직접 연결이 없어 ${expeditionTerritory.name.ko}의 검증된 아티스트 연관 장소 중심 원정을 추천합니다.`
+        : `This territory has no verified direct connection to the selected artist, so the nearest verified artist-linked expedition in ${expeditionTerritory.name.en} is recommended.`);
 
   const standingName = (standing: TerritoryStanding | undefined) => {
     if (!standing) return "—";
@@ -175,7 +183,7 @@ export function TacticalPanel({
       <dl className="tactical-standings">
         <div><dt>{copy.owner} · {owner?.fandomName ?? "—"}</dt><dd>{standingName(owner)}</dd></div>
         <div><dt>{copy.challenger} · {challenger?.fandomName ?? "—"}</dt><dd>{standingName(challenger)}</dd></div>
-        <div><dt>{copy.stronghold}</dt><dd><StrongholdMark stage={territory.strongholdStage} locale={locale} /></dd></div>
+        <div><dt>{copy.stronghold}</dt><dd><StrongholdMark stage={territory.strongholdStage} locale={locale} ownerColor={territoryOwnerColor} /></dd></div>
         <div>
           <dt>{selectedOwns ? copy.defense : copy.capture}</dt>
           <dd>
@@ -199,9 +207,7 @@ export function TacticalPanel({
         ) : (
           <>
             <strong>{t(locale, "evidenceNearby")}</strong>
-            <p>{locale === "ko"
-              ? "이 영토에는 선택한 아티스트의 검증된 직접 연결이 없어 공공 관광 원정을 추천합니다."
-              : "This territory has no verified direct connection to the selected artist, so a public tourism expedition is recommended."}</p>
+            <p>{noConnectionRecommendation}</p>
           </>
         )}
         <a href={sourceUrl} target="_blank" rel="noreferrer">

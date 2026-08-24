@@ -69,6 +69,7 @@ it("turns artist choice into a visible tactical recommendation", async () => {
   expect(within(panel).getByText(/팬덤 순위 영향/)).toBeVisible();
   expect(within(panel).getByRole("link", { name: "연결 근거 출처" })).toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
   expect(within(panel).getByRole("button", { name: /원정 시작/ })).toBeEnabled();
+  expect(within(panel).getByRole("img", { name: /거점/ })).toHaveStyle({ "--owner-color": "#7c5ce0" });
 });
 
 it("changes results when the user filters to contested territory", async () => {
@@ -137,6 +138,7 @@ it("routes an empty region to the nearest sourced artist-linked expedition witho
   const panel = await screen.findByRole("complementary", { name: "영월 전술 패널" });
   expect(within(panel).getByText("인근 추천")).toBeVisible();
   expect(within(panel).queryByLabelText("연결 근거 등급")).not.toBeInTheDocument();
+  expect(within(panel).getByText("이 영토에는 선택한 아티스트의 검증된 직접 연결이 없어 부산의 검증된 아티스트 연관 장소 중심 원정을 추천합니다.")).toBeVisible();
   expect(within(panel).getByRole("link", { name: "영토 자료 출처" })).toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
 
   const action = within(panel).getByRole("button", { name: "원정 시작" });
@@ -174,6 +176,14 @@ it.each([
     expect(saved.selectedTerritoryId).toBe("busan");
     expect(saved.selectedExpeditionId).toBe("bts-busan-artist-linked-expedition");
   });
+});
+
+it("describes the actual nearest artist-linked recommendation in English", async () => {
+  renderPreviewWithArtist({ locale: "en", selectedTerritoryId: "yeongwol" });
+
+  const panel = await screen.findByRole("complementary", { name: "Yeongwol tactical panel" });
+  expect(within(panel).getByText("This territory has no verified direct connection to the selected artist, so the nearest verified artist-linked expedition in Busan is recommended.")).toBeVisible();
+  expect(within(panel).queryByText(/public tourism expedition is recommended/i)).not.toBeInTheDocument();
 });
 
 it.each([

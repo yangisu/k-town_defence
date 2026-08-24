@@ -27,6 +27,7 @@ beforeEach(() => window.localStorage.clear());
 
 function completedEnglishSession() {
   let selected = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  selected = demoSessionReducer(selected, { type: "selectTerritory", territoryId: "busan" });
   selected = demoSessionReducer(selected, { type: "openExpedition", expeditionId: "busan-regional-support-expedition" });
   selected = demoSessionReducer(selected, { type: "setLocale", locale: "en" });
   return demoSessionReducer(selected, { type: "completeCheckIn", expeditionId: "busan-regional-support-expedition", placeId: "busan-1", award: missionAward });
@@ -69,6 +70,7 @@ it.each([
   },
 ])("renders the populated season dashboard in $locale", ({ locale, seasonSummary, contributionPoints, contributionRank: rankLabel, completed, checkIns, territories, highestStage, growth, timeline, rewards, seedReward, treeReward, landmarkReward, landmark }) => {
   let selected = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  selected = demoSessionReducer(selected, { type: "selectTerritory", territoryId: "busan" });
   selected = demoSessionReducer(selected, { type: "openExpedition", expeditionId: "busan-regional-support-expedition" });
   const first = demoSessionReducer(selected, { type: "completeCheckIn", expeditionId: "busan-regional-support-expedition", placeId: "busan-1", award: missionAward });
   const second = demoSessionReducer(first, { type: "completeCheckIn", expeditionId: "busan-regional-support-expedition", placeId: "busan-2", award: missionAward });

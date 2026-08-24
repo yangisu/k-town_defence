@@ -130,8 +130,13 @@ function visibleLayerFilters(territories: readonly PreviewTerritory[]) {
   };
 }
 
-function filterOpacityExpression(territories: readonly PreviewTerritory[]): ExpressionSpecification {
-  return ["match", ["id"], ...territories.flatMap((territory) => [territory.id, 0.3]), 0.1] as ExpressionSpecification;
+function filterOpacityExpression(territories: readonly PreviewTerritory[], selectedArtistId: string | null): ExpressionSpecification {
+  return [
+    "match",
+    ["id"],
+    ...territories.flatMap((territory) => [territory.id, territory.ownerArtistId === selectedArtistId ? 0.55 : 0.3]),
+    0.1,
+  ] as ExpressionSpecification;
 }
 
 function ownerBoundaryCollection(collection: { type: string; features: unknown[] }, territories: readonly PreviewTerritory[]) {
@@ -163,6 +168,7 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
   const selectedTerritoryIdRef = useRef(selectedTerritoryId);
   const onSelectTerritoryRef = useRef(onSelectTerritory);
   const listedTerritoriesRef = useRef(listedTerritories);
+  const cameraSelectionRef = useRef(selectedTerritoryId);
   const [mapError, setMapError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
@@ -246,7 +252,7 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
         type: "fill",
         source: boundarySourceId,
         filter: usesListedTerritories ? undefined : visibleLayerFilters(sessionRef.current.territories).boundaries,
-        paint: { "fill-color": ownerColorExpression(sessionRef.current.territories), "fill-opacity": filterOpacityExpression(listedTerritoriesRef.current) },
+        paint: { "fill-color": ownerColorExpression(sessionRef.current.territories), "fill-opacity": filterOpacityExpression(listedTerritoriesRef.current, sessionRef.current.selectedArtistId) },
       });
       map.addLayer({
         id: selectedLayerId,
@@ -267,7 +273,7 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
         type: "line",
         source: boundarySourceId,
         filter: ["==", ["get", "ownerArtistId"], sessionRef.current.selectedArtistId ?? ""],
-        paint: { "line-color": "#16231d", "line-width": 2.5 },
+        paint: { "line-color": ["get", "ownerColor"], "line-width": 2.5 },
       });
       map.addLayer({
         id: "preview-expedition-line",
@@ -351,15 +357,17 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
   useEffect(() => {
     const map = mapRef.current;
     if (map?.getLayer(territoryLayerId)) {
-      map.setPaintProperty(territoryLayerId, "fill-opacity", filterOpacityExpression(listedTerritories));
+      map.setPaintProperty(territoryLayerId, "fill-opacity", filterOpacityExpression(listedTerritories, session.selectedArtistId));
     }
-  }, [activeFilter, listedTerritories]);
+  }, [activeFilter, listedTerritories, session.selectedArtistId]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    const cameraRequested = cameraSelectionRef.current !== selectedTerritoryId;
+    cameraSelectionRef.current = selectedTerritoryId;
     const bounds = selectedTerritoryId ? boundsByTerritoryId.get(selectedTerritoryId) : null;
-    if (bounds) {
+    if (cameraRequested && bounds) {
       const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
       const compact = window.innerWidth < 768;
       map.fitBounds(bounds, {
@@ -367,11 +375,16 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
         maxZoom: 9,
         duration: reducedMotion ? 0 : 700,
       });
-    } else {
+    } else if (cameraRequested) {
       const territory = selectedTerritoryId
         ? session.territories.find((candidate) => candidate.id === selectedTerritoryId)
         : null;
-      if (territory) map.flyTo({ center: [territory.centroid.longitude, territory.centroid.latitude], zoom: 8 });
+      if (territory) {
+        const camera = { center: [territory.centroid.longitude, territory.centroid.latitude] as [number, number], zoom: 8 };
+        const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+        if (reducedMotion) map.jumpTo(camera);
+        else map.flyTo(camera);
+      }
     }
     if (map.getLayer(selectedLayerId)) {
       map.setFilter(selectedLayerId, ["==", ["id"], selectedTerritoryId ?? ""]);

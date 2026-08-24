@@ -53,6 +53,17 @@ function approve(state: ReturnType<typeof createInitialDemoSession>, placeId: st
 }
 
 describe("demo preview session", () => {
+  it("confirms a first profile without preselecting or focusing a territory", () => {
+    const selected = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+
+    expect(selected).toMatchObject({
+      artistConfirmed: true,
+      selectedArtistId: "bts",
+      selectedTerritoryId: null,
+      activeTab: "explore",
+    });
+  });
+
   it("changes profile without clearing approved progress and chooses the strongest owned territory", () => {
     const initial = createInitialDemoSession();
     const state = {

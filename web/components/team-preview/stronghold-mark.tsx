@@ -6,7 +6,7 @@ const labels = {
   en: { seed: "Seed", tree: "Tree", landmark: "Landmark", stronghold: "stronghold" },
 } as const;
 
-const markerSizes = { seed: 14, tree: 20, landmark: 22 } as const;
+const markerSizes = { seed: 14, tree: 22, landmark: 32 } as const;
 
 export function StrongholdMark({ stage, locale, ownerColor }: { stage: StrongholdStage; locale: Locale; ownerColor?: string }) {
   const label = labels[locale][stage];

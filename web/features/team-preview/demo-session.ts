@@ -203,10 +203,16 @@ export function applyCheckInImpact(state: DemoSession, expeditionId: string, pla
 export function demoSessionReducer(state: DemoSession, action: DemoSessionAction): DemoSession {
   switch (action.type) {
     case "selectArtist":
+      return {
+        ...state,
+        artistConfirmed: true,
+        selectedArtistId: action.artistId,
+        selectedTerritoryId: null,
+        activeTab: "explore",
+        selectedExpeditionId: null,
+      };
     case "changeProfile": {
-      if (action.type === "changeProfile"
-        && state.artistConfirmed
-        && state.selectedArtistId === action.artistId) return state;
+      if (state.artistConfirmed && state.selectedArtistId === action.artistId) return state;
       const territory = selectProfileTerritory(action.artistId, state.territories);
       return {
         ...state,

@@ -229,8 +229,12 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         : state;
     case "changeTab": {
       if (action.tab !== "expedition") return { ...state, activeTab: action.tab, selectedExpeditionId: null };
-      if (!state.selectedArtistId || !state.selectedTerritoryId) return state;
-      const recommended = selectRecommendedExpedition(state.selectedArtistId, state.selectedTerritoryId);
+      if (!state.selectedArtistId) return state;
+      const anchorTerritoryId = state.selectedTerritoryId
+        ?? selectProfileTerritory(state.selectedArtistId, state.territories)?.id
+        ?? null;
+      if (!anchorTerritoryId) return state;
+      const recommended = selectRecommendedExpedition(state.selectedArtistId, anchorTerritoryId);
       return recommended ? {
         ...state,
         selectedTerritoryId: recommended.territoryId,
@@ -406,7 +410,8 @@ function isValidDemoSession(value: unknown): value is DemoSession {
     || !isNonNegativeFinite(value.contributedToday)
     || value.contributedToday > GAME_RULES.dailyCap) return false;
 
-  if (value.artistConfirmed !== (value.selectedArtistId !== null && value.selectedTerritoryId !== null)) return false;
+  if (value.artistConfirmed !== (value.selectedArtistId !== null)) return false;
+  if (!value.artistConfirmed && value.selectedTerritoryId !== null) return false;
   if (!value.artistConfirmed && (value.activeTab !== "explore" || value.selectedExpeditionId !== null)) return false;
   if (value.selectedExpeditionId !== null) {
     if (!value.selectedArtistId || !value.selectedTerritoryId

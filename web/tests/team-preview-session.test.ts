@@ -64,6 +64,20 @@ describe("demo preview session", () => {
     });
   });
 
+  it("resolves an eligible expedition atomically from a confirmed national-view profile", () => {
+    const national = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+
+    const opened = demoSessionReducer(national, { type: "changeTab", tab: "expedition" });
+
+    expect(national.selectedTerritoryId).toBeNull();
+    expect(opened).toMatchObject({
+      selectedArtistId: "bts",
+      selectedTerritoryId: "busan",
+      selectedExpeditionId: "bts-busan-artist-linked-expedition",
+      activeTab: "expedition",
+    });
+  });
+
   it("changes profile without clearing approved progress and chooses the strongest owned territory", () => {
     const initial = createInitialDemoSession();
     const state = {
@@ -315,6 +329,8 @@ describe("demo preview session", () => {
           : fandom),
       },
       { ...initial, artistConfirmed: false, selectedArtistId: "bts" as const, selectedTerritoryId: "busan" },
+      { ...initial, artistConfirmed: true, selectedArtistId: null, selectedTerritoryId: null },
+      { ...initial, artistConfirmed: false, selectedArtistId: null, selectedTerritoryId: "busan" },
     ];
 
     expect(busan.standings.some((standing) => standing.artistId === "ive")).toBe(false);
@@ -370,6 +386,20 @@ describe("demo preview session", () => {
 
     expect(JSON.parse(storage.saved()!)).toEqual(state);
     expect(DEMO_SESSION_KEY).toBe("ktown-team-preview-v3");
+  });
+
+  it("round-trips a confirmed national-view profile without resetting it", () => {
+    const storage = storageWith(null);
+    const national = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+
+    saveDemoSession(storage, national);
+
+    expect(loadDemoSession(storage)).toEqual(national);
+    expect(loadDemoSession(storage)).toMatchObject({
+      artistConfirmed: true,
+      selectedArtistId: "bts",
+      selectedTerritoryId: null,
+    });
   });
 
   it("hydrates a valid version-3 profile and progress unchanged", () => {

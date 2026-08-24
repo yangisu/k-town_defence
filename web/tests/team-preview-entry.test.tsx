@@ -160,6 +160,33 @@ it("hydrates a confirmed returning profile directly into its personalized worksp
   expect(screen.queryByRole("heading", { name: "응원할 아티스트를 선택하세요" })).not.toBeInTheDocument();
 });
 
+it("opens the deterministic eligible expedition from a restored national-view profile", async () => {
+  const user = userEvent.setup();
+  window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({
+    ...createInitialDemoSession(),
+    artistConfirmed: true,
+    selectedArtistId: "bts",
+    selectedTerritoryId: null,
+  }));
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  expect(await screen.findByRole("button", { name: "내 팬덤 · ARMY" })).toBeVisible();
+  expect(screen.getByRole("region", { name: "현재 목표" })).toHaveTextContent("목표 지역 · 추천 영토");
+  await user.click(screen.getAllByRole("button", { name: "원정" })[0]);
+
+  expect(await screen.findByRole("heading", { name: "BTS 부산 공식 공연장 원정" })).toBeVisible();
+  const saved = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as {
+    selectedTerritoryId: string | null;
+    selectedExpeditionId: string | null;
+    activeTab: string;
+  };
+  expect(saved).toMatchObject({
+    selectedTerritoryId: "busan",
+    selectedExpeditionId: "bts-busan-artist-linked-expedition",
+    activeTab: "expedition",
+  });
+});
+
 it("does not allow reconfirming the current fandom as a profile change", async () => {
   const user = userEvent.setup();
   render(<KTownApp mode="demo" mapConfig={null} />);

@@ -1,9 +1,13 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { RankingView } from "@/components/team-preview/ranking-view";
 import { createInitialDemoSession } from "@/features/team-preview/demo-session";
 import type { FandomStanding, Locale, PreviewTerritory } from "@/features/team-preview/types";
+
+const rankingCss = readFileSync(resolve(process.cwd(), "app/globals.css"), "utf8").replace(/\s+/g, "");
 
 const fandoms: FandomStanding[] = [
   { artistId: "bts", fandomName: "ARMY", strongholds: 4, validPoints: 8_000, trend: "up" },
@@ -56,6 +60,13 @@ const localeCopy: Record<Locale, {
     inspect: "Inspect Busan territory",
   },
 };
+
+it("keeps selected-fandom text neutral while preserving artist-color ranking accents", () => {
+  expect(rankingCss).toMatch(/\.ranking-row-identityspan\{[^}]*color:var\(--muted\)/);
+  expect(rankingCss).not.toMatch(/\.ranking-row-identityspan\{[^}]*color:var\(--artist-color\)/);
+  expect(rankingCss).toMatch(/\.ranking-leaderboardli\.selected\{[^}]*border-color:var\(--artist-color\)/);
+  expect(rankingCss).toMatch(/\.ranking-stronghold-barprogress\{[^}]*accent-color:var\(--artist-color\)/);
+});
 
 for (const locale of ["ko", "en"] as const) {
   it(`presents a localized, actionable ranking dashboard in ${locale}`, async () => {

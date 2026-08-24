@@ -31,6 +31,9 @@ const copy = {
     landmark: "랜드마크",
     missing: "선택한 원정을 찾지 못했어요.",
     publicRoute: "공식 관광 출처 기반 공공 원정 · 아티스트 직접 연관 주장 없음",
+    artistLinked: "아티스트 연관 장소 중심",
+    regionalSupport: "지역을 응원하는 공공 관광 코스",
+    noDirectPlace: "검증된 아티스트 직접 연관 장소가 없어 지역의 공공 관광지만 안내합니다.",
   },
   en: {
     back: "Back to territory map",
@@ -51,6 +54,9 @@ const copy = {
     landmark: "Landmark",
     missing: "The selected expedition could not be found.",
     publicRoute: "Public route from official tourism sources · no direct artist claim",
+    artistLinked: "Artist-linked places first",
+    regionalSupport: "Public tourism route supporting the region",
+    noDirectPlace: "No verified direct artist destination is available; this route includes regional public attractions only.",
   },
 } as const;
 
@@ -196,6 +202,7 @@ export function PreviewExpeditionView({
       <section className="tactical-connection preview-expedition-connection">
         {connection ? (
           <>
+            <strong>{labels.artistLinked}</strong>
             <div>
               <strong>{connection.memberName[locale]}</strong>
               <span>{t(locale, connection.evidenceClass === "official" ? "evidenceOfficial" : connection.evidenceClass === "verified" ? "evidenceVerified" : "evidenceTeamData")}</span>
@@ -203,7 +210,13 @@ export function PreviewExpeditionView({
             <p>{connection.story[locale]}</p>
             <a href={connection.sourceUrls[0]} target="_blank" rel="noreferrer">{labels.connectionSource}</a>
           </>
-        ) : <p>{labels.publicRoute}</p>}
+        ) : (
+          <>
+            <strong>{labels.regionalSupport}</strong>
+            <p>{labels.noDirectPlace}</p>
+            <p>{labels.publicRoute}</p>
+          </>
+        )}
       </section>
 
       <div className="expedition-layout">

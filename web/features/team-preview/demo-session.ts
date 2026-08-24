@@ -1,6 +1,7 @@
 import type { AppTab } from "@/features/app-controller";
-import { getArtistHomeTerritories, getPlayableExpedition, previewContent } from "./content";
+import { getArtistHomeTerritories, previewContent } from "./content";
 import { GAME_RULES, stageForPoints, type MissionAward } from "./game-rules";
+import { selectRecommendedExpedition } from "./expedition-selection";
 import type { ArtistId, FandomStanding, Locale, PreviewTerritory, StrongholdStage, TerritoryId } from "./types";
 
 export const DEMO_SESSION_VERSION = 3;
@@ -39,6 +40,7 @@ export type DemoSessionAction =
   | { type: "selectTerritory"; territoryId: TerritoryId }
   | { type: "changeTab"; tab: AppTab }
   | { type: "openExpedition"; expeditionId: string }
+  | { type: "openRecommendedExpedition"; expeditionId: string; territoryId: TerritoryId }
   | { type: "setLocale"; locale: Locale }
   | { type: "completeCheckIn"; expeditionId: string; placeId: string; award: MissionAward }
   | { type: "hydrate"; state: DemoSession }
@@ -222,13 +224,30 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
     case "changeTab": {
       if (action.tab !== "expedition") return { ...state, activeTab: action.tab, selectedExpeditionId: null };
       if (!state.selectedArtistId || !state.selectedTerritoryId) return state;
-      const expedition = getPlayableExpedition(state.selectedArtistId, state.selectedTerritoryId);
-      return expedition ? { ...state, activeTab: "expedition", selectedExpeditionId: expedition.id } : state;
+      const recommended = selectRecommendedExpedition(state.selectedArtistId, state.selectedTerritoryId);
+      return recommended ? {
+        ...state,
+        selectedTerritoryId: recommended.territoryId,
+        activeTab: "expedition",
+        selectedExpeditionId: recommended.expedition.id,
+      } : state;
     }
     case "openExpedition": {
       if (!state.selectedArtistId || !state.selectedTerritoryId) return state;
       const expedition = compatibleExpedition(action.expeditionId, state.selectedArtistId, state.selectedTerritoryId);
       return expedition ? { ...state, activeTab: "expedition", selectedExpeditionId: expedition.id } : state;
+    }
+    case "openRecommendedExpedition": {
+      if (!state.artistConfirmed || !state.selectedArtistId) return state;
+      const expedition = compatibleExpedition(action.expeditionId, state.selectedArtistId, action.territoryId);
+      return expedition && expedition.territoryId === action.territoryId
+        ? {
+            ...state,
+            selectedTerritoryId: action.territoryId,
+            selectedExpeditionId: expedition.id,
+            activeTab: "expedition",
+          }
+        : state;
     }
     case "setLocale": return { ...state, locale: action.locale };
     case "completeCheckIn": return applyCheckInImpact(state, action.expeditionId, action.placeId, action.award);

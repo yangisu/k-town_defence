@@ -1,7 +1,7 @@
 import type { ArtistId, ContentSource, MissionPlaceId, PreviewExpedition, PreviewMissionPlace, TerritoryId } from "@/features/team-preview/types";
 import { territories } from "./territories";
 
-type PlaceSeed = Omit<PreviewMissionPlace, "id" | "territoryId" | "relationship" | "artistConnectionId" | "evidenceClass" | "description" | "transport" | "dwellMinutes" | "visitBase" | "localBenefit" | "sources">;
+type PlaceSeed = Omit<PreviewMissionPlace, "id" | "territoryId" | "relationship" | "artistConnectionId" | "evidenceClass" | "access" | "description" | "transport" | "dwellMinutes" | "visitBase" | "localBenefit" | "sources">;
 type TerritoryStops = { territoryId: TerritoryId; stops: readonly [PlaceSeed, PlaceSeed] };
 
 const nearbyDescription = { ko: "아티스트와의 직접 연관을 주장하지 않는, 지역의 공공 관광 추천지입니다.", en: "A public tourism recommendation in the region that makes no direct artist-connection claim." };
@@ -118,31 +118,32 @@ function tourismSource(placeIdValue: string, url: string): ContentSource {
 }
 function toMissionPlace(territoryId: TerritoryId, order: 1 | 2, seed: PlaceSeed): PreviewMissionPlace {
   const id = placeId(territoryId, order);
-  return { ...seed, id, territoryId, relationship: "nearby_recommendation", artistConnectionId: null, evidenceClass: null, description: nearbyDescription, transport: publicTransport, dwellMinutes: 45, visitBase: 100, localBenefit: { ko: "지역 문화와 상권을 함께 경험하는 공공 관광 정류장", en: "A public stop that supports local culture and commerce" }, sources: seed.sourceUrls.map((url) => tourismSource(id, url)) };
+  return { ...seed, id, territoryId, relationship: "nearby_recommendation", artistConnectionId: null, evidenceClass: null, access: "public", description: nearbyDescription, transport: publicTransport, dwellMinutes: 45, visitBase: 100, localBenefit: { ko: "지역 문화와 상권을 함께 경험하는 공공 관광 정류장", en: "A public stop that supports local culture and commerce" }, sources: seed.sourceUrls.map((url) => tourismSource(id, url)) };
 }
 
 export const places = territoryStops.flatMap(({ territoryId, stops }) => [toMissionPlace(territoryId, 1, stops[0]), toMissionPlace(territoryId, 2, stops[1])]);
 
-function expedition(artistId: ArtistId, territoryId: TerritoryId, connectionId: string, ko: string, en: string): PreviewExpedition {
-  return { id: `${artistId}-${territoryId}-expedition`, artistId, territoryId, connectionId, title: { ko, en }, description: { ko: "미검증 팀 데이터로 제안된 지역 안내와 공공 관광지 두 곳을 분리해 보여 주는 데모 원정입니다.", en: "A demo expedition that separates an unverified team-data suggestion from two public tourism stops." }, stopIds: [placeId(territoryId, 1), placeId(territoryId, 2)], transitSummary: { ko: "대중교통 기준 약 90분", en: "About 90 minutes by public transit" }, estimatedMinutes: 90 };
+function expedition(legacyArtistId: ArtistId, territoryId: TerritoryId): PreviewExpedition {
+  const territory = territories.find((candidate) => candidate.id === territoryId)!;
+  return { id: `${legacyArtistId}-${territoryId}-expedition`, artistId: null, territoryId, connectionId: null, title: { ko: `${territory.name.ko} 지역 응원 원정`, en: `${territory.name.en} regional support expedition` }, description: { ko: "아티스트 직접 연관을 주장하지 않고, 공식 관광 출처로 확인한 지역 명소 두 곳을 방문하는 원정입니다.", en: "A two-stop route using official tourism sources without claiming a direct artist connection." }, stopIds: [placeId(territoryId, 1), placeId(territoryId, 2)], transitSummary: { ko: "대중교통 기준 약 90분", en: "About 90 minutes by public transit" }, estimatedMinutes: 90 };
 }
 
 const artistExpeditions: PreviewExpedition[] = [
-  expedition("bts", "busan", "bts-busan-jimin", "BTS 부산 바다 원정", "BTS Busan coast expedition"),
-  expedition("blackpink", "gunpo", "blackpink-gunpo-jisoo", "BLACKPINK 군포 숲길 원정", "BLACKPINK Gunpo greenway expedition"),
-  expedition("rescene", "geoje", "rescene-geoje-origin", "RESCENE 거제 해안 원정", "RESCENE Geoje coast expedition"),
-  expedition("cortis", "daejeon", "cortis-daejeon-origin", "CORTIS 대전 과학 원정", "CORTIS Daejeon science expedition"),
-  expedition("btob", "suwon", "btob-suwon-changsub", "BTOB 수원 성곽 원정", "BTOB Suwon fortress expedition"),
-  expedition("ive", "daejeon", "ive-daejeon-origin", "IVE 대전 정원 원정", "IVE Daejeon garden expedition"),
-  expedition("kiiikiii", "busan", "kiiikiii-busan-origin", "KiiiKiii 부산 골목 원정", "KiiiKiii Busan neighborhood expedition"),
-  expedition("riize", "ulsan", "riize-ulsan-wonbin", "RIIZE 울산 강변 원정", "RIIZE Ulsan riverside expedition"),
-  expedition("zerobaseone", "cheonan", "zerobaseone-cheonan-origin", "ZEROBASEONE 천안 역사 원정", "ZEROBASEONE Cheonan history expedition"),
-  expedition("boynextdoor", "wonju", "boynextdoor-wonju-origin", "BOYNEXTDOOR 원주 계곡 원정", "BOYNEXTDOOR Wonju valley expedition"),
-  expedition("le-sserafim", "seoul", "le-sserafim-seoul-eunchae", "LE SSERAFIM 서울 문화 원정", "LE SSERAFIM Seoul culture expedition"),
-  expedition("aespa", "suwon", "aespa-suwon-karina", "aespa 수원 성곽 원정", "aespa Suwon fortress expedition"),
-  expedition("newjeans", "chuncheon", "newjeans-chuncheon-minji", "NewJeans 춘천 호수 원정", "NewJeans Chuncheon lake expedition"),
-  expedition("iu", "seoul", "iu-seoul-origin", "IU 서울 산책 원정", "IU Seoul walking expedition"),
-  expedition("seventeen", "namyangju", "seventeen-namyangju-hoshi", "SEVENTEEN 남양주 정원 원정", "SEVENTEEN Namyangju garden expedition"),
+  expedition("bts", "busan"),
+  expedition("blackpink", "gunpo"),
+  expedition("rescene", "geoje"),
+  expedition("cortis", "daejeon"),
+  expedition("btob", "suwon"),
+  expedition("ive", "daejeon"),
+  expedition("kiiikiii", "busan"),
+  expedition("riize", "ulsan"),
+  expedition("zerobaseone", "cheonan"),
+  expedition("boynextdoor", "wonju"),
+  expedition("le-sserafim", "seoul"),
+  expedition("aespa", "suwon"),
+  expedition("newjeans", "chuncheon"),
+  expedition("iu", "seoul"),
+  expedition("seventeen", "namyangju"),
 ];
 
 const publicTerritoryExpeditions: PreviewExpedition[] = territoryStops.map(({ territoryId }) => {
@@ -152,7 +153,7 @@ const publicTerritoryExpeditions: PreviewExpedition[] = territoryStops.map(({ te
     artistId: null,
     territoryId,
     connectionId: null,
-    title: { ko: `${territory.name.ko} 공공 관광 원정`, en: `${territory.name.en} public tourism expedition` },
+    title: { ko: `${territory.name.ko} 지역 응원 원정`, en: `${territory.name.en} regional support expedition` },
     description: {
       ko: "아티스트 직접 연관을 주장하지 않고, 공식 관광 출처로 확인한 지역 명소 두 곳을 방문하는 원정입니다.",
       en: "A two-stop route using official tourism sources without claiming a direct artist connection.",

@@ -2,6 +2,7 @@ import type { ArtistConnection, ArtistId } from "./types";
 import { artists, connections } from "@/lib/demo-preview/artists";
 import { expeditions, places } from "@/lib/demo-preview/missions";
 import { territories } from "@/lib/demo-preview/territories";
+import { selectRecommendedExpedition } from "./expedition-selection";
 
 export const previewContent = {
   artists,
@@ -23,9 +24,7 @@ export function getExpeditionsForArtist(artistId: ArtistId) {
 }
 
 export function getPlayableExpedition(artistId: ArtistId, territoryId: string) {
-  return expeditions.find((item) => item.artistId === artistId && item.territoryId === territoryId)
-    ?? expeditions.find((item) => item.artistId === null && item.territoryId === territoryId)
-    ?? null;
+  return selectRecommendedExpedition(artistId, territoryId)?.expedition ?? null;
 }
 
 export function expeditionBelongsToArtist(expeditionId: string, artistId: ArtistId) {

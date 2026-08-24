@@ -11,6 +11,7 @@ export type ArtistId =
   | "iu" | "seventeen";
 export type EvidenceClass = "official" | "verified" | "team_data";
 export type PlaceRelationship = "artist_connection" | "nearby_recommendation";
+export type PlaceAccess = "public" | "restricted" | "sensitive";
 export type StrongholdStage = "seed" | "tree" | "landmark";
 export type SourceReliability = "authoritative" | "reliable_public" | "team_input" | "official_tourism";
 
@@ -84,6 +85,7 @@ export interface PreviewMissionPlace {
   relationship: PlaceRelationship;
   artistConnectionId: string | null;
   evidenceClass: EvidenceClass | null;
+  access: PlaceAccess;
   description: LocalizedText;
   address: LocalizedText;
   coordinates: { latitude: number; longitude: number };

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { previewContent, validateConnectionEvidence } from "@/features/team-preview/content";
+import { validateRecommendedRoute } from "@/features/team-preview/expedition-selection";
 
 const expectedArtists = [
   ["bts", "ARMY"],
@@ -25,15 +26,12 @@ describe("team preview content", () => {
       .toEqual(expectedArtists);
   });
 
-  it("gives every artist a sourced connection and a playable expedition", () => {
+  it("gives every artist a sourced regional story without requiring an artist-branded route", () => {
     for (const artist of previewContent.artists) {
       const connections = previewContent.connections.filter((item) => item.artistId === artist.id);
-      const expeditions = previewContent.expeditions.filter((item) => item.artistId === artist.id);
       expect(connections.length, artist.id).toBeGreaterThanOrEqual(1);
       expect(connections.every((item) => item.sourceUrls.length > 0)).toBe(true);
       expect(connections.flatMap((item) => item.sourceUrls).every((url) => url.startsWith("https://"))).toBe(true);
-      expect(expeditions.length, artist.id).toBeGreaterThanOrEqual(1);
-      expect(expeditions[0].stopIds.length, artist.id).toBeGreaterThanOrEqual(2);
     }
   });
 
@@ -61,6 +59,7 @@ describe("team preview content", () => {
       }
     }
     for (const place of previewContent.places) {
+      expect(place.access, place.id).toBe("public");
       if (place.relationship === "nearby_recommendation") {
         expect(place.artistConnectionId).toBeNull();
       }
@@ -106,8 +105,13 @@ describe("team preview content", () => {
     const placesById = new Map(previewContent.places.map((place) => [place.id, place]));
 
     for (const territory of previewContent.territories) {
-      const route = previewContent.expeditions.find((expedition) => expedition.territoryId === territory.id);
+      const route = previewContent.expeditions.find((expedition) => (
+        expedition.territoryId === territory.id && expedition.artistId === null && expedition.connectionId === null
+      ));
       expect(route, territory.id).toBeDefined();
+      expect(route?.title.ko, territory.id).toContain("지역 응원 원정");
+      expect(route?.title.en, territory.id).toContain("regional support expedition");
+      expect(validateRecommendedRoute(route!, previewContent.places, "bts", previewContent.connections), territory.id).toBe(true);
       expect(route?.stopIds, territory.id).toHaveLength(2);
       for (const stopId of route?.stopIds ?? []) {
         const place = placesById.get(stopId);

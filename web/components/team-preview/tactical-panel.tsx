@@ -4,6 +4,7 @@ import { calculateMissionAward, GAME_RULES, rankFandoms, stageForPoints } from "
 import { previewContent } from "@/features/team-preview/content";
 import { t } from "@/features/team-preview/i18n";
 import type { DemoSession } from "@/features/team-preview/demo-session";
+import { useDemoSession } from "@/features/team-preview/demo-session-context";
 import type {
   ArtistConnection,
   ArtistProfile,
@@ -17,7 +18,10 @@ import { StrongholdMark } from "@/components/team-preview/stronghold-mark";
 const panelCopy = {
   ko: {
     owner: "현재 소유",
-    challenger: "최근접 도전자",
+    challenger: "도전자",
+    regionalStory: "지역 연결 스토리",
+    regionalSupport: "지역을 응원하는 공공 관광 코스",
+    noDirectPlace: "검증된 아티스트 직접 연관 장소가 없어 공공 관광지만 안내합니다.",
     stronghold: "거점 단계",
     seed: "씨앗",
     tree: "나무",
@@ -41,7 +45,10 @@ const panelCopy = {
   },
   en: {
     owner: "Current owner",
-    challenger: "Nearest challenger",
+    challenger: "Challenger",
+    regionalStory: "Regional connection story",
+    regionalSupport: "Public tourism route supporting the region",
+    noDirectPlace: "No verified direct artist destination is available, so this route includes public attractions only.",
     stronghold: "Stronghold stage",
     seed: "Seed",
     tree: "Tree",
@@ -117,7 +124,6 @@ export function TacticalPanel({
   connection,
   expedition,
   expeditionTerritory,
-  onStartExpedition,
   onChangeArtist,
 }: {
   session: DemoSession;
@@ -129,6 +135,7 @@ export function TacticalPanel({
   onStartExpedition(): void;
   onChangeArtist(): void;
 }) {
+  const demoSession = useDemoSession();
   const locale: Locale = session.locale;
   const copy = panelCopy[locale];
   const standings = orderedStandings(territory);
@@ -166,8 +173,8 @@ export function TacticalPanel({
       </header>
 
       <dl className="tactical-standings">
-        <div><dt>{copy.owner}</dt><dd>{standingName(owner)}</dd></div>
-        <div><dt>{copy.challenger}</dt><dd>{standingName(challenger)}</dd></div>
+        <div><dt>{copy.owner} · {owner?.fandomName ?? "—"}</dt><dd>{standingName(owner)}</dd></div>
+        <div><dt>{copy.challenger} · {challenger?.fandomName ?? "—"}</dt><dd>{standingName(challenger)}</dd></div>
         <div><dt>{copy.stronghold}</dt><dd><StrongholdMark stage={territory.strongholdStage} locale={locale} /></dd></div>
         <div>
           <dt>{selectedOwns ? copy.defense : copy.capture}</dt>
@@ -182,7 +189,7 @@ export function TacticalPanel({
         {connection ? (
           <>
             <div>
-              <strong>{connection.memberName[locale]}</strong>
+              <strong>{copy.regionalStory} · {connection.memberName[locale]}</strong>
               <span aria-label={locale === "ko" ? "연결 근거 등급" : "Connection evidence class"}>
                 {t(locale, connection.evidenceClass === "official" ? "evidenceOfficial" : connection.evidenceClass === "verified" ? "evidenceVerified" : "evidenceTeamData")}
               </span>
@@ -200,6 +207,12 @@ export function TacticalPanel({
         <a href={sourceUrl} target="_blank" rel="noreferrer">
           {connection ? copy.sourceConnection : copy.sourceTerritory}
         </a>
+        {expedition.artistId === null ? (
+          <div>
+            <strong>{copy.regionalSupport}</strong>
+            <p>{copy.noDirectPlace}</p>
+          </div>
+        ) : null}
       </section>
 
       <section className="tactical-award" aria-label={copy.awardTitle}>
@@ -221,7 +234,11 @@ export function TacticalPanel({
         <p><strong>{copy.rankImpact}</strong>: #{rank.currentRank}{rank.currentRank === rank.projectedRank ? ` · ${copy.rankHold}` : ` → #${rank.projectedRank}`}</p>
       </section>
 
-      <button className="primary-button" type="button" onClick={onStartExpedition}>
+      <button className="primary-button" type="button" onClick={() => demoSession.dispatch({
+        type: "openRecommendedExpedition",
+        expeditionId: expedition.id,
+        territoryId: expedition.territoryId,
+      })}>
         {actionLabel}
       </button>
       <button className="text-button" type="button" onClick={onChangeArtist}>{copy.changeArtist}</button>

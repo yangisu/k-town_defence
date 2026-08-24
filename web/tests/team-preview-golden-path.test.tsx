@@ -11,23 +11,20 @@ it("completes the bilingual BTS demo journey, persists its impact, and resets on
   const view = render(<KTownApp mode="demo" mapConfig={null} />);
 
   expect(await screen.findByRole("navigation", { name: "주요 메뉴" })).toBeVisible();
-  expect(screen.getByRole("heading", { name: "영토 지도" })).toBeVisible();
-  expect(screen.getByText("1. 아티스트 선택")).toBeVisible();
+  expect(screen.getByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
 
   await user.click(screen.getByRole("button", { name: "EN" }));
-  expect(screen.getByRole("heading", { name: "Territory Map" })).toBeVisible();
-  expect(screen.getByText("Amazon Location configuration is required to connect the map")).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Choose an artist to support" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "한국어" }));
-  expect(screen.getByRole("heading", { name: "영토 지도" })).toBeVisible();
-  expect(screen.getByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).toBeVisible();
+  expect(screen.getByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
 
-  await user.click(screen.getByRole("button", { name: "아티스트 선택" }));
-  const artistDialog = screen.getByRole("dialog", { name: "아티스트 선택" });
-  const search = within(artistDialog).getByRole("searchbox", { name: "아티스트 또는 팬덤 검색" });
+  const search = screen.getByRole("searchbox", { name: "아티스트 또는 팬덤 검색" });
   await user.type(search, "BTS");
-  expect(within(artistDialog).getAllByRole("radio")).toHaveLength(1);
-  await user.click(within(artistDialog).getByRole("radio", { name: /BTS.*ARMY/ }));
-  expect(screen.getByText("ARMY · #1")).toBeVisible();
+  expect(screen.getAllByRole("radio")).toHaveLength(1);
+  await user.click(screen.getByRole("radio", { name: /BTS.*ARMY/ }));
+  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
+  expect(screen.getByRole("button", { name: "내 팬덤 · ARMY" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "영토 지도" })).toBeVisible();
 
   await user.click(screen.getAllByRole("button", { name: "랭킹" })[0]);
   const initialRanking = screen.getByRole("list", { name: "팬덤 랭킹" });
@@ -35,7 +32,7 @@ it("completes the bilingual BTS demo journey, persists its impact, and resets on
   await user.click(screen.getAllByRole("button", { name: "영토 지도" })[0]);
 
   const filters = screen.getByRole("group", { name: "영토 필터" });
-  await user.click(within(filters).getByRole("button", { name: "인구감소지역 보너스" }));
+  await user.click(within(filters).getByRole("button", { name: "전체" }));
   const territoryList = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
   const yeongwol = within(territoryList).getByRole("button", { name: /^영월/ });
   await user.click(yeongwol);
@@ -44,7 +41,8 @@ it("completes the bilingual BTS demo journey, persists its impact, and resets on
   expect(screen.getByRole("complementary", { name: "영월 전술 패널" })).toBeVisible();
 
   await user.click(screen.getByRole("button", { name: "원정 시작" }));
-  expect(await screen.findByRole("heading", { name: "영월 공공 관광 원정" })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "영월 지역 응원 원정" })).toBeVisible();
+  expect(screen.getByText("지역을 응원하는 공공 관광 코스")).toBeVisible();
   expect(screen.getByText(/아티스트 직접 연관 주장 없음/)).toBeVisible();
   expect(screen.queryByRole("link", { name: "아티스트 연결 출처" })).not.toBeInTheDocument();
   const nearbyStop = screen.getByRole("listitem", { name: "청령포" });
@@ -93,7 +91,7 @@ it("completes the bilingual BTS demo journey, persists its impact, and resets on
 
   view.unmount();
   render(<KTownApp mode="demo" mapConfig={null} />);
-  expect(await screen.findByText("ARMY · #1")).toBeVisible();
+  expect(await screen.findByRole("button", { name: "내 팬덤 · ARMY" })).toBeVisible();
   await user.click(screen.getAllByRole("button", { name: "랭킹" })[0]);
   const persistedRanking = screen.getByRole("list", { name: "팬덤 랭킹" });
   expect(within(persistedRanking).getByRole("listitem", { current: true })).toHaveTextContent("20,028P");
@@ -106,10 +104,8 @@ it("completes the bilingual BTS demo journey, persists its impact, and resets on
   const resetDialog = screen.getByRole("dialog", { name: "데모를 초기화할까요?" });
   await user.click(within(resetDialog).getByRole("button", { name: "초기화" }));
 
-  expect(await screen.findByText("1. 아티스트 선택")).toBeVisible();
-  expect(screen.getByText("2. 추천 영토 확인")).toBeVisible();
-  expect(screen.getByText("3. 첫 원정 시작")).toBeVisible();
-  expect(screen.queryByText("ARMY · #1")).not.toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "내 팬덤 · ARMY" })).not.toBeInTheDocument();
   expect(window.localStorage.getItem("ktown-neighbor")).toBe("preserve-me");
   await waitFor(() => expect(window.localStorage.getItem(DEMO_SESSION_KEY)).toBeNull());
 }, 20_000);
@@ -118,23 +114,20 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   const user = userEvent.setup();
   const view = render(<KTownApp mode="demo" mapConfig={null} />);
 
-  expect(await screen.findByText("1. 아티스트 선택")).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "EN" }));
   expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
-  expect(screen.getByRole("heading", { name: "Territory Map" })).toBeVisible();
-  expect(screen.getByText("1. Choose an artist")).toBeVisible();
-  expect(screen.getByText("Amazon Location configuration is required to connect the map")).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Choose an artist to support" })).toBeVisible();
   expect(screen.queryByText("영토 지도")).not.toBeInTheDocument();
   expect(screen.queryByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).not.toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "Choose artist" }));
-  const artistDialog = screen.getByRole("dialog", { name: "Choose an artist" });
-  const search = within(artistDialog).getByRole("searchbox", { name: "Search artist or fandom" });
+  const search = screen.getByRole("searchbox", { name: "Search artist or fandom" });
   await user.type(search, "BTS");
-  expect(within(artistDialog).getAllByRole("radio")).toHaveLength(1);
-  await user.click(within(artistDialog).getByRole("radio", { name: /BTS.*ARMY/ }));
-  expect(screen.getByText("ARMY · #1")).toBeVisible();
-  expect(screen.queryByRole("dialog", { name: "아티스트 선택" })).not.toBeInTheDocument();
+  expect(screen.getAllByRole("radio")).toHaveLength(1);
+  await user.click(screen.getByRole("radio", { name: /BTS.*ARMY/ }));
+  await user.click(screen.getByRole("button", { name: "Start with this fandom" }));
+  expect(screen.getByRole("button", { name: "My fandom · ARMY" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Territory Map" })).toBeVisible();
 
   await user.click(screen.getAllByRole("button", { name: "Ranking" })[0]);
   const initialRanking = screen.getByRole("list", { name: "Fandom ranking" });
@@ -145,7 +138,7 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   await user.click(screen.getAllByRole("button", { name: "Territory Map" })[0]);
 
   const filters = screen.getByRole("group", { name: "Territory filters" });
-  await user.click(within(filters).getByRole("button", { name: "Population-decline bonus" }));
+  await user.click(within(filters).getByRole("button", { name: "All" }));
   const territoryList = screen.getByRole("list", { name: "Map-equivalent territory list" });
   const yeongwol = within(territoryList).getByRole("button", { name: /^Yeongwol/ });
   await user.click(yeongwol);
@@ -155,7 +148,8 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   expect(screen.queryByRole("group", { name: "영토 필터" })).not.toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Start expedition" }));
-  expect(await screen.findByRole("heading", { name: "Yeongwol public tourism expedition" })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "Yeongwol regional support expedition" })).toBeVisible();
+  expect(screen.getByText("Public tourism route supporting the region")).toBeVisible();
   expect(screen.getByText(/no direct artist claim/)).toBeVisible();
   expect(screen.queryByRole("link", { name: "Artist connection source" })).not.toBeInTheDocument();
   const nearbyStop = screen.getByRole("listitem", { name: "Cheongnyeongpo" });
@@ -210,7 +204,7 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
 
   view.unmount();
   render(<KTownApp mode="demo" mapConfig={null} />);
-  expect(await screen.findByText("ARMY · #1")).toBeVisible();
+  expect(await screen.findByRole("button", { name: "My fandom · ARMY" })).toBeVisible();
   expect(screen.getByRole("button", { name: "EN" })).toHaveAttribute("aria-pressed", "true");
   await user.click(screen.getAllByRole("button", { name: "Ranking" })[0]);
   const persistedRanking = screen.getByRole("list", { name: "Fandom ranking" });
@@ -224,11 +218,9 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   const resetDialog = screen.getByRole("dialog", { name: "Reset demo?" });
   await user.click(within(resetDialog).getByRole("button", { name: "Reset" }));
 
-  expect(await screen.findByText("1. Choose an artist")).toBeVisible();
-  expect(screen.getByText("2. Review a territory")).toBeVisible();
-  expect(screen.getByText("3. Start the first expedition")).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "Choose an artist to support" })).toBeVisible();
   expect(screen.queryByText("1. 아티스트 선택")).not.toBeInTheDocument();
-  expect(screen.queryByText("ARMY · #1")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "My fandom · ARMY" })).not.toBeInTheDocument();
   expect(window.localStorage.getItem("ktown-english-neighbor")).toBe("preserve-me");
   await waitFor(() => expect(window.localStorage.getItem(DEMO_SESSION_KEY)).toBeNull());
 }, 20_000);

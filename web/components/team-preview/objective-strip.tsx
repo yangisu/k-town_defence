@@ -12,12 +12,12 @@ export function ObjectiveStrip({ locale, fandomName, territoryName, onReset }: P
   return (
     <section className="objective-strip" data-shell-region="objective" aria-label={t(locale, "currentObjective")}>
       <div>
-        <span>{t(locale, "currentObjective")}</span>
-        <strong>
-          {fandomName
-            ? `${fandomName} · ${territoryName ?? t(locale, "territoryObjective")}`
-            : t(locale, "chooseArtistObjective")}
-        </strong>
+        {fandomName ? (
+          <>
+            <strong>{t(locale, "myFandom")} · {fandomName}</strong>
+            <span>{t(locale, "targetTerritory")} · {territoryName ?? t(locale, "territoryObjective")}</span>
+          </>
+        ) : <strong>{t(locale, "chooseArtistObjective")}</strong>}
       </div>
       <button type="button" onClick={onReset}>{t(locale, "resetDemo")}</button>
     </section>

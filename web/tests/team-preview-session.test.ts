@@ -131,6 +131,35 @@ describe("demo preview session", () => {
     expect(localized.locale).toBe("ko");
   });
 
+  it("opens a nearest connected route atomically with its actual territory", () => {
+    let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+    state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "gwangju" });
+
+    const opened = demoSessionReducer(state, {
+      type: "openRecommendedExpedition",
+      expeditionId: "bts-busan-expedition",
+      territoryId: "busan",
+    });
+
+    expect(opened).toMatchObject({
+      selectedArtistId: "bts",
+      selectedTerritoryId: "busan",
+      selectedExpeditionId: "bts-busan-expedition",
+      activeTab: "expedition",
+    });
+  });
+
+  it("rejects a recommended expedition whose payload territory does not match", () => {
+    let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+    state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "gwangju" });
+
+    expect(demoSessionReducer(state, {
+      type: "openRecommendedExpedition",
+      expeditionId: "bts-busan-expedition",
+      territoryId: "gwangju",
+    })).toBe(state);
+  });
+
   it("completes a mission, counts every owned territory as a stronghold, and records the mission", () => {
     const state = approve(readySession(), "busan-1", 80);
     const busan = state.territories.find((territory) => territory.id === "busan")!;

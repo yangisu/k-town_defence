@@ -9,6 +9,8 @@ import { CheckInFlow } from "@/components/check-in/check-in-flow";
 import { BattleView } from "@/components/battle/battle-view";
 import { JourneyView } from "@/components/journey/journey-view";
 import { ArtistDrawer } from "@/components/team-preview/artist-drawer";
+import { ProfileMenu } from "@/components/team-preview/profile-menu";
+import { ProfileSetup } from "@/components/team-preview/profile-setup";
 import { ObjectiveStrip } from "@/components/team-preview/objective-strip";
 import { TerritoryView } from "@/components/team-preview/territory-view";
 import { PreviewExpeditionView } from "@/components/team-preview/expedition-view";
@@ -18,7 +20,6 @@ import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { appReducer, initialAppState, openExpedition, type AppAction, type AppState } from "@/features/app-controller";
 import { MembershipProvider } from "@/features/membership/membership-context";
 import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/demo-session-context";
-import { rankFandoms } from "@/features/team-preview/game-rules";
 import { t } from "@/features/team-preview/i18n";
 import { MembershipGate } from "@/components/membership/membership-gate";
 import type { AppServices, Place } from "@/lib/domain";
@@ -102,15 +103,11 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
   const resetDialogRef = useRef<HTMLDivElement>(null);
   const resetTitleRef = useRef<HTMLHeadingElement>(null);
   const session = useDemoSession();
-  const ranked = rankFandoms(session.state.fandoms);
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
   const selectedTerritory = session.state.artistConfirmed ? session.selectedTerritory : null;
-  const rank = session.state.artistConfirmed
-    ? ranked.find((entry) => entry.artistId === session.state.selectedArtistId)?.rank ?? null
-    : null;
 
   const chooseArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
-    session.dispatch({ type: "selectArtist", artistId });
+    session.dispatch({ type: "changeProfile", artistId });
     setDrawerOpen(false);
   };
 
@@ -121,41 +118,52 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
   };
   useModalFocus(resetOpen, resetDialogRef, resetTitleRef, () => setResetOpen(false));
 
+  if (!session.hydrated) return <p role="status">{t(session.state.locale, "loading")}</p>;
+
   return (
     <>
       <AppShell
         variant="demo"
         activeTab={session.state.activeTab}
         locale={session.state.locale}
-        fandomName={selectedArtist?.fandomName ?? null}
-        rank={rank}
         interactionDisabled={resetOpen}
+        navigationDisabled={!session.state.artistConfirmed}
+        profileControl={selectedArtist ? (
+          <ProfileMenu
+            locale={session.state.locale}
+            fandomName={selectedArtist.fandomName}
+            onOpen={() => setDrawerOpen(true)}
+          />
+        ) : null}
         onLocaleChange={(locale) => session.dispatch({ type: "setLocale", locale })}
         onTabChange={(tab) => session.dispatch({ type: "changeTab", tab })}
-        statusContent={(
+        statusContent={selectedArtist ? (
           <ObjectiveStrip
             locale={session.state.locale}
             fandomName={selectedArtist?.fandomName ?? null}
             territoryName={selectedTerritory?.name[session.state.locale] ?? null}
             onReset={() => setResetOpen(true)}
           />
-        )}
+        ) : null}
       >
-        {session.state.activeTab === "explore" ? (
+        {!session.state.artistConfirmed ? (
+          <ProfileSetup locale={session.state.locale} onConfirm={chooseArtist} />
+        ) : null}
+        {session.state.artistConfirmed && session.state.activeTab === "explore" ? (
             <TerritoryView
               key={session.state.artistConfirmed ? `artist:${session.state.selectedArtistId}` : "unconfirmed"}
               mapConfig={mapConfig}
               onChooseArtist={() => setDrawerOpen(true)}
             />
         ) : null}
-        {session.state.activeTab === "expedition" ? (
+        {session.state.artistConfirmed && session.state.activeTab === "expedition" ? (
             <PreviewExpeditionView
               expeditionId={session.state.selectedExpeditionId}
               checkInService={services.checkIn}
               onBack={() => undefined}
             />
         ) : null}
-        {session.state.activeTab === "battle" ? (
+        {session.state.artistConfirmed && session.state.activeTab === "battle" ? (
             <RankingView
               locale={session.state.locale}
               fandoms={session.state.fandoms}
@@ -163,7 +171,7 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
               selectedArtistId={session.state.artistConfirmed ? session.state.selectedArtistId : null}
             />
         ) : null}
-        {session.state.activeTab === "journey" ? <RecordView locale={session.state.locale} session={session.state} /> : null}
+        {session.state.artistConfirmed && session.state.activeTab === "journey" ? <RecordView locale={session.state.locale} session={session.state} /> : null}
         <ArtistDrawer
           open={drawerOpen}
           locale={session.state.locale}
@@ -198,8 +206,6 @@ function IntegratedProduct({ services }: { services: AppServices }) {
       variant="integrated"
       activeTab={state.activeTab}
       locale="ko"
-      fandomName={null}
-      rank={null}
       onLocaleChange={() => undefined}
       onTabChange={(tab) => dispatch({ type: "changeTab", tab })}
     >

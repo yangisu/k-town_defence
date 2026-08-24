@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, type Dispatch, type ReactNode, useContext, useEffect, useMemo, useReducer, useRef } from "react";
+import { createContext, type Dispatch, type ReactNode, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { previewContent } from "./content";
 import {
   createInitialDemoSession,
@@ -15,6 +15,7 @@ import {
 
 interface DemoSessionContextValue {
   state: DemoSession;
+  hydrated: boolean;
   dispatch: Dispatch<DemoSessionAction>;
   selectedArtist: (typeof previewContent.artists)[number] | null;
   selectedTerritory: DemoSession["territories"][number] | null;
@@ -25,6 +26,7 @@ const DemoSessionContext = createContext<DemoSessionContextValue | null>(null);
 
 export function DemoSessionProvider({ children, storage }: { children: ReactNode; storage?: Storage }) {
   const [state, dispatch] = useReducer(demoSessionReducer, undefined, createInitialDemoSession);
+  const [hydrated, setHydrated] = useState(false);
   const loaded = useRef(false);
   const skipNextSave = useRef(false);
   const sessionStorage = storage ?? (typeof window === "undefined" ? undefined : window.localStorage);
@@ -39,6 +41,7 @@ export function DemoSessionProvider({ children, storage }: { children: ReactNode
       if (!active) return;
       dispatch({ type: "hydrate", state: savedState });
       loaded.current = true;
+      setHydrated(true);
     });
     return () => { active = false; };
   }, [sessionStorage]);
@@ -61,8 +64,8 @@ export function DemoSessionProvider({ children, storage }: { children: ReactNode
       skipNextSave.current = true;
       dispatch({ type: "reset" });
     };
-    return { state, dispatch, selectedArtist, selectedTerritory, reset };
-  }, [sessionStorage, state]);
+    return { state, hydrated, dispatch, selectedArtist, selectedTerritory, reset };
+  }, [hydrated, sessionStorage, state]);
 
   return <DemoSessionContext.Provider value={value}>{children}</DemoSessionContext.Provider>;
 }

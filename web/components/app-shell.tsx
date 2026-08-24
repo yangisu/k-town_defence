@@ -17,11 +17,11 @@ interface Props {
   variant: "demo" | "integrated";
   activeTab: AppTab;
   locale: Locale;
-  fandomName: string | null;
-  rank: number | null;
   onLocaleChange(locale: Locale): void;
   onTabChange(tab: AppTab): void;
   interactionDisabled?: boolean;
+  navigationDisabled?: boolean;
+  profileControl?: ReactNode;
   statusContent?: ReactNode;
   children: ReactNode;
 }
@@ -30,11 +30,11 @@ export function AppShell({
   variant,
   activeTab,
   locale,
-  fandomName,
-  rank,
   onLocaleChange,
   onTabChange,
   interactionDisabled = false,
+  navigationDisabled = false,
+  profileControl,
   statusContent,
   children,
 }: Props) {
@@ -59,17 +59,17 @@ export function AppShell({
         </div>
         <nav aria-label={t(locale, "mainNavigation")} className="rail-nav">
           {tabs.map(({ id, label, integratedLabel, icon: Icon }) => (
-            <button key={id} className={activeTab === id ? "active" : ""} aria-current={activeTab === id ? "page" : undefined} onClick={() => onTabChange(id)}>
+            <button key={id} disabled={navigationDisabled} className={activeTab === id ? "active" : ""} aria-current={activeTab === id ? "page" : undefined} onClick={() => onTabChange(id)}>
               <Icon size={20} strokeWidth={2.2} /><span>{demo ? t(locale, label) : integratedLabel}</span>
             </button>
           ))}
         </nav>
-        <div className="rail-season"><span>{demo ? t(locale, "seasonName") : "SEASON 01"}</span><strong>{t(locale, "seasonRemaining")}</strong>{rank ? <small>{fandomName} · {rank}</small> : null}</div>
+        <div className="rail-season"><span>{demo ? t(locale, "seasonName") : "SEASON 01"}</span><strong>{t(locale, "seasonRemaining")}</strong></div>
       </aside>
       <div className="app-content">
         {demo ? (
           <header className="shell-status">
-            <div data-shell-region="identity"><span>{t(locale, "guestDemo")}</span>{fandomName ? <strong>{fandomName}{rank ? ` · #${rank}` : ""}</strong> : null}</div>
+            <div data-shell-region="identity">{profileControl}</div>
             {statusContent}
             <div className="locale-switch" data-shell-region="locale" role="group" aria-label={locale === "ko" ? "언어 선택" : "Language selection"}>
               <button type="button" aria-pressed={locale === "ko"} onClick={() => onLocaleChange("ko")}>한국어</button>
@@ -81,7 +81,7 @@ export function AppShell({
       </div>
       <nav aria-label={t(locale, "mobileNavigation")} className="bottom-nav">
         {tabs.map(({ id, label, integratedLabel, icon: Icon }) => (
-          <button key={id} className={activeTab === id ? "active" : ""} aria-current={activeTab === id ? "page" : undefined} onClick={() => onTabChange(id)}>
+          <button key={id} disabled={navigationDisabled} className={activeTab === id ? "active" : ""} aria-current={activeTab === id ? "page" : undefined} onClick={() => onTabChange(id)}>
             <Icon size={21} strokeWidth={2.2} /><span>{demo ? t(locale, label) : integratedLabel}</span>
           </button>
         ))}

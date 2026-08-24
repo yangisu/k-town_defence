@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   DEMO_SESSION_KEY,
   DEMO_SESSION_VERSION,
+  MAX_DEMO_SESSION_CHARS,
   createInitialDemoSession,
   demoSessionReducer,
   loadDemoSession,
   saveDemoSession,
+  selectProfileTerritory,
 } from "@/features/team-preview/demo-session";
 import type { MissionAward } from "@/features/team-preview/game-rules";
 import { calculateMissionAward } from "@/features/team-preview/game-rules";
@@ -50,6 +52,74 @@ function approve(state: ReturnType<typeof createInitialDemoSession>, placeId: st
 }
 
 describe("demo preview session", () => {
+  it("changes profile without clearing approved progress and chooses the strongest owned territory", () => {
+    const initial = createInitialDemoSession();
+    const state = {
+      ...initial,
+      selectedExpeditionId: "busan-public-expedition",
+      completedExpeditionIds: ["busan-public-expedition"],
+      approvedCheckIns: [{
+        expeditionId: "busan-public-expedition",
+        placeId: "busan-1",
+        artistId: "blackpink" as const,
+        territoryId: "busan",
+        awardedPoints: 80,
+        strongholdStage: "tree" as const,
+      }],
+      territories: initial.territories.map((territory) => {
+        if (territory.id !== "busan" && territory.id !== "daegu") return territory;
+        const btsPoints = territory.id === "daegu" ? 1_500 : 1_000;
+        return {
+          ...territory,
+          standings: territory.standings.map((standing) => standing.artistId === "bts"
+            ? { ...standing, validPoints: btsPoints }
+            : standing),
+        };
+      }),
+    };
+
+    const changed = demoSessionReducer(state, { type: "changeProfile", artistId: "bts" });
+
+    expect(changed).toMatchObject({
+      artistConfirmed: true,
+      selectedArtistId: "bts",
+      selectedTerritoryId: "daegu",
+      selectedExpeditionId: null,
+      activeTab: "explore",
+    });
+    expect(changed.approvedCheckIns).toEqual(state.approvedCheckIns);
+    expect(changed.completedExpeditionIds).toEqual(state.completedExpeditionIds);
+  });
+
+  it("treats reconfirming the current profile as a no-op", () => {
+    const state = readySession("bts", "busan");
+
+    expect(demoSessionReducer(state, { type: "changeProfile", artistId: "bts" })).toBe(state);
+  });
+
+  it("falls back to the first catalog connection when the new fandom owns no territory", () => {
+    const initial = createInitialDemoSession();
+    const withoutBlackpinkOwnership = {
+      ...initial,
+      territories: initial.territories.map((territory) => territory.ownerArtistId === "blackpink"
+        ? { ...territory, ownerArtistId: "bts" as const }
+        : territory),
+    };
+
+    const changed = demoSessionReducer(withoutBlackpinkOwnership, { type: "changeProfile", artistId: "blackpink" });
+
+    expect(changed.selectedTerritoryId).toBe("gunpo");
+  });
+
+  it("returns the first available representative territory after stronger choices are unavailable", () => {
+    const initial = createInitialDemoSession();
+    const representativeOnly = initial.territories.filter((territory) => territory.id === "seongnam")
+      .map((territory) => ({ ...territory, ownerArtistId: "bts" as const }));
+
+    expect(selectProfileTerritory("blackpink", representativeOnly)?.id).toBe("seongnam");
+    expect(selectProfileTerritory("blackpink", [])).toBeNull();
+  });
+
   it("changes the selected artist, territory, and locale through the single reducer", () => {
     const selected = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "blackpink" });
     const territory = demoSessionReducer(selected, { type: "selectTerritory", territoryId: "gunpo" });
@@ -118,8 +188,34 @@ describe("demo preview session", () => {
   });
 
   it("falls back to a new session for corrupt or version-mismatched persistence", () => {
-    expect(loadDemoSession(storageWith("not json"))).toEqual(createInitialDemoSession());
-    expect(loadDemoSession(storageWith(JSON.stringify({ ...createInitialDemoSession(), version: DEMO_SESSION_VERSION + 1 })))).toEqual(createInitialDemoSession());
+    const initial = createInitialDemoSession();
+    const versionTwoPayload = {
+      ...initial,
+      version: 2,
+      artistConfirmed: true,
+      selectedArtistId: "bts",
+      selectedTerritoryId: "busan",
+      contributedToday: 999,
+    };
+
+    expect(loadDemoSession(storageWith(null))).toEqual(initial);
+    expect(loadDemoSession(storageWith(""))).toEqual(initial);
+    expect(loadDemoSession(storageWith("not json"))).toEqual(initial);
+    expect(loadDemoSession(storageWith(JSON.stringify(versionTwoPayload)))).toEqual(initial);
+    expect(loadDemoSession(storageWith(JSON.stringify({ ...initial, version: DEMO_SESSION_VERSION + 1 })))).toEqual(initial);
+  });
+
+  it("rejects primitive, thrown, and oversized persisted payloads before trusting them", () => {
+    const initial = createInitialDemoSession();
+    const malformed = [null, [], "profile", 3, true];
+
+    for (const value of malformed) {
+      expect(loadDemoSession(storageWith(JSON.stringify(value)))).toEqual(initial);
+    }
+    expect(loadDemoSession({ getItem: () => { throw new Error("storage unavailable"); } })).toEqual(initial);
+    expect(loadDemoSession(storageWith(`{"padding":"${"x".repeat(MAX_DEMO_SESSION_CHARS)}"}`))).toEqual(initial);
+    const deeplyNested = `${'{"nested":'.repeat(1_000)}"${"x".repeat(MAX_DEMO_SESSION_CHARS)}"${"}".repeat(1_000)}`;
+    expect(loadDemoSession(storageWith(deeplyNested))).toEqual(initial);
   });
 
   it("rejects structurally invalid but correctly versioned persisted sessions", () => {
@@ -225,6 +321,12 @@ describe("demo preview session", () => {
     saveDemoSession(storage, state);
 
     expect(JSON.parse(storage.saved()!)).toEqual(state);
-    expect(DEMO_SESSION_KEY).toBe("ktown-team-preview-v2");
+    expect(DEMO_SESSION_KEY).toBe("ktown-team-preview-v3");
+  });
+
+  it("hydrates a valid version-3 profile and progress unchanged", () => {
+    const saved = approve(readySession(), "busan-1", 80);
+
+    expect(loadDemoSession(storageWith(JSON.stringify(saved)))).toEqual(saved);
   });
 });

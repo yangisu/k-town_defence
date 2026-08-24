@@ -3,9 +3,10 @@ import { getArtistHomeTerritories, getPlayableExpedition, previewContent } from 
 import { GAME_RULES, stageForPoints, type MissionAward } from "./game-rules";
 import type { ArtistId, FandomStanding, Locale, PreviewTerritory, StrongholdStage, TerritoryId } from "./types";
 
-export const DEMO_SESSION_VERSION = 2;
-export const DEMO_SESSION_KEY = "ktown-team-preview-v2";
-export const LEGACY_DEMO_SESSION_KEY = "ktown-team-preview-v1";
+export const DEMO_SESSION_VERSION = 3;
+export const DEMO_SESSION_KEY = "ktown-team-preview-v3";
+export const LEGACY_DEMO_SESSION_KEY = "ktown-team-preview-v2";
+export const MAX_DEMO_SESSION_CHARS = 1_000_000;
 
 export interface ApprovedCheckInRecord {
   expeditionId: string;
@@ -34,6 +35,7 @@ export interface DemoSession {
 
 export type DemoSessionAction =
   | { type: "selectArtist"; artistId: ArtistId }
+  | { type: "changeProfile"; artistId: ArtistId }
   | { type: "selectTerritory"; territoryId: TerritoryId }
   | { type: "changeTab"; tab: AppTab }
   | { type: "openExpedition"; expeditionId: string }
@@ -59,6 +61,38 @@ function copyTerritories() {
 
 function getArtistFandom(artistId: ArtistId) {
   return previewContent.artists.find((artist) => artist.id === artistId)!.fandomName;
+}
+
+export function selectProfileTerritory(
+  artistId: ArtistId,
+  territories: PreviewTerritory[],
+): PreviewTerritory | null {
+  const catalogOrder = new Map(previewContent.territories.map((territory, index) => [territory.id, index]));
+  const owned = territories
+    .filter((territory) => territory.ownerArtistId === artistId)
+    .map((territory) => ({
+      territory,
+      points: territory.standings.find((standing) => standing.artistId === artistId)?.validPoints ?? 0,
+    }))
+    .sort((a, b) => b.points - a.points
+      || (catalogOrder.get(a.territory.id) ?? Number.MAX_SAFE_INTEGER)
+        - (catalogOrder.get(b.territory.id) ?? Number.MAX_SAFE_INTEGER));
+  if (owned[0]) return owned[0].territory;
+
+  const connectedTerritoryIds = new Set(previewContent.connections
+    .filter((connection) => connection.artistId === artistId)
+    .map((connection) => connection.territoryId));
+  for (const catalogTerritory of previewContent.territories) {
+    if (!connectedTerritoryIds.has(catalogTerritory.id)) continue;
+    const territory = territories.find((candidate) => candidate.id === catalogTerritory.id);
+    if (territory) return territory;
+  }
+
+  for (const representative of getArtistHomeTerritories(artistId)) {
+    const territory = territories.find((candidate) => candidate.id === representative.id);
+    if (territory) return territory;
+  }
+  return null;
 }
 
 function recomputeTerritory(territory: PreviewTerritory): PreviewTerritory {
@@ -166,8 +200,12 @@ export function applyCheckInImpact(state: DemoSession, expeditionId: string, pla
 
 export function demoSessionReducer(state: DemoSession, action: DemoSessionAction): DemoSession {
   switch (action.type) {
-    case "selectArtist": {
-      const territory = getArtistHomeTerritories(action.artistId)[0];
+    case "selectArtist":
+    case "changeProfile": {
+      if (action.type === "changeProfile"
+        && state.artistConfirmed
+        && state.selectedArtistId === action.artistId) return state;
+      const territory = selectProfileTerritory(action.artistId, state.territories);
       return {
         ...state,
         artistConfirmed: true,
@@ -367,6 +405,7 @@ export function loadDemoSession(storage: Pick<Storage, "getItem">): DemoSession 
   try {
     const raw = storage.getItem(DEMO_SESSION_KEY);
     if (!raw) return createInitialDemoSession();
+    if (raw.length > MAX_DEMO_SESSION_CHARS) return createInitialDemoSession();
     const parsed: unknown = JSON.parse(raw);
     return isValidDemoSession(parsed) ? parsed : createInitialDemoSession();
   } catch {

@@ -35,7 +35,7 @@ export function TerritoryList({ territories, locale, selectedArtistId, selectedT
           >
             <strong>{territory.name[locale]}</strong>
             <span className="territory-owner"><i aria-hidden="true" />{t(locale, "currentOwner")} · {owner?.fandomName ?? "—"}</span>
-            <StrongholdMark stage={territory.strongholdStage} locale={locale} />
+            <StrongholdMark stage={territory.strongholdStage} locale={locale} ownerColor={ownerColor} />
             {territory.populationDecline ? <small>{territory.balanceMultiplier}×</small> : null}
             {selectedArtistId ? (
               <small>{territory.ownerArtistId === selectedArtistId

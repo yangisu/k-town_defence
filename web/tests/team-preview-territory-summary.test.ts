@@ -68,3 +68,18 @@ it("uses the first connected catalog territory as the zero-owned anchor without 
     recommendation: { kind: "capture", territoryId: "connected" },
   });
 });
+
+it("falls back from an invalid strongest-owned centroid to a finite connected anchor", () => {
+  const territories = [
+    territory("invalid-owned", "bts", Number.NaN, 127, 980, 600),
+    territory("far", "blackpink", 38, 130, 850),
+    territory("connected", "blackpink", 35, 127, 850),
+  ];
+
+  expect(summarizeTerritories(territories, "bts", [connection("connected")])).toEqual({
+    ownedCount: 1,
+    strongestOwnedTerritoryId: "invalid-owned",
+    nearestContestedTerritoryId: "connected",
+    recommendation: { kind: "capture", territoryId: "connected" },
+  });
+});

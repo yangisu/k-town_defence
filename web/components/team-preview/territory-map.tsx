@@ -7,7 +7,7 @@ import { TerritoryList } from "@/components/team-preview/territory-list";
 import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
 import type { DemoSession } from "@/features/team-preview/demo-session";
 import { t } from "@/features/team-preview/i18n";
-import { ownerColor, territoryBounds } from "@/features/team-preview/map-presentation";
+import { ownerColor, strongholdColor, territoryBounds } from "@/features/team-preview/map-presentation";
 import type { PreviewTerritory, TerritoryId } from "@/features/team-preview/types";
 import { amazonLocationStyleUrl, type MapConfig } from "@/lib/map-config";
 import type { TerritoryFilter } from "./map-filters";
@@ -41,7 +41,7 @@ function pointCollection(territories: readonly PreviewTerritory[]) {
       properties: {
         id: territory.id,
         ownerArtistId: territory.ownerArtistId,
-        ownerColor: ownerColor(territory.ownerArtistId, ownerColors),
+        ownerColor: strongholdColor(territory.ownerArtistId, territory.strongholdStage, ownerColors),
         stage: territory.strongholdStage,
       },
       geometry: {

@@ -168,21 +168,27 @@ it.each([
 });
 
 it.each([
-  ["ko", "내 팬덤", "현재 소유", "전국 보기", "내 팬덤 영토 요약"],
-  ["en", "My fandom", "Current owner", "National view", "My fandom territory summary"],
-] as const)("presents personalized filters, summary, owner cards, and national reset in %s", async (locale, myFandom, owner, nationalView, summary) => {
+  ["ko", ["내 팬덤", "접전 지역", "아티스트 연결", "전체"], ["소유 영토", "가장 강한 소유 영토", "가장 가까운 접전 영토", "추천 행동"], "현재 소유", "전국 보기", "아티스트 변경", "내 팬덤 영토 요약"],
+  ["en", ["My fandom", "Contested", "Artist connection", "All"], ["Owned territories", "Strongest owned territory", "Nearest contested territory", "Recommended action"], "Current owner", "National view", "Change artist", "My fandom territory summary"],
+] as const)("keeps all personalized map fallbacks available in %s", async (locale, filterLabels, summaryLabels, owner, nationalView, changeArtist, summary) => {
   const user = userEvent.setup();
   renderPreviewWithArtist({ locale: locale as "ko" | "en", selectedArtistId: "boynextdoor", selectedTerritoryId: "gwangju" });
 
-  await screen.findByRole("button", { name: myFandom });
-  const filters = screen.getAllByRole("button").filter((button) => [myFandom, locale === "ko" ? "접전 지역" : "Contested", locale === "ko" ? "아티스트 연결" : "Artist connection", locale === "ko" ? "전체" : "All"].includes(button.textContent ?? ""));
-  expect(filters.map((button) => button.textContent)).toEqual([myFandom, locale === "ko" ? "접전 지역" : "Contested", locale === "ko" ? "아티스트 연결" : "Artist connection", locale === "ko" ? "전체" : "All"]);
+  await screen.findByRole("button", { name: filterLabels[0] });
+  const filters = screen.getAllByRole("button").filter((button) => filterLabels.includes(button.textContent as typeof filterLabels[number]));
+  expect(filters.map((button) => button.textContent)).toEqual(filterLabels);
   expect(filters[0]).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByRole("region", { name: summary })).toHaveTextContent(/2/);
+  const summaryRegion = screen.getByRole("region", { name: summary });
+  for (const label of summaryLabels) expect(summaryRegion).toHaveTextContent(label);
   expect(screen.getByRole("list")).toHaveTextContent(`${owner} · ONEDOOR`);
   expect(screen.getByRole("button", { name: nationalView })).toBeVisible();
+  expect(screen.getByRole("button", { name: changeArtist })).toBeVisible();
 
-  const ownedCount = within(screen.getByRole("list")).getAllByRole("button").length;
-  await user.click(screen.getByRole("button", { name: locale === "ko" ? "전체" : "All" }));
-  expect(within(screen.getByRole("list")).getAllByRole("button").length).toBeGreaterThan(ownedCount);
+  const list = screen.getByRole("list");
+  const lengths: number[] = [];
+  for (const filter of filterLabels) {
+    await user.click(screen.getByRole("button", { name: filter }));
+    lengths.push(within(list).getAllByRole("button").length);
+  }
+  expect(lengths).toEqual([2, 23, 4, 23]);
 });

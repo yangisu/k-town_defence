@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { ownerColor, strongholdRadius, territoryBounds } from "@/features/team-preview/map-presentation";
+import { strongholdColor, strongholdRadius, territoryBounds } from "@/features/team-preview/map-presentation";
 
 const gwangjuPolygon = {
   type: "Feature" as const,
@@ -19,8 +19,8 @@ it("sizes strongholds by stage and derives a polygon viewport", () => {
 
 it("keeps the owner color independent of stronghold stage", () => {
   const colors = { bts: "#7c5ce0" };
-  expect(ownerColor("bts", colors)).toBe("#7c5ce0");
-  expect(ownerColor("bts", colors)).toBe("#7c5ce0");
+  expect(["seed", "tree", "landmark"].map((stage) => strongholdColor("bts", stage, colors)))
+    .toEqual(["#7c5ce0", "#7c5ce0", "#7c5ce0"]);
 });
 
 it("returns no viewport for invalid or empty geometry", () => {

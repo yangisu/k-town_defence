@@ -33,8 +33,9 @@ export function summarizeTerritories(
     const territoryPoints = territory.standings.find((standing) => standing.artistId === artistId)?.validPoints ?? 0;
     return territoryPoints > strongestPoints ? territory : strongest;
   }, null);
-  const connectedAnchor = territories.find((territory) => connectedIds.has(territory.id)) ?? null;
-  const anchor = strongestOwned?.centroid ?? connectedAnchor?.centroid ?? nationwideCenter;
+  const strongestOwnedAnchor = strongestOwned && hasFiniteCentroid(strongestOwned) ? strongestOwned : null;
+  const connectedAnchor = territories.find((territory) => connectedIds.has(territory.id) && hasFiniteCentroid(territory)) ?? null;
+  const anchor = strongestOwnedAnchor?.centroid ?? connectedAnchor?.centroid ?? nationwideCenter;
   const nearestContested = territories.reduce<PreviewTerritory | null>((nearest, territory) => {
     if (!isContestedTerritory(territory) || !hasFiniteCentroid(territory)) return nearest;
     if (!nearest || distanceSquared(anchor, territory.centroid) < distanceSquared(anchor, nearest.centroid)) return territory;

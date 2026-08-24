@@ -20,6 +20,7 @@ interface MapHarness {
   handlers: Map<string, Array<(event: MapEvent) => void>>;
   layerHandlers: Map<string, Array<(event: MapEvent) => void>>;
   flyTo: ReturnType<typeof vi.fn>;
+  fitBounds: ReturnType<typeof vi.fn>;
   setFilter: ReturnType<typeof vi.fn>;
   setPaintProperty: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
@@ -37,6 +38,7 @@ vi.mock("maplibre-gl", () => {
     handlers = new Map<string, Array<(event: MapEvent) => void>>();
     layerHandlers = new Map<string, Array<(event: MapEvent) => void>>();
     flyTo = vi.fn();
+    fitBounds = vi.fn();
     setFilter = vi.fn();
     setPaintProperty = vi.fn();
     remove = vi.fn();
@@ -453,4 +455,55 @@ it("recolors a captured boundary and stronghold without recreating the map", () 
   };
   expect(latestStrongholds.features.find((feature) => feature.properties.id === "busan")?.properties.ownerColor)
     .toBe("#f25da5");
+});
+
+it("keeps nationwide ownership on semantic layers while filtering the accessible list and resetting the camera", async () => {
+  const geoJson = JSON.parse(readFileSync(resolve(process.cwd(), "public/data/preview-territories.geojson"), "utf8"));
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => geoJson }));
+  const session = {
+    ...createInitialDemoSession(),
+    artistConfirmed: true,
+    selectedArtistId: "bts" as const,
+    selectedTerritoryId: "busan",
+  };
+  const { rerender } = render(
+    <TerritoryMap
+      mapConfig={config}
+      session={session}
+      listedTerritories={session.territories.filter((territory) => territory.id === "busan")}
+      activeFilter="my_fandom"
+      selectedTerritoryId="busan"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+
+  const map = mapHarness.instances[0];
+  map.emit("load");
+  const fill = map.layers.find((layer) => layer.id === "preview-territory-fill");
+  const strongholds = map.layers.find((layer) => layer.id === "preview-stronghold-symbols");
+  expect(fill?.filter).toBeUndefined();
+  expect(strongholds).toMatchObject({ type: "circle" });
+  expect((strongholds?.paint as Record<string, unknown>)?.["circle-radius"])
+    .toEqual(["match", ["get", "stage"], "seed", 7, "tree", 11, "landmark", 16, 7]);
+  expect(map.layers.find((layer) => layer.id === "preview-selected-fandom-outline")?.filter)
+    .toEqual(["==", ["get", "ownerArtistId"], "bts"]);
+  expect(JSON.stringify((fill?.paint as Record<string, unknown>)?.["fill-color"])).toMatch(/#7c5ce0.*#f25da5/);
+
+  await waitFor(() => expect(map.sources.get("preview-territory-boundaries")?.setData).toHaveBeenCalledWith(expect.objectContaining({
+    features: expect.arrayContaining([expect.objectContaining({ properties: expect.objectContaining({ ownerArtistId: "bts" }) })]),
+  })));
+
+  rerender(
+    <TerritoryMap
+      mapConfig={config}
+      session={{ ...session, selectedTerritoryId: "daegu" }}
+      listedTerritories={session.territories.filter((territory) => territory.id === "daegu")}
+      activeFilter="all"
+      selectedTerritoryId="daegu"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+  await waitFor(() => expect(map.fitBounds).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ maxZoom: 9, duration: 700 })));
+  await userEvent.setup().click(screen.getByRole("button", { name: "전국 보기" }));
+  expect(map.fitBounds).toHaveBeenLastCalledWith([[124.5, 32.8], [131.9, 38.9]], { duration: 700 });
 });

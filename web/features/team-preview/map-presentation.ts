@@ -10,6 +10,10 @@ export function ownerColor(ownerArtistId: string, colors: Readonly<Record<string
   return colors[ownerArtistId] ?? "#7559ff";
 }
 
+export function strongholdColor(ownerArtistId: string, _stage: StrongholdStage, colors: Readonly<Record<string, string>>) {
+  return ownerColor(ownerArtistId, colors);
+}
+
 function positions(value: unknown): Array<[number, number]> | null {
   if (!Array.isArray(value)) return null;
   const found: Array<[number, number]> = [];

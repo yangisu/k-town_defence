@@ -6,18 +6,16 @@ import { isContestedTerritory } from "@/features/team-preview/territory-rules";
 import type { ArtistId, Locale, PreviewTerritory } from "@/features/team-preview/types";
 
 export type TerritoryFilter =
-  | "recommended"
-  | "unclaimed"
+  | "my_fandom"
   | "contested"
   | "artist_connection"
-  | "population_decline";
+  | "all";
 
 export const TERRITORY_FILTERS: readonly { id: TerritoryFilter; labelKey: CopyKey }[] = [
-  { id: "recommended", labelKey: "mapRecommended" },
-  { id: "unclaimed", labelKey: "mapUnclaimed" },
+  { id: "my_fandom", labelKey: "mapMyFandom" },
   { id: "contested", labelKey: "mapContested" },
   { id: "artist_connection", labelKey: "mapArtistConnection" },
-  { id: "population_decline", labelKey: "mapPopulationDecline" },
+  { id: "all", labelKey: "mapAll" },
 ];
 
 export function filterAndOrderTerritories(
@@ -30,11 +28,10 @@ export function filterAndOrderTerritories(
     .map((connection) => connection.territoryId));
   const filtered = territories.filter((territory) => {
     switch (filter) {
-      case "unclaimed": return territory.ownerArtistId !== artistId;
+      case "my_fandom": return territory.ownerArtistId === artistId;
       case "contested": return isContestedTerritory(territory);
       case "artist_connection": return connectedIds.has(territory.id);
-      case "population_decline": return territory.populationDecline;
-      case "recommended": return true;
+      case "all": return true;
     }
   });
 

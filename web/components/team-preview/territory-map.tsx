@@ -1,18 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import maplibregl, { type ExpressionSpecification, type FilterSpecification, type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from "maplibre-gl";
+import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { TerritoryList } from "@/components/team-preview/territory-list";
 import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
 import type { DemoSession } from "@/features/team-preview/demo-session";
 import { t } from "@/features/team-preview/i18n";
+import { ownerColor, territoryBounds } from "@/features/team-preview/map-presentation";
 import type { PreviewTerritory, TerritoryId } from "@/features/team-preview/types";
 import { amazonLocationStyleUrl, type MapConfig } from "@/lib/map-config";
+import type { TerritoryFilter } from "./map-filters";
 
 interface TerritoryMapProps {
   mapConfig: MapConfig | null;
   session: DemoSession;
+  listedTerritories?: readonly PreviewTerritory[];
+  activeFilter?: TerritoryFilter;
   selectedTerritoryId: TerritoryId | null;
   onSelectTerritory: (territoryId: TerritoryId) => void;
 }
@@ -24,6 +28,9 @@ const expeditionSourceId = "preview-selected-expedition";
 const connectionSourceId = "preview-artist-connections";
 const territoryLayerId = "preview-territory-fill";
 const selectedLayerId = "preview-territory-selected";
+const nationalBounds = [[124.5, 32.8], [131.9, 38.9]] as [[number, number], [number, number]];
+const ownerColors = Object.fromEntries(previewContent.artists.map((artist) => [artist.id, artist.color]));
+const strongholdRadiusExpression: ExpressionSpecification = ["match", ["get", "stage"], "seed", 7, "tree", 11, "landmark", 16, 7];
 
 function pointCollection(territories: readonly PreviewTerritory[]) {
   return {
@@ -34,7 +41,7 @@ function pointCollection(territories: readonly PreviewTerritory[]) {
       properties: {
         id: territory.id,
         ownerArtistId: territory.ownerArtistId,
-        ownerColor: previewContent.artists.find((artist) => artist.id === territory.ownerArtistId)?.color ?? "#7559ff",
+        ownerColor: ownerColor(territory.ownerArtistId, ownerColors),
         stage: territory.strongholdStage,
       },
       geometry: {
@@ -51,7 +58,7 @@ function ownerColorExpression(territories: readonly PreviewTerritory[]): Express
     ["id"],
     ...territories.flatMap((territory) => [
       territory.id,
-      previewContent.artists.find((artist) => artist.id === territory.ownerArtistId)?.color ?? "#7559ff",
+      ownerColor(territory.ownerArtistId, ownerColors),
     ]),
     "#7559ff",
   ] as ExpressionSpecification;
@@ -118,17 +125,36 @@ function updateGeoJsonSource(map: MapLibreMap, sourceId: string, data: GeoJSONSo
 function visibleLayerFilters(territories: readonly PreviewTerritory[]) {
   const territoryIds = territories.map((territory) => territory.id);
   return {
-    boundaries: ["in", ["id"], ["literal", territoryIds]] as FilterSpecification,
-    missions: ["in", ["get", "territoryId"], ["literal", territoryIds]] as FilterSpecification,
+    boundaries: ["in", ["id"], ["literal", territoryIds]] as const,
+    missions: ["in", ["get", "territoryId"], ["literal", territoryIds]] as const,
   };
 }
 
-export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelectTerritory }: TerritoryMapProps) {
+function filterOpacityExpression(territories: readonly PreviewTerritory[]): ExpressionSpecification {
+  return ["match", ["id"], ...territories.flatMap((territory) => [territory.id, 0.3]), 0.1] as ExpressionSpecification;
+}
+
+function ownerBoundaryCollection(collection: { type: string; features: unknown[] }, territories: readonly PreviewTerritory[]) {
+  const owners = new Map(territories.map((territory) => [territory.id, territory.ownerArtistId]));
+  return {
+    ...collection,
+    features: collection.features.map((feature) => {
+      const candidate = feature as { id?: string | number; properties?: Record<string, unknown> };
+      const id = String(candidate.id ?? candidate.properties?.id ?? "");
+      return { ...candidate, properties: { ...candidate.properties, ownerArtistId: owners.get(id) ?? null } };
+    }),
+  };
+}
+
+export function TerritoryMap({ mapConfig, session, listedTerritories: requestedTerritories, activeFilter = "all", selectedTerritoryId, onSelectTerritory }: TerritoryMapProps) {
+  const listedTerritories = requestedTerritories ?? session.territories;
+  const usesListedTerritories = requestedTerritories !== undefined;
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const sessionRef = useRef(session);
   const selectedTerritoryIdRef = useRef(selectedTerritoryId);
   const onSelectTerritoryRef = useRef(onSelectTerritory);
+  const listedTerritoriesRef = useRef(listedTerritories);
   const [mapError, setMapError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
@@ -136,7 +162,29 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
     sessionRef.current = session;
     selectedTerritoryIdRef.current = selectedTerritoryId;
     onSelectTerritoryRef.current = onSelectTerritory;
-  }, [onSelectTerritory, selectedTerritoryId, session]);
+    listedTerritoriesRef.current = listedTerritories;
+  }, [listedTerritories, onSelectTerritory, selectedTerritoryId, session]);
+
+  const [boundsByTerritoryId, setBoundsByTerritoryId] = useState<Map<string, [[number, number], [number, number]]>>(new Map());
+  const boundaryCollectionRef = useRef<{ type: string; features: unknown[] } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/data/preview-territories.geojson")
+      .then((response) => response.ok ? response.json() : null)
+      .then((collection: { features?: unknown[] } | null) => {
+        if (!active || !collection?.features) return;
+        boundaryCollectionRef.current = { type: "FeatureCollection", features: collection.features };
+        setBoundsByTerritoryId(new Map(collection.features.map((feature) => {
+          const candidate = feature as { id?: string | number; properties?: { id?: string } };
+          return [String(candidate.id ?? candidate.properties?.id ?? ""), territoryBounds(feature)] as const;
+        }).filter((entry): entry is readonly [string, [[number, number], [number, number]]] => entry[1] !== null)));
+        const map = mapRef.current;
+        if (map) updateGeoJsonSource(map, boundarySourceId, ownerBoundaryCollection(boundaryCollectionRef.current, sessionRef.current.territories));
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (!mapConfig || mapError || !containerRef.current) return;
@@ -162,10 +210,11 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
     map.on("load", () => {
       if (!active) return;
       styleLoaded = true;
-      const visibleFilters = visibleLayerFilters(sessionRef.current.territories);
       map.addSource(boundarySourceId, {
         type: "geojson",
-        data: "/data/preview-territories.geojson",
+        data: boundaryCollectionRef.current
+          ? ownerBoundaryCollection(boundaryCollectionRef.current, sessionRef.current.territories)
+          : "/data/preview-territories.geojson",
       });
       map.addSource(strongholdSourceId, {
         type: "geojson",
@@ -188,22 +237,29 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
         id: territoryLayerId,
         type: "fill",
         source: boundarySourceId,
-        filter: visibleFilters.boundaries,
-        paint: { "fill-color": ownerColorExpression(sessionRef.current.territories), "fill-opacity": 0.24 },
+        filter: usesListedTerritories ? undefined : visibleLayerFilters(sessionRef.current.territories).boundaries,
+        paint: { "fill-color": ownerColorExpression(sessionRef.current.territories), "fill-opacity": filterOpacityExpression(listedTerritoriesRef.current) },
       });
       map.addLayer({
         id: selectedLayerId,
-        type: "fill",
+        type: "line",
         source: boundarySourceId,
         filter: ["==", ["id"], selectedTerritoryIdRef.current ?? ""],
-        paint: { "fill-color": "#ff6b35", "fill-opacity": 0.58 },
+        paint: { "line-color": "#16231d", "line-width": 4 },
       });
       map.addLayer({
         id: "preview-territory-outline",
         type: "line",
         source: boundarySourceId,
-        filter: visibleFilters.boundaries,
+        filter: usesListedTerritories ? undefined : visibleLayerFilters(sessionRef.current.territories).boundaries,
         paint: { "line-color": "#fffef9", "line-width": 1.4 },
+      });
+      map.addLayer({
+        id: "preview-selected-fandom-outline",
+        type: "line",
+        source: boundarySourceId,
+        filter: ["==", ["get", "ownerArtistId"], sessionRef.current.selectedArtistId ?? ""],
+        paint: { "line-color": "#16231d", "line-width": 2.5 },
       });
       map.addLayer({
         id: "preview-expedition-line",
@@ -215,7 +271,7 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
         id: "preview-mission-points",
         type: "circle",
         source: missionSourceId,
-        filter: visibleFilters.missions,
+        filter: usesListedTerritories ? undefined : visibleLayerFilters(sessionRef.current.territories).missions,
         paint: {
           "circle-color": "#dfff59",
           "circle-radius": 4,
@@ -236,14 +292,14 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
       });
       map.addLayer({
         id: "preview-stronghold-symbols",
-        type: "symbol",
+        type: "circle",
         source: strongholdSourceId,
-        layout: {
-          "text-field": ["match", ["get", "stage"], "landmark", "◆", "tree", "▲", "●"],
-          "text-size": 17,
-          "text-allow-overlap": true,
+        paint: {
+          "circle-color": ["get", "ownerColor"],
+          "circle-radius": strongholdRadiusExpression,
+          "circle-stroke-color": "#fffef9",
+          "circle-stroke-width": 2,
         },
-        paint: { "text-color": ["get", "ownerColor"], "text-halo-color": "#fffef9", "text-halo-width": 1.5 },
       });
 
       map.on("click", territoryLayerId, (event) => {
@@ -260,40 +316,71 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
       map.remove();
       if (mapRef.current === map) mapRef.current = null;
     };
-  }, [mapConfig, mapError, retryKey]);
+  }, [mapConfig, mapError, retryKey, usesListedTerritories]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     updateGeoJsonSource(map, strongholdSourceId, pointCollection(session.territories));
+    if (boundaryCollectionRef.current) {
+      updateGeoJsonSource(map, boundarySourceId, ownerBoundaryCollection(boundaryCollectionRef.current, session.territories));
+    }
     updateGeoJsonSource(map, connectionSourceId, connectionCollection(session));
     if (map.getLayer(territoryLayerId)) {
       map.setPaintProperty(territoryLayerId, "fill-color", ownerColorExpression(session.territories));
     }
-    const visibleFilters = visibleLayerFilters(session.territories);
-    if (map.getLayer(territoryLayerId)) map.setFilter(territoryLayerId, visibleFilters.boundaries);
-    if (map.getLayer("preview-territory-outline")) map.setFilter("preview-territory-outline", visibleFilters.boundaries);
-    if (map.getLayer("preview-mission-points")) map.setFilter("preview-mission-points", visibleFilters.missions);
-  }, [session]);
+    if (map.getLayer("preview-selected-fandom-outline")) {
+      map.setFilter("preview-selected-fandom-outline", ["==", ["get", "ownerArtistId"], session.selectedArtistId ?? ""]);
+    }
+    if (!usesListedTerritories) {
+      const filters = visibleLayerFilters(session.territories);
+      if (map.getLayer(territoryLayerId)) map.setFilter(territoryLayerId, filters.boundaries);
+      if (map.getLayer("preview-territory-outline")) map.setFilter("preview-territory-outline", filters.boundaries);
+      if (map.getLayer("preview-mission-points")) map.setFilter("preview-mission-points", filters.missions);
+    }
+  }, [session, usesListedTerritories]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map?.getLayer(territoryLayerId)) {
+      map.setPaintProperty(territoryLayerId, "fill-opacity", filterOpacityExpression(listedTerritories));
+    }
+  }, [activeFilter, listedTerritories]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const territory = selectedTerritoryId
-      ? session.territories.find((candidate) => candidate.id === selectedTerritoryId)
-      : undefined;
-    if (territory) {
-      map.flyTo({ center: [territory.centroid.longitude, territory.centroid.latitude], zoom: 8 });
+    const bounds = selectedTerritoryId ? boundsByTerritoryId.get(selectedTerritoryId) : null;
+    if (bounds) {
+      const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+      const compact = window.innerWidth < 768;
+      map.fitBounds(bounds, {
+        padding: compact ? 32 : { top: 56, right: 420, bottom: 56, left: 56 },
+        maxZoom: 9,
+        duration: reducedMotion ? 0 : 700,
+      });
+    } else {
+      const territory = selectedTerritoryId
+        ? session.territories.find((candidate) => candidate.id === selectedTerritoryId)
+        : null;
+      if (territory) map.flyTo({ center: [territory.centroid.longitude, territory.centroid.latitude], zoom: 8 });
     }
     if (map.getLayer(selectedLayerId)) {
       map.setFilter(selectedLayerId, ["==", ["id"], selectedTerritoryId ?? ""]);
     }
     updateGeoJsonSource(map, expeditionSourceId, expeditionCollection(session, selectedTerritoryId));
-  }, [selectedTerritoryId, session]);
+  }, [boundsByTerritoryId, selectedTerritoryId, session]);
 
   const retry = () => {
     setMapError(false);
     setRetryKey((current) => current + 1);
+  };
+
+  const resetNationalView = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    map.fitBounds(nationalBounds, { duration: reducedMotion ? 0 : 700 });
   };
 
   return (
@@ -308,7 +395,8 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
         />
       ) : (
         <div className="preview-map-configuration" role="status">
-          <strong>{t(session.locale, "mapConfigError")}</strong>
+          <strong>{t(session.locale, "mapUnavailable")}</strong>
+          <span>{t(session.locale, "mapConfigError")}</span>
           {mapError ? <button type="button" onClick={retry}>{t(session.locale, "retry")}</button> : null}
         </div>
       )}
@@ -316,8 +404,9 @@ export function TerritoryMap({ mapConfig, session, selectedTerritoryId, onSelect
         Map © <a href="https://aws.amazon.com/location/" target="_blank" rel="noreferrer">Amazon Location Service</a>
         {" · "}Boundaries © <a href="https://www.geoboundaries.org/" target="_blank" rel="noreferrer">geoBoundaries</a>
       </p>
+      {selectedTerritoryId ? <div className="preview-map-actions"><button type="button" onClick={resetNationalView}>{t(session.locale, "nationalView")}</button></div> : null}
       <TerritoryList
-        territories={session.territories}
+        territories={listedTerritories}
         locale={session.locale}
         selectedArtistId={session.artistConfirmed ? session.selectedArtistId : null}
         selectedTerritoryId={selectedTerritoryId}

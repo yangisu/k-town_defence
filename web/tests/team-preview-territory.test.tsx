@@ -15,7 +15,6 @@ import {
 } from "@/features/team-preview/demo-session";
 import type { MissionAward } from "@/features/team-preview/game-rules";
 import { DemoSessionProvider } from "@/features/team-preview/demo-session-context";
-import { KTownApp } from "@/features/ktown-app";
 
 beforeEach(() => window.localStorage.clear());
 
@@ -117,20 +116,18 @@ it("shows the resolved fandom owner after a mission captures a territory", () =>
   expect(row).not.toHaveTextContent("ARMY");
 });
 
-it("keeps exact filter IDs and deterministic recommendation priority", () => {
+it("keeps personalized filter IDs and fandom filtering", () => {
   const state = confirmedSession();
 
   expect(TERRITORY_FILTERS.map((filter) => filter.id)).toEqual([
-    "recommended",
-    "unclaimed",
+    "my_fandom",
     "contested",
     "artist_connection",
-    "population_decline",
+    "all",
   ]);
-  expect(filterAndOrderTerritories(state.territories, "recommended", "bts")
-    .slice(0, 4)
+  expect(filterAndOrderTerritories(state.territories, "my_fandom", "bts")
     .map((territory) => territory.id))
-    .toEqual(["gwangju", "daegu", "busan", "yeongwol"]);
+    .toEqual(["daegu", "busan", "yeongwol"]);
 });
 
 it("routes an empty region to a sourced same-territory expedition without fabricating evidence", async () => {
@@ -170,28 +167,22 @@ it.each([
   expect(projection).toHaveTextContent(/팬덤 순위 영향.*#1.*현재 순위 유지/);
 });
 
-it("normalizes a stale local filter after reset and artist reselection", async () => {
+it.each([
+  ["ko", "내 팬덤", "현재 소유", "전국 보기", "내 팬덤 영토 요약"],
+  ["en", "My fandom", "Current owner", "National view", "My fandom territory summary"],
+] as const)("presents personalized filters, summary, owner cards, and national reset in %s", async (locale, myFandom, owner, nationalView, summary) => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  renderPreviewWithArtist({ locale: locale as "ko" | "en", selectedArtistId: "boynextdoor", selectedTerritoryId: "gwangju" });
 
-  await user.click(await screen.findByRole("button", { name: "아티스트 선택" }));
-  await user.click(screen.getByRole("radio", { name: /BTS.*ARMY/ }));
-  await user.click(screen.getByRole("button", { name: "인구감소지역 보너스" }));
+  await screen.findByRole("button", { name: myFandom });
+  const filters = screen.getAllByRole("button").filter((button) => [myFandom, locale === "ko" ? "접전 지역" : "Contested", locale === "ko" ? "아티스트 연결" : "Artist connection", locale === "ko" ? "전체" : "All"].includes(button.textContent ?? ""));
+  expect(filters.map((button) => button.textContent)).toEqual([myFandom, locale === "ko" ? "접전 지역" : "Contested", locale === "ko" ? "아티스트 연결" : "Artist connection", locale === "ko" ? "전체" : "All"]);
+  expect(filters[0]).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("region", { name: summary })).toHaveTextContent(/2/);
+  expect(screen.getByRole("list")).toHaveTextContent(`${owner} · ONEDOOR`);
+  expect(screen.getByRole("button", { name: nationalView })).toBeVisible();
 
-  expect(await screen.findByRole("complementary", { name: "영월 전술 패널" })).toBeVisible();
-  expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getAllByRole("button"))
-    .toHaveLength(1);
-
-  await user.click(screen.getByRole("button", { name: "데모 초기화" }));
-  await user.click(within(screen.getByRole("dialog", { name: "데모를 초기화할까요?" }))
-    .getByRole("button", { name: "초기화" }));
-  await user.click(screen.getByRole("button", { name: "아티스트 선택" }));
-  await user.click(screen.getByRole("radio", { name: /aespa.*MY/i }));
-
-  const panel = await screen.findByRole("complementary", { name: "수원 전술 패널" });
-  expect(panel).toBeVisible();
-  expect(screen.getByRole("button", { name: "추천 지역" })).toHaveAttribute("aria-pressed", "true");
-  const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
-  expect(within(list).getAllByRole("button")).toHaveLength(23);
-  expect(within(list).getByRole("button", { name: /^수원/ })).toHaveAttribute("aria-pressed", "true");
+  const ownedCount = within(screen.getByRole("list")).getAllByRole("button").length;
+  await user.click(screen.getByRole("button", { name: locale === "ko" ? "전체" : "All" }));
+  expect(within(screen.getByRole("list")).getAllByRole("button").length).toBeGreaterThan(ownedCount);
 });

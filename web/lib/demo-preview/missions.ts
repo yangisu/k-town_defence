@@ -1,4 +1,4 @@
-import type { ArtistId, ContentSource, MissionPlaceId, PreviewExpedition, PreviewMissionPlace, TerritoryId } from "@/features/team-preview/types";
+import type { ArtistConnection, ContentSource, MissionPlaceId, PreviewExpedition, PreviewMissionPlace, TerritoryId } from "@/features/team-preview/types";
 import { territories } from "./territories";
 
 type PlaceSeed = Omit<PreviewMissionPlace, "id" | "territoryId" | "relationship" | "artistConnectionId" | "evidenceClass" | "access" | "description" | "transport" | "dwellMinutes" | "visitBase" | "localBenefit" | "sources">;
@@ -121,35 +121,103 @@ function toMissionPlace(territoryId: TerritoryId, order: 1 | 2, seed: PlaceSeed)
   return { ...seed, id, territoryId, relationship: "nearby_recommendation", artistConnectionId: null, evidenceClass: null, access: "public", description: nearbyDescription, transport: publicTransport, dwellMinutes: 45, visitBase: 100, localBenefit: { ko: "지역 문화와 상권을 함께 경험하는 공공 관광 정류장", en: "A public stop that supports local culture and commerce" }, sources: seed.sourceUrls.map((url) => tourismSource(id, url)) };
 }
 
-export const places = territoryStops.flatMap(({ territoryId, stops }) => [toMissionPlace(territoryId, 1, stops[0]), toMissionPlace(territoryId, 2, stops[1])]);
-
-function expedition(legacyArtistId: ArtistId, territoryId: TerritoryId): PreviewExpedition {
-  const territory = territories.find((candidate) => candidate.id === territoryId)!;
-  return { id: `${legacyArtistId}-${territoryId}-expedition`, artistId: null, territoryId, connectionId: null, title: { ko: `${territory.name.ko} 지역 응원 원정`, en: `${territory.name.en} regional support expedition` }, description: { ko: "아티스트 직접 연관을 주장하지 않고, 공식 관광 출처로 확인한 지역 명소 두 곳을 방문하는 원정입니다.", en: "A two-stop route using official tourism sources without claiming a direct artist connection." }, stopIds: [placeId(territoryId, 1), placeId(territoryId, 2)], transitSummary: { ko: "대중교통 기준 약 90분", en: "About 90 minutes by public transit" }, estimatedMinutes: 90 };
-}
-
-const artistExpeditions: PreviewExpedition[] = [
-  expedition("bts", "busan"),
-  expedition("blackpink", "gunpo"),
-  expedition("rescene", "geoje"),
-  expedition("cortis", "daejeon"),
-  expedition("btob", "suwon"),
-  expedition("ive", "daejeon"),
-  expedition("kiiikiii", "busan"),
-  expedition("riize", "ulsan"),
-  expedition("zerobaseone", "cheonan"),
-  expedition("boynextdoor", "wonju"),
-  expedition("le-sserafim", "seoul"),
-  expedition("aespa", "suwon"),
-  expedition("newjeans", "chuncheon"),
-  expedition("iu", "seoul"),
-  expedition("seventeen", "namyangju"),
+const btsBusanAsiadSources: ContentSource[] = [
+  {
+    id: "bts-busan-asiad-weverse-source",
+    url: "https://weverse.io/bts/notice/3595",
+    publisher: "HYBE and BIGHIT MUSIC",
+    reliability: "authoritative",
+    claimSpecific: true,
+  },
+  {
+    id: "bts-busan-asiad-visit-busan-source",
+    url: "https://www.visitbusan.net/schedule/view.do?boardId=BBS_0000010&dataSid=1871&menuCd=DOM_000000304010000000",
+    publisher: "Visit Busan",
+    reliability: "official_tourism",
+    claimSpecific: true,
+  },
+  {
+    id: "bts-busan-asiad-public-facility-source",
+    url: "https://www.busan.go.kr/stadium/sfintro",
+    publisher: "Busan Metropolitan City Sports Facilities Management Office",
+    reliability: "authoritative",
+    claimSpecific: true,
+  },
 ];
+
+export const expeditionConnections: ArtistConnection[] = [{
+  id: "bts-busan-asiad-official-activity",
+  artistId: "bts",
+  territoryId: "busan",
+  memberName: { ko: "BTS", en: "BTS" },
+  relationType: "official_activity",
+  evidenceClass: "official",
+  evidenceNote: {
+    ko: "HYBE·빅히트 뮤직 공식 공지와 부산시 공식 관광 포털이 부산아시아드주경기장을 BTS 공연 장소로 명시합니다.",
+    en: "HYBE/BIGHIT MUSIC and Busan's official tourism portal identify Busan Asiad Main Stadium as a BTS concert venue.",
+  },
+  story: {
+    ko: "부산아시아드주경기장은 2022년 BTS <Yet To Come> in BUSAN 공식 공연 장소였습니다.",
+    en: "Busan Asiad Main Stadium was the official venue for BTS <Yet To Come> in BUSAN in 2022.",
+  },
+  sourceUrls: btsBusanAsiadSources.map((source) => source.url),
+  sources: btsBusanAsiadSources,
+}];
+
+const btsBusanAsiadPlace: PreviewMissionPlace = {
+  id: "busan-asiad-bts-concert-venue",
+  territoryId: "busan",
+  name: { ko: "부산아시아드주경기장", en: "Busan Asiad Main Stadium" },
+  category: "culture",
+  relationship: "artist_connection",
+  artistConnectionId: "bts-busan-asiad-official-activity",
+  evidenceClass: "official",
+  access: "public",
+  description: {
+    ko: "HYBE·빅히트 뮤직이 BTS <Yet To Come> in BUSAN의 공식 공연 장소로 발표한 공공 경기장입니다. 방문 전 공식 경기·행사 일정과 출입 가능 구역을 확인하세요.",
+    en: "A public stadium announced by HYBE and BIGHIT MUSIC as the official BTS <Yet To Come> in BUSAN venue. Check the official event schedule and areas open to visitors before going.",
+  },
+  address: { ko: "부산광역시 연제구 월드컵대로 344", en: "344 World Cup-daero, Yeonje-gu, Busan" },
+  coordinates: { latitude: 35.1901, longitude: 129.0584 },
+  transport: {
+    summary: { ko: "부산도시철도 3호선 종합운동장역에서 도보 이동", en: "Walk from Sports Complex Station on Busan Metro Line 3" },
+    nearestStation: { ko: "종합운동장역", en: "Sports Complex Station" },
+    accessibilityNote: { ko: "방문 전 공식 행사 일정과 개방 구역을 확인하세요.", en: "Check the official schedule and open visitor areas before visiting." },
+  },
+  dwellMinutes: 45,
+  visitBase: 100,
+  localBenefit: { ko: "공공 경기장 주변의 지역 상권과 대중교통 이용", en: "Supports transit use and commerce around the public stadium" },
+  sourceUrls: btsBusanAsiadSources.map((source) => source.url),
+  sources: btsBusanAsiadSources,
+};
+
+export const places: PreviewMissionPlace[] = [
+  btsBusanAsiadPlace,
+  ...territoryStops.flatMap(({ territoryId, stops }) => [
+    toMissionPlace(territoryId, 1, stops[0]),
+    toMissionPlace(territoryId, 2, stops[1]),
+  ]),
+];
+
+const btsBusanArtistLinkedExpedition: PreviewExpedition = {
+  id: "bts-busan-artist-linked-expedition",
+  artistId: "bts",
+  territoryId: "busan",
+  connectionId: "bts-busan-asiad-official-activity",
+  title: { ko: "BTS 부산 공식 공연장 원정", en: "BTS Busan official concert venue expedition" },
+  description: {
+    ko: "공식 공연 장소로 확인된 공공 경기장을 먼저 방문하고, 부산의 공공 관광지를 잇는 원정입니다.",
+    en: "A route beginning at a public, officially documented BTS concert venue and continuing to a public Busan attraction.",
+  },
+  stopIds: [btsBusanAsiadPlace.id, placeId("busan", 1)],
+  transitSummary: { ko: "부산도시철도와 시내버스 기준 약 90분", en: "About 90 minutes by Busan Metro and local bus" },
+  estimatedMinutes: 90,
+};
 
 const publicTerritoryExpeditions: PreviewExpedition[] = territoryStops.map(({ territoryId }) => {
   const territory = territories.find((candidate) => candidate.id === territoryId)!;
   return {
-    id: `${territoryId}-public-expedition`,
+    id: `${territoryId}-regional-support-expedition`,
     artistId: null,
     territoryId,
     connectionId: null,
@@ -164,4 +232,4 @@ const publicTerritoryExpeditions: PreviewExpedition[] = territoryStops.map(({ te
   };
 });
 
-export const expeditions: PreviewExpedition[] = [...artistExpeditions, ...publicTerritoryExpeditions];
+export const expeditions: PreviewExpedition[] = [btsBusanArtistLinkedExpedition, ...publicTerritoryExpeditions];

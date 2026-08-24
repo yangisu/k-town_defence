@@ -1,12 +1,12 @@
 import type { ArtistConnection, ArtistId } from "./types";
 import { artists, connections } from "@/lib/demo-preview/artists";
-import { expeditions, places } from "@/lib/demo-preview/missions";
+import { expeditionConnections, expeditions, places } from "@/lib/demo-preview/missions";
 import { territories } from "@/lib/demo-preview/territories";
 import { selectRecommendedExpedition } from "./expedition-selection";
 
 export const previewContent = {
   artists,
-  connections,
+  connections: [...connections, ...expeditionConnections],
   territories,
   places,
   expeditions,

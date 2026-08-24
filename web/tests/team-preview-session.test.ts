@@ -12,6 +12,7 @@ import {
 import type { MissionAward } from "@/features/team-preview/game-rules";
 import { calculateMissionAward } from "@/features/team-preview/game-rules";
 import { previewContent } from "@/features/team-preview/content";
+import { selectRecommendedExpedition } from "@/features/team-preview/expedition-selection";
 
 const award = (points: number): MissionAward => ({
   visit: points,
@@ -56,10 +57,10 @@ describe("demo preview session", () => {
     const initial = createInitialDemoSession();
     const state = {
       ...initial,
-      selectedExpeditionId: "busan-public-expedition",
-      completedExpeditionIds: ["busan-public-expedition"],
+      selectedExpeditionId: "busan-regional-support-expedition",
+      completedExpeditionIds: ["busan-regional-support-expedition"],
       approvedCheckIns: [{
-        expeditionId: "busan-public-expedition",
+        expeditionId: "busan-regional-support-expedition",
         placeId: "busan-1",
         artistId: "blackpink" as const,
         territoryId: "busan",
@@ -135,16 +136,23 @@ describe("demo preview session", () => {
     let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
     state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "gwangju" });
 
+    const recommendation = selectRecommendedExpedition("bts", "gwangju");
+    expect(recommendation).toMatchObject({
+      kind: "artist_linked",
+      territoryId: "busan",
+      expedition: { id: "bts-busan-artist-linked-expedition" },
+    });
+
     const opened = demoSessionReducer(state, {
       type: "openRecommendedExpedition",
-      expeditionId: "bts-busan-expedition",
-      territoryId: "busan",
+      expeditionId: recommendation!.expedition.id,
+      territoryId: recommendation!.territoryId,
     });
 
     expect(opened).toMatchObject({
       selectedArtistId: "bts",
       selectedTerritoryId: "busan",
-      selectedExpeditionId: "bts-busan-expedition",
+      selectedExpeditionId: "bts-busan-artist-linked-expedition",
       activeTab: "expedition",
     });
   });
@@ -155,7 +163,7 @@ describe("demo preview session", () => {
 
     expect(demoSessionReducer(state, {
       type: "openRecommendedExpedition",
-      expeditionId: "bts-busan-expedition",
+      expeditionId: "bts-busan-artist-linked-expedition",
       territoryId: "gwangju",
     })).toBe(state);
   });
@@ -169,7 +177,7 @@ describe("demo preview session", () => {
     expect(busan.strongholdStage).toBe("tree");
     expect(army.strongholds).toBe(3);
     expect(state.completedExpeditionIds).toEqual([]);
-    expect(state.approvedCheckIns[0]).toMatchObject({ expeditionId: "bts-busan-expedition", placeId: "busan-1" });
+    expect(state.approvedCheckIns[0]).toMatchObject({ expeditionId: "bts-busan-artist-linked-expedition", placeId: "busan-1" });
     expect(state.contributedToday).toBe(80);
   });
 
@@ -192,7 +200,7 @@ describe("demo preview session", () => {
 
     let challenger = demoSessionReducer(tied, { type: "selectArtist", artistId: "blackpink" });
     challenger = demoSessionReducer(challenger, { type: "selectTerritory", territoryId: "busan" });
-    challenger = demoSessionReducer(challenger, { type: "openExpedition", expeditionId: "busan-public-expedition" });
+    challenger = demoSessionReducer(challenger, { type: "openExpedition", expeditionId: "busan-regional-support-expedition" });
     const transferred = approve(challenger, "busan-2", 161);
     expect(transferred.territories.find((territory) => territory.id === "busan")!.ownerArtistId).toBe("blackpink");
   });
@@ -304,7 +312,7 @@ describe("demo preview session", () => {
       expect(loaded).toEqual(initial);
       expect(() => demoSessionReducer(loaded, {
         type: "completeCheckIn",
-        expeditionId: "bts-busan-expedition",
+        expeditionId: "bts-busan-artist-linked-expedition",
         placeId: "busan-1",
         award: award(10),
       })).not.toThrow();

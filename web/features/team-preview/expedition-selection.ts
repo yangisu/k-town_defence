@@ -1,5 +1,5 @@
 import { connections } from "@/lib/demo-preview/artists";
-import { expeditions, places } from "@/lib/demo-preview/missions";
+import { expeditionConnections, expeditions, places } from "@/lib/demo-preview/missions";
 import { territories } from "@/lib/demo-preview/territories";
 import type {
   ArtistConnection,
@@ -25,7 +25,12 @@ export interface RecommendedExpedition {
 
 const EARTH_RADIUS_KM = 6371.0088;
 const NATIONAL_ANCHOR = { latitude: 36.3, longitude: 127.8 };
-const defaultCatalog: ExpeditionCatalog = { territories, connections, places, expeditions };
+const defaultCatalog: ExpeditionCatalog = {
+  territories,
+  connections: [...connections, ...expeditionConnections],
+  places,
+  expeditions,
+};
 
 function isHttps(url: string) {
   try {
@@ -36,7 +41,7 @@ function isHttps(url: string) {
 }
 
 function finiteCentroid(territory: PreviewTerritory | undefined) {
-  return territory
+  return territory?.centroid
     && Number.isFinite(territory.centroid.latitude)
     && Number.isFinite(territory.centroid.longitude)
     ? territory.centroid

@@ -247,7 +247,60 @@ describe("evidence-first expedition selection", () => {
     expect(selectRecommendedExpedition("bts", "selected", catalog)?.territoryId).toBe("candidate-b");
   });
 
-  it("uses the national anchor for a malformed selection and skips malformed candidate geometry", () => {
+  it("uses the national anchor when the selected territory has no centroid", () => {
+    const nearNational = artistPlace({
+      id: "near-national-direct",
+      territoryId: "near-national",
+      artistConnectionId: "bts-near-national-connection",
+    });
+    const farFromNational = artistPlace({
+      id: "far-national-direct",
+      territoryId: "far-national",
+      artistConnectionId: "bts-far-national-connection",
+    });
+    const nearNationalNearby = nearbyPlace({ id: "near-national-nearby", territoryId: "near-national" });
+    const farNationalNearby = nearbyPlace({ id: "far-national-nearby", territoryId: "far-national" });
+    const catalog = {
+      territories: [
+        { ...territory("selected", 0, 0), centroid: undefined },
+        territory("far-national", 34, 129.5),
+        territory("near-national", 36.4, 127.8),
+      ],
+      connections: [connection("far-national"), connection("near-national")],
+      places: [farFromNational, farNationalNearby, nearNational, nearNationalNearby],
+      expeditions: [
+        route("far-national-route", "far-national", [farFromNational.id, farNationalNearby.id]),
+        route("near-national-route", "near-national", [nearNational.id, nearNationalNearby.id]),
+      ],
+    };
+    const missingSelectedCentroid = {
+      ...catalog,
+    };
+
+    expect(selectRecommendedExpedition(
+      "bts",
+      "selected",
+      missingSelectedCentroid as unknown as Parameters<typeof selectRecommendedExpedition>[2],
+    )).toMatchObject({ kind: "artist_linked", territoryId: "near-national" });
+  });
+
+  it("skips a connected candidate whose centroid is missing", () => {
+    const catalog = syntheticCatalog();
+    const missingCandidateCentroid = {
+      ...catalog,
+      territories: catalog.territories.map((item) => item.id === "busan"
+        ? { ...item, centroid: undefined }
+        : item),
+    };
+
+    expect(selectRecommendedExpedition(
+      "bts",
+      "gwangju",
+      missingCandidateCentroid as unknown as Parameters<typeof selectRecommendedExpedition>[2],
+    )).toMatchObject({ kind: "regional_support", territoryId: "gwangju" });
+  });
+
+  it("uses the national anchor for non-finite selected geometry and skips non-finite candidates", () => {
     const catalog = syntheticCatalog();
     const malformed = {
       ...catalog,

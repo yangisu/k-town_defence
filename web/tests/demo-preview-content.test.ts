@@ -126,6 +126,44 @@ describe("team preview content", () => {
     }
   });
 
+  it("ships a source-backed public BTS venue as the first stop of an eligible artist-linked route", () => {
+    const route = previewContent.expeditions.find((expedition) => expedition.id === "bts-busan-artist-linked-expedition");
+    const firstStop = previewContent.places.find((place) => place.id === route?.stopIds[0]);
+
+    expect(route).toMatchObject({
+      artistId: "bts",
+      territoryId: "busan",
+      connectionId: "bts-busan-asiad-official-activity",
+    });
+    expect(validateRecommendedRoute(route!, previewContent.places, "bts", previewContent.connections)).toBe(true);
+    expect(firstStop).toMatchObject({
+      id: "busan-asiad-bts-concert-venue",
+      territoryId: "busan",
+      relationship: "artist_connection",
+      artistConnectionId: "bts-busan-asiad-official-activity",
+      evidenceClass: "official",
+      access: "public",
+    });
+    expect(firstStop?.sourceUrls).toEqual([
+      "https://weverse.io/bts/notice/3595",
+      "https://www.visitbusan.net/schedule/view.do?boardId=BBS_0000010&dataSid=1871&menuCd=DOM_000000304010000000",
+      "https://www.busan.go.kr/stadium/sfintro",
+    ]);
+    expect(firstStop?.sources.some((source) => (
+      source.reliability === "authoritative" && source.claimSpecific
+    ))).toBe(true);
+  });
+
+  it("has one semantic regional-support route per territory and no artist-branded neutral duplicates", () => {
+    const neutralRoutes = previewContent.expeditions.filter((expedition) => expedition.artistId === null);
+
+    expect(neutralRoutes).toHaveLength(previewContent.territories.length);
+    expect(new Set(neutralRoutes.map((expedition) => expedition.territoryId)).size)
+      .toBe(previewContent.territories.length);
+    expect(neutralRoutes.every((expedition) => expedition.id === `${expedition.territoryId}-regional-support-expedition`))
+      .toBe(true);
+  });
+
   it("sources every declared representative territory", () => {
     for (const artist of previewContent.artists) {
       const connectedTerritoryIds = new Set(

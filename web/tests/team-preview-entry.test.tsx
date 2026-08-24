@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AppShell } from "@/components/app-shell";
 import { KTownApp } from "@/features/ktown-app";
 import { getArtistHomeTerritories, previewContent } from "@/features/team-preview/content";
@@ -10,6 +10,8 @@ beforeEach(() => {
   window.localStorage.clear();
   document.documentElement.lang = "ko";
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 it("requires profile confirmation before rendering the territory workspace", async () => {
   render(<KTownApp mode="demo" mapConfig={null} />);
@@ -53,10 +55,14 @@ it("opens in the product shell and enters the service after explicit profile con
 
   expect(screen.getByRole("heading", { name: "영토 지도" })).toBeVisible();
   expect(screen.getByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).toBeVisible();
-  expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getAllByRole("button"))
-    .toHaveLength(previewContent.territories.length);
+  const fallbackList = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
+  expect(within(fallbackList).getAllByRole("button")).toHaveLength(3);
+  await user.click(screen.getByRole("button", { name: "전체" }));
+  expect(within(fallbackList).getAllByRole("button")).toHaveLength(previewContent.territories.length);
   expect(screen.getByRole("button", { name: "내 팬덤 · ARMY" })).toBeVisible();
-  expect(within(screen.getByRole("region", { name: "현재 목표" })).getByText("ARMY · 부산")).toBeVisible();
+  const objective = screen.getByRole("region", { name: "현재 목표" });
+  expect(objective).toHaveTextContent("내 팬덤 · ARMY");
+  expect(objective).toHaveTextContent("목표 지역 · 부산");
 });
 
 it("searches localized artists and recommends their first home territory", async () => {
@@ -221,7 +227,7 @@ it("switches artists without carrying the previous artist's expedition route", a
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
   await user.click(screen.getByRole("button", { name: "원정 시작" }));
-  expect(await screen.findByRole("heading", { name: "BTS 부산 바다 원정" })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "BTS 부산 공식 공연장 원정" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "영토 지도로" }));
 
   await user.click(screen.getByRole("button", { name: "내 팬덤 · ARMY" }));
@@ -230,8 +236,9 @@ it("switches artists without carrying the previous artist's expedition route", a
   expect(await screen.findByRole("complementary", { name: "수원 전술 패널" })).toBeVisible();
 
   await user.click(screen.getAllByRole("button", { name: "원정" })[0]);
-  expect(await screen.findByRole("heading", { name: "aespa 수원 성곽 원정" })).toBeVisible();
-  expect(screen.queryByRole("heading", { name: "BTS 부산 바다 원정" })).not.toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "수원 지역 응원 원정" })).toBeVisible();
+  expect(screen.getByText("지역을 응원하는 공공 관광 코스")).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "BTS 부산 공식 공연장 원정" })).not.toBeInTheDocument();
 });
 
 it("synchronizes the root document language for persisted and runtime locale changes", async () => {
@@ -248,4 +255,35 @@ it("synchronizes the root document language for persisted and runtime locale cha
   expect(document.documentElement).toHaveAttribute("lang", "ko");
 
   view.unmount();
+});
+
+it("keeps integrated mode on the existing membership entry without personalized demo UI", async () => {
+  const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/v1/fandoms")) {
+      return new Response(JSON.stringify({
+        items: [{ id: "fandom-1", name: "ARMY", artistName: "방탄소년단" }],
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.endsWith("/api/v1/me/season-membership")) {
+      return new Response("null", { status: 200, headers: { "content-type": "application/json" } });
+    }
+    throw new Error(`Unexpected integrated request: ${url}`);
+  });
+  vi.stubGlobal("fetch", fetcher);
+
+  render(<KTownApp mode="integrated" mapConfig={null} />);
+
+  expect(await screen.findByRole("heading", { name: "함께 여행할 팬덤을 선택해 주세요" })).toBeVisible();
+  expect(screen.getByRole("radio", { name: /ARMY.*방탄소년단/ })).toBeVisible();
+  expect(screen.getByRole("button", { name: "이 팬덤으로 시즌 시작" })).toBeEnabled();
+  expect(screen.queryByRole("heading", { name: "응원할 아티스트를 선택하세요" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /내 팬덤/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "데모 초기화" })).not.toBeInTheDocument();
+  expect(screen.queryByText("지역을 응원하는 공공 관광 코스")).not.toBeInTheDocument();
+  expect(window.localStorage.getItem(DEMO_SESSION_KEY)).toBeNull();
+  expect(fetcher.mock.calls.map(([input]) => String(input))).toEqual([
+    "/api/ktown/api/v1/fandoms",
+    "/api/ktown/api/v1/me/season-membership",
+  ]);
 });

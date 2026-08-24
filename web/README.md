@@ -94,6 +94,16 @@ Tourism data는 심사용으로 고정된 **deterministic demo behavior**다. �
 카메라, 결제, 한국관광공사 API 또는 운영 백엔드를 호출하지 않으며 데모 결과를
 실서비스 승인으로 해석하지 않는다.
 
+### Personalized demo contract
+
+- 선택한 fandom은 이 브라우저의 데모 프로필로 저장되며, 확인한 프로필과 체크인
+  진행 상황은 새로고침 뒤에도 유지된다. **Reset demo**만 이 전용 세션을 지운다.
+- 공공 관광지만 포함한 route는 `지역 응원 원정`으로 표시하며 artist 이름이나
+  직접 연관 branding을 붙이지 않는다. Artist-linked route는 검증된 연결 근거가
+  있는 경우에만 별도로 표시한다.
+- 지도 영토는 현재 owner의 고정 color를 사용한다. Stronghold stage는 색을 바꾸지
+  않고 marker diameter로만 구분하며 씨앗 14px, 나무 22px, 랜드마크 32px이다.
+
 커밋에는 예시 키만 둔다. 제한한 실제 키가 제공되지 않은 환경에서는 빌드와
 접근 가능한 영토 목록까지 검증하고, Preview/Production 실지도 smoke verification은
 외부 확인 항목으로 남긴다.

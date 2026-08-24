@@ -59,3 +59,18 @@ it("never reinstates the decorative map grid in preview components", () => {
   expect(previewSource).not.toContain("territory-map .map-grid");
   expect(previewSource).toContain("preview-map-attribution");
 });
+
+it("defines cross-flow profile, ranking, record, mobile, and reduced-motion contracts", () => {
+  for (const selector of [
+    "profile-setup",
+    "profile-menu",
+    "ranking-podium",
+    "ranking-me-card",
+    "record-metrics",
+    "record-timeline",
+  ]) {
+    expect(compactCss).toMatch(new RegExp(`\\.${selector}(?:,[^{]+)?\\{`));
+  }
+  expect(compactCss).toContain("@media(max-width:767px)");
+  expect(compactCss).toContain("@media(prefers-reduced-motion:reduce)");
+});

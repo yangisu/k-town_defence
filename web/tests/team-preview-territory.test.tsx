@@ -57,7 +57,7 @@ it("turns artist choice into a visible tactical recommendation", async () => {
   renderPreviewWithArtist();
 
   const panel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
-  expect(within(panel).getByText(/^(정국|지민)$/)).toBeVisible();
+  expect(within(panel).getByText("지역 연결 스토리 · 지민", { selector: "strong" })).toBeVisible();
   expect(within(panel).getByRole("heading", { name: "부산" })).toBeVisible();
   expect(within(panel).getByText(/^방어 우위$/)).toBeVisible();
   expect(within(panel).getByText(/지역균형 보너스/)).toBeVisible();
@@ -153,18 +153,27 @@ it("routes an empty region to the nearest sourced artist-linked expedition witho
 it.each([
   ["gwangju", "광주"],
   ["yeongwol", "영월"],
-] as const)("keeps %s battle context and actionable projection in the same territory", async (territoryId, territoryName) => {
+] as const)("keeps %s battle context while opening the nearest evidence-eligible route", async (territoryId, territoryName) => {
+  const user = userEvent.setup();
   renderPreviewWithArtist({ selectedTerritoryId: territoryId });
 
   const panel = await screen.findByRole("complementary", { name: `${territoryName} 전술 패널` });
   expect(within(panel).getByRole("heading", { name: territoryName })).toBeVisible();
-  expect(within(panel).getByRole("button", { name: "원정 시작" })).toBeEnabled();
+  const action = within(panel).getByRole("button", { name: "원정 시작" });
+  expect(action).toBeEnabled();
 
-  const projection = within(panel).getByRole("region", { name: `${territoryName} 추천 원정 영향` });
-  expect(projection).toHaveTextContent(territoryId === "yeongwol" ? "지역균형 보너스 1.8×" : "지역균형 보너스 1×");
-  expect(projection).toHaveTextContent(territoryId === "yeongwol" ? "인구감소지역 지정" : "기본 지역균형 배율");
+  const projection = within(panel).getByRole("region", { name: "부산 추천 원정 영향" });
+  expect(projection).toHaveTextContent("지역균형 보너스 1×");
+  expect(projection).toHaveTextContent("기본 지역균형 배율");
   expect(projection).toHaveTextContent(/영토 영향/);
   expect(projection).toHaveTextContent(/팬덤 순위 영향.*#1.*현재 순위 유지/);
+
+  await user.click(action);
+  await waitFor(() => {
+    const saved = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as DemoSession;
+    expect(saved.selectedTerritoryId).toBe("busan");
+    expect(saved.selectedExpeditionId).toBe("bts-busan-artist-linked-expedition");
+  });
 });
 
 it.each([

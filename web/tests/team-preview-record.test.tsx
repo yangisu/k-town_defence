@@ -27,9 +27,9 @@ beforeEach(() => window.localStorage.clear());
 
 function completedEnglishSession() {
   let selected = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
-  selected = demoSessionReducer(selected, { type: "openExpedition", expeditionId: "bts-busan-expedition" });
+  selected = demoSessionReducer(selected, { type: "openExpedition", expeditionId: "busan-regional-support-expedition" });
   selected = demoSessionReducer(selected, { type: "setLocale", locale: "en" });
-  return demoSessionReducer(selected, { type: "completeCheckIn", expeditionId: "bts-busan-expedition", placeId: "busan-1", award: missionAward });
+  return demoSessionReducer(selected, { type: "completeCheckIn", expeditionId: "busan-regional-support-expedition", placeId: "busan-1", award: missionAward });
 }
 
 it("shows completed check-in impact, territory influence, contribution rank, and reward progress", () => {
@@ -56,9 +56,9 @@ it("shows completed check-in impact, territory influence, contribution rank, and
 
 it("keeps two approved stops in history but counts their route as one completed expedition", () => {
   let selected = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
-  selected = demoSessionReducer(selected, { type: "openExpedition", expeditionId: "bts-busan-expedition" });
-  const first = demoSessionReducer(selected, { type: "completeCheckIn", expeditionId: "bts-busan-expedition", placeId: "busan-1", award: missionAward });
-  const second = demoSessionReducer(first, { type: "completeCheckIn", expeditionId: "bts-busan-expedition", placeId: "busan-2", award: missionAward });
+  selected = demoSessionReducer(selected, { type: "openExpedition", expeditionId: "busan-regional-support-expedition" });
+  const first = demoSessionReducer(selected, { type: "completeCheckIn", expeditionId: "busan-regional-support-expedition", placeId: "busan-1", award: missionAward });
+  const second = demoSessionReducer(first, { type: "completeCheckIn", expeditionId: "busan-regional-support-expedition", placeId: "busan-2", award: missionAward });
 
   render(<RecordView locale="ko" session={second} />);
 
@@ -72,7 +72,7 @@ it("resets controller selections in one transition", () => {
     activeTab: "journey" as const,
     selectedRegionId: "busan",
     selectedPlaceId: "busan-1",
-    selectedExpeditionId: "bts-busan-expedition",
+    selectedExpeditionId: "busan-regional-support-expedition",
     checkInPlaceId: "busan-1",
   };
 

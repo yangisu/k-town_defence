@@ -84,16 +84,16 @@ it("changes results when the user filters to contested territory", async () => {
 
 it("shows the resolved fandom owner after a mission captures a territory", () => {
   let ready = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
-  ready = demoSessionReducer(ready, { type: "openExpedition", expeditionId: "bts-busan-expedition" });
+  ready = demoSessionReducer(ready, { type: "openExpedition", expeditionId: "bts-busan-artist-linked-expedition" });
   const tied = demoSessionReducer(ready, {
-    type: "completeCheckIn", expeditionId: "bts-busan-expedition", placeId: "busan-1", award: award(80),
+    type: "completeCheckIn", expeditionId: "bts-busan-artist-linked-expedition", placeId: "busan-1", award: award(80),
   });
   let challenger = demoSessionReducer(tied, { type: "selectArtist", artistId: "blackpink" });
   challenger = demoSessionReducer(challenger, { type: "selectTerritory", territoryId: "busan" });
-  challenger = demoSessionReducer(challenger, { type: "openExpedition", expeditionId: "busan-public-expedition" });
+  challenger = demoSessionReducer(challenger, { type: "openExpedition", expeditionId: "busan-regional-support-expedition" });
   const captured = demoSessionReducer(challenger, {
     type: "completeCheckIn",
-    expeditionId: "busan-public-expedition",
+    expeditionId: "busan-regional-support-expedition",
     placeId: "busan-2",
     award: award(161),
   });
@@ -130,7 +130,7 @@ it("keeps personalized filter IDs and fandom filtering", () => {
     .toEqual(["daegu", "busan", "yeongwol"]);
 });
 
-it("routes an empty region to a sourced same-territory expedition without fabricating evidence", async () => {
+it("routes an empty region to the nearest sourced artist-linked expedition without fabricating evidence", async () => {
   const user = userEvent.setup();
   renderPreviewWithArtist({ selectedTerritoryId: "yeongwol" });
 
@@ -145,8 +145,8 @@ it("routes an empty region to a sourced same-territory expedition without fabric
 
   await waitFor(() => {
     const saved = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as DemoSession;
-    expect(saved.selectedTerritoryId).toBe("yeongwol");
-    expect(saved.selectedExpeditionId).toBe("yeongwol-public-expedition");
+    expect(saved.selectedTerritoryId).toBe("busan");
+    expect(saved.selectedExpeditionId).toBe("bts-busan-artist-linked-expedition");
   });
 });
 

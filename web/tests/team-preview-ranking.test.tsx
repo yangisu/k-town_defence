@@ -9,6 +9,25 @@ import type { FandomStanding, Locale, PreviewTerritory } from "@/features/team-p
 
 const rankingCss = readFileSync(resolve(process.cwd(), "app/globals.css"), "utf8").replace(/\s+/g, "");
 
+function resolvedPaletteColor(token: string) {
+  if (!token.startsWith("--")) return "";
+  const palette = rankingCss.match(/:root\{([^}]*)\}/)?.[1] ?? "";
+  return palette.match(new RegExp(`${token}:(#[0-9a-f]{6})`))?.[1] ?? "";
+}
+
+function relativeLuminance(hex: string) {
+  const channels = [1, 3, 5].map((start) => Number.parseInt(hex.slice(start, start + 2), 16) / 255);
+  return channels.reduce((sum, channel, index) => {
+    const linear = channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    return sum + linear * [0.2126, 0.7152, 0.0722][index];
+  }, 0);
+}
+
+function contrastRatio(foreground: string, background: string) {
+  const [lighter, darker] = [relativeLuminance(foreground), relativeLuminance(background)].sort((a, b) => b - a);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 const fandoms: FandomStanding[] = [
   { artistId: "bts", fandomName: "ARMY", strongholds: 4, validPoints: 8_000, trend: "up" },
   { artistId: "blackpink", fandomName: "BLINK", strongholds: 4, validPoints: 100, trend: "down" },
@@ -61,9 +80,12 @@ const localeCopy: Record<Locale, {
   },
 };
 
-it("keeps selected-fandom text neutral while preserving artist-color ranking accents", () => {
-  expect(rankingCss).toMatch(/\.ranking-row-identityspan\{[^}]*color:var\(--muted\)/);
-  expect(rankingCss).not.toMatch(/\.ranking-row-identityspan\{[^}]*color:var\(--artist-color\)/);
+it("keeps selected-fandom text at AA contrast while preserving artist-color ranking accents", () => {
+  const selectedLabel = [...rankingCss.matchAll(/\.ranking-row-identityspan\{([^}]*)\}/g)].at(-1)?.[1] ?? "";
+  const foregroundToken = selectedLabel.match(/color:var\((--[a-z-]+)\)/)?.[1] ?? "";
+
+  expect(contrastRatio(resolvedPaletteColor(foregroundToken), resolvedPaletteColor("--paper"))).toBeGreaterThanOrEqual(4.5);
+  expect(selectedLabel).not.toContain("--artist-color");
   expect(rankingCss).toMatch(/\.ranking-leaderboardli\.selected\{[^}]*border-color:var\(--artist-color\)/);
   expect(rankingCss).toMatch(/\.ranking-stronghold-barprogress\{[^}]*accent-color:var\(--artist-color\)/);
 });

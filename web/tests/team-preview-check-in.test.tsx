@@ -77,7 +77,7 @@ it("keeps the condensed demo check-in and impact available in English", async ()
   render(<KTownApp mode="demo" mapConfig={null} />);
 
   await user.click(await screen.findByRole("button", { name: "Start expedition" }));
-  expect(await screen.findByRole("heading", { name: "BTS Busan coast expedition" })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "BTS Busan official concert venue expedition" })).toBeVisible();
   expect(screen.getByText("90 min")).toBeVisible();
   expect(screen.getAllByText("Dwell 45 min")).toHaveLength(2);
   expect(document.body).not.toHaveTextContent("90분");

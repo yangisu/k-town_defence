@@ -17,6 +17,7 @@ describe("fan tourism journey", () => {
     await selectDemoMembership(user);
 
     expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
+    await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getByRole("button", { name: /^부산/ }));
     const tacticalPanel = screen.getByRole("complementary", { name: "부산 전술 패널" });
     expect(tacticalPanel).toBeVisible();
     expect(screen.getByRole("link", { name: "연결 근거 출처" })).toBeVisible();

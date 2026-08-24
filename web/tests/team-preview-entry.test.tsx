@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AppShell } from "@/components/app-shell";
@@ -36,6 +36,32 @@ it("confirms a fandom profile before exposing the personalized workspace", async
   expect(screen.queryByText("게스트 데모")).not.toBeInTheDocument();
 });
 
+it("persists initial profile confirmation at the national view across reload", async () => {
+  const user = userEvent.setup();
+  const view = render(<KTownApp mode="demo" mapConfig={null} />);
+
+  await user.click(await screen.findByRole("radio", { name: /방탄소년단.*ARMY/ }));
+  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
+
+  expect(await screen.findByRole("button", { name: "내 팬덤 · ARMY" })).toBeVisible();
+  expect(screen.getByRole("region", { name: "현재 목표" })).toHaveTextContent("목표 지역 · 추천 영토");
+  expect(screen.queryByRole("button", { name: "전국 보기" })).not.toBeInTheDocument();
+  expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getAllByRole("button")
+    .every((button) => button.getAttribute("aria-pressed") === "false")).toBe(true);
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!)).toMatchObject({
+    artistConfirmed: true,
+    selectedArtistId: "bts",
+    selectedTerritoryId: null,
+  }));
+
+  view.unmount();
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  expect(await screen.findByRole("button", { name: "내 팬덤 · ARMY" })).toBeVisible();
+  expect(screen.getByRole("region", { name: "현재 목표" })).toHaveTextContent("목표 지역 · 추천 영토");
+  expect(screen.queryByRole("button", { name: "전국 보기" })).not.toBeInTheDocument();
+});
+
 it("opens in the product shell and enters the service after explicit profile confirmation", async () => {
   const user = userEvent.setup();
   render(<KTownApp mode="demo" mapConfig={null} />);
@@ -55,6 +81,7 @@ it("opens in the product shell and enters the service after explicit profile con
 
   expect(screen.getByRole("heading", { name: "영토 지도" })).toBeVisible();
   expect(screen.getByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).toBeVisible();
+  expect(screen.getByRole("region", { name: "현재 목표" })).toHaveTextContent("목표 지역 · 추천 영토");
   const fallbackList = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
   expect(within(fallbackList).getAllByRole("button")).toHaveLength(3);
   await user.click(screen.getByRole("button", { name: "전체" }));
@@ -62,7 +89,6 @@ it("opens in the product shell and enters the service after explicit profile con
   expect(screen.getByRole("button", { name: "내 팬덤 · ARMY" })).toBeVisible();
   const objective = screen.getByRole("region", { name: "현재 목표" });
   expect(objective).toHaveTextContent("내 팬덤 · ARMY");
-  expect(objective).toHaveTextContent("목표 지역 · 부산");
 });
 
 it("searches localized artists and recommends their first home territory", async () => {
@@ -81,6 +107,7 @@ it("searches localized artists and recommends their first home territory", async
   await user.click(screen.getByRole("radio", { name: /aespa.*MY/i }));
   expect(screen.getByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
+  await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getByRole("button", { name: /^수원/ }));
 
   const recommendation = screen.getByRole("complementary", { name: "수원 전술 패널" });
   expect(within(recommendation).getByRole("heading", { name: "수원" })).toBeVisible();
@@ -198,6 +225,24 @@ it("does not allow reconfirming the current fandom as a profile change", async (
   expect(screen.getByRole("button", { name: "이 팬덤으로 변경" })).toBeDisabled();
 });
 
+it("keeps profile-menu changes on the strongest relevant territory", async () => {
+  const user = userEvent.setup();
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
+  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
+  await user.click(screen.getByRole("button", { name: "내 팬덤 · ARMY" }));
+  await user.click(screen.getByRole("radio", { name: /aespa.*MY/i }));
+  await user.click(screen.getByRole("button", { name: "이 팬덤으로 변경" }));
+
+  expect(await screen.findByRole("complementary", { name: "수원 전술 패널" })).toBeVisible();
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!)).toMatchObject({
+    artistConfirmed: true,
+    selectedArtistId: "aespa",
+    selectedTerritoryId: "suwon",
+  }));
+});
+
 it("does not confirm a selected fandom after search hides its card", async () => {
   const user = userEvent.setup();
   render(<KTownApp mode="demo" mapConfig={null} />);
@@ -253,7 +298,7 @@ it("switches artists without carrying the previous artist's expedition route", a
 
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
-  await user.click(screen.getByRole("button", { name: "원정 시작" }));
+  await user.click(screen.getAllByRole("button", { name: "원정" })[0]);
   expect(await screen.findByRole("heading", { name: "BTS 부산 공식 공연장 원정" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "영토 지도로" }));
 

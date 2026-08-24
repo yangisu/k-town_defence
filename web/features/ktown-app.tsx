@@ -110,6 +110,9 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
     session.dispatch({ type: "changeProfile", artistId });
     setDrawerOpen(false);
   };
+  const confirmArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
+    session.dispatch({ type: "selectArtist", artistId });
+  };
 
   const resetDemo = () => {
     session.reset();
@@ -147,7 +150,7 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
         ) : null}
       >
         {!session.state.artistConfirmed ? (
-          <ProfileSetup locale={session.state.locale} onConfirm={chooseArtist} />
+          <ProfileSetup locale={session.state.locale} onConfirm={confirmArtist} />
         ) : null}
         {session.state.artistConfirmed && session.state.activeTab === "explore" ? (
             <TerritoryView

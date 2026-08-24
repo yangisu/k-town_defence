@@ -169,6 +169,7 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
               fandoms={session.state.fandoms}
               territories={session.state.territories}
               selectedArtistId={session.state.artistConfirmed ? session.state.selectedArtistId : null}
+              onInspectTerritory={(territoryId) => session.dispatch({ type: "selectTerritory", territoryId })}
             />
         ) : null}
         {session.state.artistConfirmed && session.state.activeTab === "journey" ? <RecordView locale={session.state.locale} session={session.state} /> : null}

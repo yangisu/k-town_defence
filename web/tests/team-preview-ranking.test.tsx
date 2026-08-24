@@ -1,119 +1,176 @@
 import { render, screen, within } from "@testing-library/react";
-import { expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { expect, it, vi } from "vitest";
 import { RankingView } from "@/components/team-preview/ranking-view";
-import { createInitialDemoSession, demoSessionReducer } from "@/features/team-preview/demo-session";
-import type { MissionAward } from "@/features/team-preview/game-rules";
-import type { FandomStanding } from "@/features/team-preview/types";
+import { createInitialDemoSession } from "@/features/team-preview/demo-session";
+import type { FandomStanding, Locale, PreviewTerritory } from "@/features/team-preview/types";
 
-it("keeps strongholds ahead of points and shows the selected fandom's exact next-rank gap", () => {
-  const initial = createInitialDemoSession();
-  const fandoms: FandomStanding[] = [
-    { artistId: "bts", fandomName: "ARMY", strongholds: 3, validPoints: 8_000, trend: "up" },
-    { artistId: "blackpink", fandomName: "BLINK", strongholds: 4, validPoints: 100, trend: "down" },
-    { artistId: "seventeen", fandomName: "CARAT", strongholds: 1, validPoints: 1_200, trend: "same" },
-  ];
-  const territories = initial.territories.slice(0, 3).map((territory, index) => ({
+const fandoms: FandomStanding[] = [
+  { artistId: "bts", fandomName: "ARMY", strongholds: 4, validPoints: 8_000, trend: "up" },
+  { artistId: "blackpink", fandomName: "BLINK", strongholds: 4, validPoints: 100, trend: "down" },
+  { artistId: "seventeen", fandomName: "CARAT", strongholds: 1, validPoints: 1_200, trend: "same" },
+];
+
+function contestedTerritories(): PreviewTerritory[] {
+  return createInitialDemoSession().territories.slice(0, 1).map((territory) => ({
     ...territory,
-    standings: index === 0
-      ? [
-          { artistId: "bts" as const, fandomName: "ARMY", validPoints: 920 },
-          { artistId: "blackpink" as const, fandomName: "BLINK", validPoints: 840 },
-        ]
-      : index === 1
-        ? [
-            { artistId: "bts" as const, fandomName: "ARMY", validPoints: 700 },
-            { artistId: "blackpink" as const, fandomName: "BLINK", validPoints: 690 },
-          ]
-        : [
-            { artistId: "bts" as const, fandomName: "ARMY", validPoints: 640 },
-            { artistId: "blackpink" as const, fandomName: "BLINK", validPoints: 600 },
-          ],
+    ownerArtistId: "bts",
+    standings: [
+      { artistId: "bts", fandomName: "ARMY", validPoints: 920 },
+      { artistId: "blackpink", fandomName: "BLINK", validPoints: 840 },
+    ],
   }));
+}
 
+const localeCopy: Record<Locale, {
+  artist: string;
+  myFandom: string;
+  firstRank: string;
+  leaderboard: string;
+  progress: string;
+  contested: string;
+  owner: string;
+  challenger: string;
+  inspect: string;
+}> = {
+  ko: {
+    artist: "방탄소년단",
+    myFandom: "내 팬덤 · ARMY",
+    firstRank: "팬덤 순위 1위",
+    leaderboard: "팬덤 랭킹",
+    progress: "순위 목표 진행률",
+    contested: "접전 중",
+    owner: "점유 팬덤",
+    challenger: "도전 팬덤",
+    inspect: "부산 영토 자세히 보기",
+  },
+  en: {
+    artist: "BTS",
+    myFandom: "My fandom · ARMY",
+    firstRank: "Fandom rank #1",
+    leaderboard: "Fandom ranking",
+    progress: "Ranking goal progress",
+    contested: "Contested now",
+    owner: "Owner",
+    challenger: "Challenger",
+    inspect: "Inspect Busan territory",
+  },
+};
+
+for (const locale of ["ko", "en"] as const) {
+  it(`presents a localized, actionable ranking dashboard in ${locale}`, async () => {
+    const user = userEvent.setup();
+    const onInspectTerritory = vi.fn();
+    const copy = localeCopy[locale];
+    render(
+      <RankingView
+        locale={locale}
+        fandoms={fandoms}
+        territories={contestedTerritories()}
+        selectedArtistId="bts"
+        onInspectTerritory={onInspectTerritory}
+      />,
+    );
+
+    const podium = screen.getByRole("list", { name: /podium|포디움/i });
+    const podiumCards = within(podium).getAllByRole("listitem");
+    expect(podiumCards).toHaveLength(3);
+    expect(podiumCards[0]).toHaveTextContent(copy.firstRank);
+    expect(podiumCards[0]).toHaveTextContent(`${copy.artist} · ARMY`);
+    expect(podiumCards[0]).toHaveTextContent("4");
+    expect(podiumCards[0]).toHaveTextContent("8,000P");
+    expect(podiumCards[0]).toHaveTextContent(locale === "ko" ? "상승" : "Up");
+    expect(podiumCards[0]).toHaveStyle({ "--artist-color": "#7c5ce0" });
+
+    const goal = screen.getByRole("region", { name: copy.myFandom });
+    expect(goal).toHaveTextContent(copy.myFandom);
+    expect(goal).toHaveTextContent(locale === "ko" ? "1위 방어 중" : "Defending first place");
+    expect(within(goal).getByRole("progressbar", { name: copy.progress })).toHaveAttribute("aria-valuenow", "1");
+
+    const leaderboard = screen.getByRole("list", { name: copy.leaderboard });
+    const rows = within(leaderboard).getAllByRole("listitem");
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent(`${copy.artist} · ARMY`);
+    expect(rows[0]).toHaveAttribute("aria-current", "true");
+    expect(within(rows[0]).getByRole("progressbar", { name: /strongholds|거점/i })).toHaveAttribute("aria-valuemax", "4");
+    expect(within(rows[2]).getByRole("progressbar", { name: /strongholds|거점/i })).toHaveAttribute("aria-valuenow", "1");
+
+    const contested = screen.getByRole("list", { name: copy.contested });
+    const territoryAction = within(contested).getByRole("button", { name: copy.inspect });
+    expect(territoryAction).toHaveTextContent(copy.owner);
+    expect(territoryAction).toHaveTextContent(copy.challenger);
+    expect(territoryAction).toHaveTextContent("80P");
+    await user.click(territoryAction);
+    expect(onInspectTerritory).toHaveBeenCalledWith("busan");
+  });
+}
+
+it.each([0, 1, 2])("renders only the %i available podium entries", (available) => {
   render(
     <RankingView
-      locale="ko"
-      fandoms={fandoms}
-      territories={territories}
-      selectedArtistId="bts"
+      locale="en"
+      fandoms={fandoms.slice(0, available)}
+      territories={[]}
+      selectedArtistId={available > 0 ? "bts" : null}
+      onInspectTerritory={() => undefined}
     />,
   );
 
-  const leaderboard = screen.getByRole("list", { name: "팬덤 랭킹" });
-  const rows = within(leaderboard).getAllByRole("listitem");
-  expect(rows[0]).toHaveTextContent("#1");
-  expect(rows[0]).toHaveTextContent("블랙핑크 · BLINK");
-  expect(rows[0]).toHaveTextContent("거점 4개");
-  expect(rows[0]).toHaveTextContent("100P");
-  expect(rows[0]).toHaveTextContent("하락");
-  expect(rows[1]).toHaveAttribute("aria-current", "true");
-  expect(rows[1]).toHaveTextContent("방탄소년단 · ARMY");
-  expect(rows[1]).toHaveTextContent("거점 3개");
-  expect(rows[1]).toHaveTextContent("8,000P");
-  expect(rows[1]).toHaveTextContent("상승");
-
-  expect(screen.getByRole("region", { name: "다음 순위까지" }))
-    .toHaveTextContent("거점 1개 더 확보");
-
-  const contested = within(screen.getByRole("list", { name: "접전 중" })).getAllByRole("listitem");
-  expect(contested.map((item) => item.textContent)).toEqual([
-    expect.stringContaining("대구 · 10P 차이"),
-    expect.stringContaining("광주 · 40P 차이"),
-    expect.stringContaining("부산 · 80P 차이"),
-  ]);
+  expect(within(screen.getByRole("list", { name: "Top three podium" })).queryAllByRole("listitem")).toHaveLength(available);
 });
 
-it("excludes a territory once mission impact widens its gap beyond the shared contested limit", () => {
-  const initial = createInitialDemoSession();
-  const territories = initial.territories.slice(0, 3).map((territory, index) => ({
-    ...territory,
-    standings: index === 0
-      ? [
-          { artistId: "bts" as const, fandomName: "ARMY", validPoints: 920 },
-          { artistId: "blackpink" as const, fandomName: "BLINK", validPoints: 840 },
-        ]
-      : index === 1
-        ? [
-            { artistId: "bts" as const, fandomName: "ARMY", validPoints: 700 },
-            { artistId: "blackpink" as const, fandomName: "BLINK", validPoints: 690 },
-          ]
-        : [
-            { artistId: "bts" as const, fandomName: "ARMY", validPoints: 640 },
-            { artistId: "blackpink" as const, fandomName: "BLINK", validPoints: 600 },
-          ],
-  }));
-  const award: MissionAward = {
-    visit: 260,
-    dwell: 0,
-    localSpend: 0,
-    accommodation: 0,
-    subtotal: 260,
-    multiplier: 1,
-    validPoints: 260,
-    cappedPoints: 260,
-  };
-  let ready = demoSessionReducer({ ...initial, territories }, { type: "selectArtist", artistId: "bts" });
-  ready = demoSessionReducer(ready, { type: "openExpedition", expeditionId: "bts-busan-artist-linked-expedition" });
-  const afterMission = demoSessionReducer(ready, {
-    type: "completeCheckIn",
-    expeditionId: "bts-busan-artist-linked-expedition",
-    placeId: "busan-1",
-    award,
-  });
-
+it("orders the podium and leaderboard by strongholds before valid points", () => {
   render(
     <RankingView
-      locale="ko"
-      fandoms={afterMission.fandoms}
-      territories={afterMission.territories}
+      locale="en"
+      fandoms={[
+        { artistId: "bts", fandomName: "ARMY", strongholds: 3, validPoints: 8_000, trend: "up" },
+        { artistId: "blackpink", fandomName: "BLINK", strongholds: 4, validPoints: 100, trend: "down" },
+      ]}
+      territories={[]}
       selectedArtistId="bts"
+      onInspectTerritory={() => undefined}
     />,
   );
 
-  const contested = within(screen.getByRole("list", { name: "접전 중" })).getAllByRole("listitem");
-  expect(contested.map((item) => item.textContent)).toEqual([
-    expect.stringContaining("대구 · 10P 차이"),
-    expect.stringContaining("광주 · 40P 차이"),
-  ]);
-  expect(within(screen.getByRole("list", { name: "접전 중" })).queryByText(/부산/)).not.toBeInTheDocument();
+  expect(within(screen.getByRole("list", { name: "Top three podium" })).getAllByRole("listitem")[0]).toHaveTextContent("BLACKPINK · BLINK");
+  expect(within(screen.getByRole("list", { name: "Fandom ranking" })).getAllByRole("listitem")[0]).toHaveTextContent("BLACKPINK · BLINK");
+});
+
+it("uses the valid-points tie-break to set a lower-ranked fandom's next stronghold goal", () => {
+  render(
+    <RankingView
+      locale="en"
+      fandoms={[
+        { artistId: "blackpink", fandomName: "BLINK", strongholds: 4, validPoints: 100, trend: "down" },
+        { artistId: "bts", fandomName: "ARMY", strongholds: 3, validPoints: 8_000, trend: "up" },
+      ]}
+      territories={[]}
+      selectedArtistId="bts"
+      onInspectTerritory={() => undefined}
+    />,
+  );
+
+  const goal = screen.getByRole("region", { name: "My fandom · ARMY" });
+  expect(goal).toHaveTextContent("1 more strongholds needed");
+  expect(within(goal).getByRole("progressbar", { name: "Ranking goal progress" })).toHaveAttribute("aria-valuenow", "0.75");
+});
+
+it("requires one more stronghold when a lower-ranked fandom would lose the valid-points tie-break", () => {
+  render(
+    <RankingView
+      locale="en"
+      fandoms={[
+        { artistId: "blackpink", fandomName: "BLINK", strongholds: 4, validPoints: 8_000, trend: "down" },
+        { artistId: "bts", fandomName: "ARMY", strongholds: 3, validPoints: 100, trend: "up" },
+      ]}
+      territories={[]}
+      selectedArtistId="bts"
+      onInspectTerritory={() => undefined}
+    />,
+  );
+
+  const goal = screen.getByRole("region", { name: "My fandom · ARMY" });
+  expect(goal).toHaveTextContent("2 more strongholds needed");
+  expect(within(goal).getByRole("progressbar", { name: "Ranking goal progress" })).toHaveAttribute("aria-valuenow", "0.6");
 });

@@ -249,3 +249,22 @@ it("shows Gwangju regional support before opening the nearest eligible BTS-linke
   expect(within(linkedStop).getByRole("link", { name: "부산아시아드주경기장 출처" }))
     .toHaveAttribute("href", "https://weverse.io/bts/notice/3595");
 }, 20_000);
+
+it("opens the inspected contested territory in Explore from the ranking dashboard", async () => {
+  const user = userEvent.setup();
+  window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({
+    ...createInitialDemoSession(),
+    artistConfirmed: true,
+    selectedArtistId: "bts",
+    selectedTerritoryId: "gwangju",
+    activeTab: "battle",
+    selectedExpeditionId: null,
+  }));
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  const inspectBusan = await screen.findByRole("button", { name: "부산 영토 자세히 보기" });
+  await user.click(inspectBusan);
+
+  expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
+  expect(await screen.findByRole("complementary", { name: "부산 전술 패널" })).toBeVisible();
+}, 20_000);

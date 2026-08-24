@@ -168,9 +168,25 @@ it.each([
 });
 
 it.each([
-  ["ko", ["내 팬덤", "접전 지역", "아티스트 연결", "전체"], ["소유 영토", "가장 강한 소유 영토", "가장 가까운 접전 영토", "추천 행동"], "현재 소유", "전국 보기", "아티스트 변경", "내 팬덤 영토 요약"],
-  ["en", ["My fandom", "Contested", "Artist connection", "All"], ["Owned territories", "Strongest owned territory", "Nearest contested territory", "Recommended action"], "Current owner", "National view", "Change artist", "My fandom territory summary"],
-] as const)("keeps all personalized map fallbacks available in %s", async (locale, filterLabels, summaryLabels, owner, nationalView, changeArtist, summary) => {
+  [
+    "ko",
+    ["내 팬덤", "접전 지역", "아티스트 연결", "전체"],
+    [["소유 영토", "2"], ["가장 강한 소유 영토", "광주"], ["가장 가까운 접전 영토", "광주"], ["추천 행동", "방어 · 광주"]],
+    "현재 소유",
+    "전국 보기",
+    "아티스트 변경",
+    "내 팬덤 영토 요약",
+  ],
+  [
+    "en",
+    ["My fandom", "Contested", "Artist connection", "All"],
+    [["Owned territories", "2"], ["Strongest owned territory", "Gwangju"], ["Nearest contested territory", "Gwangju"], ["Recommended action", "Defend · Gwangju"]],
+    "Current owner",
+    "National view",
+    "Change artist",
+    "My fandom territory summary",
+  ],
+] as const)("keeps every personalized summary value and filter order available in %s", async (locale, filterLabels, summaryPairs, owner, nationalView, changeArtist, summary) => {
   const user = userEvent.setup();
   renderPreviewWithArtist({ locale: locale as "ko" | "en", selectedArtistId: "boynextdoor", selectedTerritoryId: "gwangju" });
 
@@ -179,16 +195,34 @@ it.each([
   expect(filters.map((button) => button.textContent)).toEqual(filterLabels);
   expect(filters[0]).toHaveAttribute("aria-pressed", "true");
   const summaryRegion = screen.getByRole("region", { name: summary });
-  for (const label of summaryLabels) expect(summaryRegion).toHaveTextContent(label);
+  expect([...summaryRegion.querySelectorAll("dt")].map((term) => [
+    term.textContent,
+    term.parentElement?.querySelector("dd")?.textContent,
+  ])).toEqual(summaryPairs);
   expect(screen.getByRole("list")).toHaveTextContent(`${owner} · ONEDOOR`);
   expect(screen.getByRole("button", { name: nationalView })).toBeVisible();
   expect(screen.getByRole("button", { name: changeArtist })).toBeVisible();
 
+  const territoryNames = locale === "ko"
+    ? {
+        busan: "부산", daegu: "대구", gwangju: "광주", gunpo: "군포", seongnam: "성남", geoje: "거제", suwon: "수원", gyeongju: "경주", daejeon: "대전", seoul: "서울", yongin: "용인", goyang: "고양", incheon: "인천", jeju: "제주", ulsan: "울산", siheung: "시흥", cheonan: "천안", pohang: "포항", wonju: "원주", chuncheon: "춘천", uijeongbu: "의정부", namyangju: "남양주", yeongwol: "영월",
+      }
+    : {
+        busan: "Busan", daegu: "Daegu", gwangju: "Gwangju", gunpo: "Gunpo", seongnam: "Seongnam", geoje: "Geoje", suwon: "Suwon", gyeongju: "Gyeongju", daejeon: "Daejeon", seoul: "Seoul", yongin: "Yongin", goyang: "Goyang", incheon: "Incheon", jeju: "Jeju", ulsan: "Ulsan", siheung: "Siheung", cheonan: "Cheonan", pohang: "Pohang", wonju: "Wonju", chuncheon: "Chuncheon", uijeongbu: "Uijeongbu", namyangju: "Namyangju", yeongwol: "Yeongwol",
+      };
+  const expectedTerritoryIds = [
+    ["gwangju", "wonju"],
+    ["gwangju", "busan", "suwon", "wonju", "yeongwol", "geoje", "gyeongju", "goyang", "gunpo", "namyangju", "daegu", "daejeon", "seoul", "seongnam", "siheung", "yongin", "ulsan", "uijeongbu", "incheon", "jeju", "cheonan", "chuncheon", "pohang"],
+    ["gwangju", "busan", "suwon", "wonju"],
+    ["gwangju", "busan", "suwon", "wonju", "yeongwol", "geoje", "gyeongju", "goyang", "gunpo", "namyangju", "daegu", "daejeon", "seoul", "seongnam", "siheung", "yongin", "ulsan", "uijeongbu", "incheon", "jeju", "cheonan", "chuncheon", "pohang"],
+  ] as const;
   const list = screen.getByRole("list");
-  const lengths: number[] = [];
-  for (const filter of filterLabels) {
+  for (const [index, filter] of filterLabels.entries()) {
     await user.click(screen.getByRole("button", { name: filter }));
-    lengths.push(within(list).getAllByRole("button").length);
+    const actualTerritoryIds = within(list).getAllByRole("button").map((button) => {
+      const name = button.querySelector("strong")?.textContent;
+      return Object.entries(territoryNames).find(([, territoryName]) => territoryName === name)?.[0];
+    });
+    expect(actualTerritoryIds).toEqual(expectedTerritoryIds[index]);
   }
-  expect(lengths).toEqual([2, 23, 4, 23]);
 });

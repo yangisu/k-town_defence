@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TerritoryMap } from "@/components/team-preview/territory-map";
 import { previewContent } from "@/features/team-preview/content";
 import { createInitialDemoSession } from "@/features/team-preview/demo-session";
@@ -89,6 +89,10 @@ const config: MapConfig = {
 
 beforeEach(() => {
   mapHarness.instances.length = 0;
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 it("uses Amazon Location and keeps map selection equivalent to the territory list", async () => {
@@ -460,6 +464,13 @@ it("recolors a captured boundary and stronghold without recreating the map", () 
 it("keeps nationwide ownership on semantic layers while filtering the accessible list and resetting the camera", async () => {
   const geoJson = JSON.parse(readFileSync(resolve(process.cwd(), "public/data/preview-territories.geojson"), "utf8"));
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => geoJson }));
+  const expectedOwnerColors = {
+    busan: "#7c5ce0", daegu: "#7c5ce0", gwangju: "#59a85f", gunpo: "#f25da5", seongnam: "#f25da5",
+    geoje: "#d66d55", suwon: "#4c66d6", gyeongju: "#d66d55", daejeon: "#d2468d", seoul: "#d960a8",
+    yongin: "#2e9d78", goyang: "#2e9d78", incheon: "#d2468d", jeju: "#d2468d", ulsan: "#f28a45",
+    siheung: "#f28a45", cheonan: "#3a9edb", pohang: "#3a9edb", wonju: "#59a85f", chuncheon: "#4b9de0",
+    uijeongbu: "#d960a8", namyangju: "#45a9ad", yeongwol: "#7c5ce0",
+  } as const;
   const session = {
     ...createInitialDemoSession(),
     artistConfirmed: true,
@@ -487,11 +498,22 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
     .toEqual(["match", ["get", "stage"], "seed", 7, "tree", 11, "landmark", 16, 7]);
   expect(map.layers.find((layer) => layer.id === "preview-selected-fandom-outline")?.filter)
     .toEqual(["==", ["get", "ownerArtistId"], "bts"]);
+  expect(map.layers.find((layer) => layer.id === "preview-territory-selected"))
+    .toMatchObject({ type: "line", paint: { "line-color": "#16231d", "line-width": 4 } });
   expect(JSON.stringify((fill?.paint as Record<string, unknown>)?.["fill-color"])).toMatch(/#7c5ce0.*#f25da5/);
 
-  await waitFor(() => expect(map.sources.get("preview-territory-boundaries")?.setData).toHaveBeenCalledWith(expect.objectContaining({
-    features: expect.arrayContaining([expect.objectContaining({ properties: expect.objectContaining({ ownerArtistId: "bts" }) })]),
-  })));
+  await waitFor(() => expect(map.sources.get("preview-territory-boundaries")?.setData).toHaveBeenCalled());
+  const boundaryCollection = map.sources.get("preview-territory-boundaries")?.setData.mock.calls.at(-1)?.[0] as {
+    features: Array<{ id: string; properties: { ownerArtistId: string; ownerColor: string } }>;
+  };
+  expect(new Set(boundaryCollection.features.map((feature) => feature.id))).toEqual(new Set(Object.keys(expectedOwnerColors)));
+  expect(boundaryCollection.features).toHaveLength(23);
+  expect(Object.fromEntries(boundaryCollection.features.map((feature) => [feature.id, feature.properties.ownerColor])))
+    .toEqual(expectedOwnerColors);
+  expect(map.fitBounds).toHaveBeenLastCalledWith(
+    [[128.9504, 35.0436], [129.1993, 35.2708]],
+    { padding: { top: 56, right: 420, bottom: 56, left: 56 }, maxZoom: 9, duration: 700 },
+  );
 
   rerender(
     <TerritoryMap
@@ -503,7 +525,45 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
       onSelectTerritory={() => undefined}
     />,
   );
-  await waitFor(() => expect(map.fitBounds).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ maxZoom: 9, duration: 700 })));
+  await waitFor(() => expect(map.fitBounds).toHaveBeenLastCalledWith(
+    [[128.4813, 35.7683], [128.7623, 36.0093]],
+    { padding: { top: 56, right: 420, bottom: 56, left: 56 }, maxZoom: 9, duration: 700 },
+  ));
+
+  const initialInnerWidth = window.innerWidth;
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: 640 });
+  vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false }));
+  rerender(
+    <TerritoryMap
+      mapConfig={config}
+      session={{ ...session, selectedTerritoryId: "gwangju" }}
+      listedTerritories={session.territories.filter((territory) => territory.id === "gwangju")}
+      activeFilter="all"
+      selectedTerritoryId="gwangju"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+  await waitFor(() => expect(map.fitBounds).toHaveBeenLastCalledWith(
+    [[126.8229, 35.1501], [127.0058, 35.2546]],
+    { padding: 32, maxZoom: 9, duration: 700 },
+  ));
+
+  vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
+  rerender(
+    <TerritoryMap
+      mapConfig={config}
+      session={{ ...session, selectedTerritoryId: "busan" }}
+      listedTerritories={session.territories.filter((territory) => territory.id === "busan")}
+      activeFilter="all"
+      selectedTerritoryId="busan"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+  await waitFor(() => expect(map.fitBounds).toHaveBeenLastCalledWith(
+    [[128.9504, 35.0436], [129.1993, 35.2708]],
+    { padding: 32, maxZoom: 9, duration: 0 },
+  ));
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: initialInnerWidth });
   await userEvent.setup().click(screen.getByRole("button", { name: "전국 보기" }));
-  expect(map.fitBounds).toHaveBeenLastCalledWith([[124.5, 32.8], [131.9, 38.9]], { duration: 700 });
+  expect(map.fitBounds).toHaveBeenLastCalledWith([[124.5, 32.8], [131.9, 38.9]], { duration: 0 });
 });

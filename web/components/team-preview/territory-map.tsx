@@ -141,7 +141,15 @@ function ownerBoundaryCollection(collection: { type: string; features: unknown[]
     features: collection.features.map((feature) => {
       const candidate = feature as { id?: string | number; properties?: Record<string, unknown> };
       const id = String(candidate.id ?? candidate.properties?.id ?? "");
-      return { ...candidate, properties: { ...candidate.properties, ownerArtistId: owners.get(id) ?? null } };
+      const ownerArtistId = owners.get(id) ?? null;
+      return {
+        ...candidate,
+        properties: {
+          ...candidate.properties,
+          ownerArtistId,
+          ownerColor: ownerArtistId ? ownerColor(ownerArtistId, ownerColors) : null,
+        },
+      };
     }),
   };
 }

@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import Page from "@/app/page";
 
 async function selectDemoMembership(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole("button", { name: "아티스트 선택" }));
-  await user.click(screen.getByRole("radio", { name: /BTS.*ARMY/ }));
+  await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
+  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
 }
 
 describe("fan tourism journey", () => {
@@ -22,11 +22,11 @@ describe("fan tourism journey", () => {
     expect(screen.getByRole("link", { name: "연결 근거 출처" })).toBeVisible();
 
     await user.click(within(tacticalPanel).getByRole("button", { name: "원정 시작" }));
-    expect(await screen.findByRole("heading", { name: "BTS 부산 바다 원정" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "BTS 부산 공식 공연장 원정" })).toBeVisible();
+    expect(screen.getByText("부산아시아드주경기장")).toBeVisible();
     expect(screen.getByText("감천문화마을")).toBeVisible();
-    expect(screen.getByText("자갈치시장")).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: "감천문화마을 체크인" }));
+    await user.click(screen.getByRole("button", { name: "부산아시아드주경기장 체크인" }));
     expect(await screen.findByRole("heading", { name: "현장 체크인" })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "데모 인증 진행" }));
     await user.click(screen.getByRole("checkbox", { name: "로컬 소비 인증 포함" }));
@@ -48,6 +48,7 @@ describe("fan tourism journey", () => {
     await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
     expect(await screen.findByRole("heading", { name: "내 기록" })).toBeVisible();
     expect(screen.getByText("완료한 원정").parentElement).toHaveTextContent("완료한 원정0");
-    expect(screen.getByRole("list", { name: "승인된 체크인" })).toBeEmptyDOMElement();
+    expect(screen.getByRole("heading", { name: "아직 원정 기록이 없어요" })).toBeVisible();
+    expect(screen.queryByRole("list", { name: "활동 타임라인" })).not.toBeInTheDocument();
   });
 });

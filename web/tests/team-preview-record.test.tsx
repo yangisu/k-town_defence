@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
-import { RecordView } from "@/components/team-preview/record-view";
+import { contributionRank, RecordView } from "@/components/team-preview/record-view";
 import { appReducer, initialAppState } from "@/features/app-controller";
 import {
   DEMO_SESSION_KEY,
@@ -32,38 +32,108 @@ function completedEnglishSession() {
   return demoSessionReducer(selected, { type: "completeCheckIn", expeditionId: "busan-regional-support-expedition", placeId: "busan-1", award: missionAward });
 }
 
-it("shows completed check-in impact, territory influence, contribution rank, and reward progress", () => {
-  render(<RecordView locale="ko" session={{ ...completedEnglishSession(), locale: "ko" }} />);
-
-  expect(screen.getByRole("heading", { name: "내 기록" })).toBeVisible();
-  expect(screen.getByText("완료한 원정").parentElement).toHaveTextContent("완료한 원정0");
-  expect(screen.getByText("유효 포인트").parentElement).toHaveTextContent("유효 포인트260P");
-  expect(screen.getByText("내 기여 순위").parentElement).toHaveTextContent("내 기여 순위#123");
-  expect(screen.getByText("영향을 준 영토").parentElement).toHaveTextContent("영향을 준 영토1");
-
-  const history = within(screen.getByRole("list", { name: "승인된 체크인" })).getByRole("listitem");
-  expect(history).toHaveTextContent("감천문화마을");
-  expect(history).toHaveTextContent("부산");
-  expect(history).toHaveTextContent("260P");
-  expect(history).toHaveTextContent("나무 거점");
-
-  const rewards = screen.getByRole("list", { name: "획득 보상" });
-  expect(within(rewards).getByText("씨앗 배지 · 획득")).toBeVisible();
-  expect(within(rewards).getByText("나무 배지 · 획득")).toBeVisible();
-  expect(within(rewards).getByText("랜드마크 배지 · 잠김")).toBeVisible();
-  expect(screen.getByRole("button", { name: "캐릭터 꾸미기 · 추후 제공" })).toBeDisabled();
-});
-
-it("keeps two approved stops in history but counts their route as one completed expedition", () => {
+it.each([
+  {
+    locale: "ko" as const,
+    seasonSummary: "내 시즌 요약",
+    contributionPoints: "기여 포인트",
+    contributionRank: "내 기여 순위",
+    completed: "완료한 원정",
+    checkIns: "승인된 체크인",
+    territories: "영향을 준 영토",
+    highestStage: "최고 거점 단계",
+    growth: "성장 단계",
+    timeline: "활동 타임라인",
+    rewards: "획득 보상",
+    seedReward: "씨앗 배지 · 획득",
+    treeReward: "나무 배지 · 획득",
+    landmarkReward: "랜드마크 배지 · 획득",
+    landmark: "랜드마크 거점",
+  },
+  {
+    locale: "en" as const,
+    seasonSummary: "My season summary",
+    contributionPoints: "Contribution points",
+    contributionRank: "Contribution rank",
+    completed: "Completed expeditions",
+    checkIns: "Approved check-ins",
+    territories: "Territories influenced",
+    highestStage: "Highest stronghold stage",
+    growth: "Growth track",
+    timeline: "Activity timeline",
+    rewards: "Rewards earned",
+    seedReward: "Seed badge · Unlocked",
+    treeReward: "Tree badge · Unlocked",
+    landmarkReward: "Landmark badge · Unlocked",
+    landmark: "Landmark stronghold",
+  },
+])("renders the populated season dashboard in $locale", ({ locale, seasonSummary, contributionPoints, contributionRank: rankLabel, completed, checkIns, territories, highestStage, growth, timeline, rewards, seedReward, treeReward, landmarkReward, landmark }) => {
   let selected = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
   selected = demoSessionReducer(selected, { type: "openExpedition", expeditionId: "busan-regional-support-expedition" });
   const first = demoSessionReducer(selected, { type: "completeCheckIn", expeditionId: "busan-regional-support-expedition", placeId: "busan-1", award: missionAward });
   const second = demoSessionReducer(first, { type: "completeCheckIn", expeditionId: "busan-regional-support-expedition", placeId: "busan-2", award: missionAward });
+  const landmarkRecord = { ...second.approvedCheckIns[1], strongholdStage: "landmark" as const };
+  const session = {
+    ...second,
+    locale,
+    approvedCheckIns: [{ ...second.approvedCheckIns[0], strongholdStage: "seed" as const }, { ...second.approvedCheckIns[1], strongholdStage: "tree" as const }, landmarkRecord],
+  };
 
-  render(<RecordView locale="ko" session={second} />);
+  render(<RecordView locale={locale} session={session} onExploreTerritories={vi.fn()} />);
 
-  expect(screen.getByText("완료한 원정").parentElement).toHaveTextContent("완료한 원정1");
-  expect(within(screen.getByRole("list", { name: "승인된 체크인" })).getAllByRole("listitem")).toHaveLength(2);
+  expect(screen.getByRole("region", { name: seasonSummary })).toHaveTextContent(`${contributionPoints}780P`);
+  expect(screen.getByRole("region", { name: seasonSummary })).toHaveTextContent(`${rankLabel} #113`);
+  const metrics = screen.getByRole("region", { name: seasonSummary });
+  expect(within(metrics).getByText(completed).parentElement).toHaveTextContent("1");
+  expect(within(metrics).getByText(checkIns).parentElement).toHaveTextContent("3");
+  expect(within(metrics).getByText(territories).parentElement).toHaveTextContent("1");
+  expect(within(metrics).getByText(highestStage).parentElement).toHaveTextContent(landmark);
+  expect(within(screen.getByRole("list", { name: growth })).getAllByRole("listitem")).toHaveLength(3);
+  const activity = within(screen.getByRole("list", { name: timeline })).getAllByRole("listitem");
+  expect(activity).toHaveLength(3);
+  expect(activity[0]).toHaveTextContent(landmark);
+  expect(activity[2]).toHaveTextContent(locale === "ko" ? "씨앗 거점" : "Seed stronghold");
+  const rewardCollection = screen.getByRole("list", { name: rewards });
+  expect(within(rewardCollection).getByText(seedReward)).toBeVisible();
+  expect(within(rewardCollection).getByText(treeReward)).toBeVisible();
+  expect(within(rewardCollection).getByText(landmarkReward)).toBeVisible();
+});
+
+it.each([
+  { locale: "ko" as const, empty: "아직 원정 기록이 없어요", action: "영토 둘러보기", seed: "씨앗 배지 · 잠김", tree: "나무 배지 · 잠김", landmark: "랜드마크 배지 · 잠김" },
+  { locale: "en" as const, empty: "No expedition record yet", action: "Explore territories", seed: "Seed badge · Locked", tree: "Tree badge · Locked", landmark: "Landmark badge · Locked" },
+])("offers a working empty-state action and keeps every reward locked in $locale", async ({ locale, empty, action, seed, tree, landmark }) => {
+  const user = userEvent.setup();
+  const onExploreTerritories = vi.fn();
+
+  render(<RecordView locale={locale} session={{ ...createInitialDemoSession(), locale }} onExploreTerritories={onExploreTerritories} />);
+
+  expect(screen.getByRole("heading", { name: empty })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: action }));
+  expect(onExploreTerritories).toHaveBeenCalledOnce();
+  expect(screen.getByText(seed)).toBeVisible();
+  expect(screen.getByText(tree)).toBeVisible();
+  expect(screen.getByText(landmark)).toBeVisible();
+});
+
+it.each([
+  [0, 128],
+  [49, 128],
+  [50, 127],
+])("derives contribution rank at %i points", (points, expectedRank) => {
+  expect(contributionRank(points)).toBe(expectedRank);
+});
+
+it.each([
+  ["seed" as const, "씨앗 배지 · 획득", "나무 배지 · 잠김"],
+  ["tree" as const, "나무 배지 · 획득", "랜드마크 배지 · 잠김"],
+  ["landmark" as const, "랜드마크 배지 · 획득", "랜드마크 배지 · 획득"],
+])("unlocks rewards through the %s stronghold transition", (stage, unlocked, lockedOrUnlocked) => {
+  const completed = completedEnglishSession();
+  render(<RecordView locale="ko" session={{ ...completed, approvedCheckIns: [{ ...completed.approvedCheckIns[0], strongholdStage: stage }] }} onExploreTerritories={vi.fn()} />);
+
+  expect(screen.getByText(unlocked)).toBeVisible();
+  expect(screen.getByText(lockedOrUnlocked)).toBeVisible();
 });
 
 it("resets controller selections in one transition", () => {
@@ -99,7 +169,7 @@ it("confirms replay, removes only the demo session, keeps locale, and restores t
   window.localStorage.setItem("ktown-locale-neighbor", "preserve-me");
   render(<KTownApp mode="demo" mapConfig={null} />);
 
-  expect(await screen.findByText("ARMY · #1")).toBeVisible();
+  expect(await screen.findByRole("button", { name: "My fandom · ARMY" })).toBeVisible();
   await waitFor(() => expect(window.localStorage.getItem(LEGACY_DEMO_SESSION_KEY)).toBeNull());
   await user.click(screen.getAllByRole("button", { name: "My Record" })[0]);
   expect(screen.getByRole("heading", { name: "My Record" })).toBeVisible();
@@ -111,10 +181,7 @@ it("confirms replay, removes only the demo session, keeps locale, and restores t
   expect(window.localStorage.getItem(DEMO_SESSION_KEY)).not.toBeNull();
   await user.click(within(dialog).getByRole("button", { name: "Reset" }));
 
-  expect(await screen.findByRole("heading", { name: "Territory Map" })).toBeVisible();
-  expect(screen.getByText("1. Choose an artist")).toBeVisible();
-  expect(screen.getByText("2. Review a territory")).toBeVisible();
-  expect(screen.getByText("3. Start the first expedition")).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "Choose an artist to support" })).toBeVisible();
   expect(screen.queryByText("ARMY · #1")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "EN" })).toHaveAttribute("aria-pressed", "true");
   expect(window.localStorage.getItem("ktown-locale-neighbor")).toBe("preserve-me");

@@ -172,7 +172,13 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
               onInspectTerritory={(territoryId) => session.dispatch({ type: "selectTerritory", territoryId })}
             />
         ) : null}
-        {session.state.artistConfirmed && session.state.activeTab === "journey" ? <RecordView locale={session.state.locale} session={session.state} /> : null}
+        {session.state.artistConfirmed && session.state.activeTab === "journey" ? (
+          <RecordView
+            locale={session.state.locale}
+            session={session.state}
+            onExploreTerritories={() => session.dispatch({ type: "changeTab", tab: "explore" })}
+          />
+        ) : null}
         <ArtistDrawer
           open={drawerOpen}
           locale={session.state.locale}

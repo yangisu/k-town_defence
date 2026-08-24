@@ -85,7 +85,7 @@ it("completes the bilingual BTS demo journey, persists its impact, and resets on
   await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
   expect(screen.getByRole("heading", { name: "내 기록" })).toBeVisible();
   expect(screen.getByText("완료한 원정").parentElement).toHaveTextContent("완료한 원정0");
-  expect(within(screen.getByRole("list", { name: "승인된 체크인" })).getByText("부산아시아드주경기장")).toBeVisible();
+  expect(within(screen.getByRole("list", { name: "활동 타임라인" })).getByText("부산아시아드주경기장")).toBeVisible();
 
   view.unmount();
   render(<KTownApp mode="demo" mapConfig={null} />);
@@ -95,7 +95,7 @@ it("completes the bilingual BTS demo journey, persists its impact, and resets on
   expect(within(persistedRanking).getByRole("listitem", { current: true })).toHaveTextContent("19,820P");
   await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
   expect(await screen.findByText("부산아시아드주경기장")).toBeVisible();
-  expect(screen.getByText("유효 포인트").parentElement).toHaveTextContent("유효 포인트260P");
+  expect(screen.getByRole("region", { name: "내 시즌 요약" })).toHaveTextContent("기여 포인트260P");
 
   window.localStorage.setItem("ktown-neighbor", "preserve-me");
   await user.click(screen.getByRole("button", { name: "데모 초기화" }));
@@ -195,7 +195,7 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   await user.click(screen.getAllByRole("button", { name: "My Record" })[0]);
   expect(screen.getByRole("heading", { name: "My Record" })).toBeVisible();
   expect(screen.getByText("Completed expeditions").parentElement).toHaveTextContent("Completed expeditions0");
-  expect(within(screen.getByRole("list", { name: "Approved check-ins" })).getByText("Busan Asiad Main Stadium")).toBeVisible();
+  expect(within(screen.getByRole("list", { name: "Activity timeline" })).getByText("Busan Asiad Main Stadium")).toBeVisible();
   expect(screen.queryByRole("heading", { name: "내 기록" })).not.toBeInTheDocument();
 
   view.unmount();
@@ -207,7 +207,7 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   expect(within(persistedRanking).getByRole("listitem", { current: true })).toHaveTextContent("19,820P");
   await user.click(screen.getAllByRole("button", { name: "My Record" })[0]);
   expect(await screen.findByText("Busan Asiad Main Stadium")).toBeVisible();
-  expect(screen.getByText("Valid points").parentElement).toHaveTextContent("Valid points260P");
+  expect(screen.getByRole("region", { name: "My season summary" })).toHaveTextContent("Contribution points260P");
 
   window.localStorage.setItem("ktown-english-neighbor", "preserve-me");
   await user.click(screen.getByRole("button", { name: "Reset demo" }));
@@ -220,6 +220,30 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   expect(window.localStorage.getItem("ktown-english-neighbor")).toBe("preserve-me");
   await waitFor(() => expect(window.localStorage.getItem(DEMO_SESSION_KEY)).toBeNull());
 }, 20_000);
+
+it("returns an empty season dashboard to Explore without resetting the confirmed profile or selected territory", async () => {
+  const user = userEvent.setup();
+  window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({
+    ...createInitialDemoSession(),
+    artistConfirmed: true,
+    selectedArtistId: "bts",
+    selectedTerritoryId: "busan",
+    activeTab: "journey",
+  }));
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  expect(await screen.findByRole("heading", { name: "아직 원정 기록이 없어요" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "영토 둘러보기" }));
+
+  expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "내 팬덤 · ARMY" })).toBeVisible();
+  await waitFor(() => {
+    const saved = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as DemoSession;
+    expect(saved.selectedArtistId).toBe("bts");
+    expect(saved.selectedTerritoryId).toBe("busan");
+    expect(saved.approvedCheckIns).toEqual([]);
+  });
+});
 
 it("shows Gwangju regional support before opening the nearest eligible BTS-linked expedition", async () => {
   const user = userEvent.setup();

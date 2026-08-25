@@ -506,32 +506,39 @@ it("renders translucent territory ownership with artist identity inside each str
   expect(source.features.every((feature) => feature.properties.artistLabel.length > 0)).toBe(true);
 });
 
-it("adds a translucent selected-area fill and stage-specific stronghold rings", () => {
+it("fills the selected territory above the base fill and uses fandom-colored stronghold rings", () => {
   const session = createInitialDemoSession();
   render(
     <TerritoryMap
       mapConfig={config}
       session={session}
-      selectedTerritoryId="seongnam"
+      selectedTerritoryId="gunpo"
       onSelectTerritory={() => undefined}
     />,
   );
   const map = mapHarness.instances[0];
   map.emit("load");
 
+  const layerIds = map.layers.map((layer) => layer.id);
+  expect(layerIds.indexOf("preview-territory-fill"))
+    .toBeLessThan(layerIds.indexOf("preview-territory-selected"));
+  expect(layerIds.indexOf("preview-territory-selected"))
+    .toBeLessThan(layerIds.indexOf("preview-territory-outline"));
+  expect(layerIds.indexOf("preview-territory-selected-outline"))
+    .toBeLessThan(layerIds.indexOf("preview-stronghold-symbols"));
   expect(map.layers.find((layer) => layer.id === "preview-territory-selected")).toMatchObject({
     type: "fill",
-    filter: ["==", ["id"], "seongnam"],
-    paint: { "fill-color": ["get", "ownerColor"], "fill-opacity": 0.22 },
+    filter: ["==", ["id"], "gunpo"],
+    paint: { "fill-color": ["get", "ownerColor"], "fill-opacity": 0.38 },
   });
   expect(map.layers.find((layer) => layer.id === "preview-territory-selected-outline")).toMatchObject({
     type: "line",
-    filter: ["==", ["id"], "seongnam"],
+    filter: ["==", ["id"], "gunpo"],
     paint: { "line-color": "#16231d", "line-width": 4 },
   });
   expect(map.layers.find((layer) => layer.id === "preview-stronghold-symbols")?.paint).toEqual(expect.objectContaining({
-    "circle-stroke-width": ["match", ["get", "stage"], "seed", 2, "tree", 3, "landmark", 4, 2],
-    "circle-stroke-color": ["match", ["get", "stage"], "seed", "#fffef9", "tree", "#16231d", "landmark", "#dfff59", "#fffef9"],
+    "circle-stroke-color": ["get", "ownerColor"],
+    "circle-stroke-width": 2,
   }));
 });
 
@@ -602,7 +609,7 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
   expect(map.layers.find((layer) => layer.id === "preview-selected-fandom-outline")?.paint)
     .toEqual({ "line-color": ["get", "ownerColor"], "line-width": 2.5 });
   expect(map.layers.find((layer) => layer.id === "preview-territory-selected"))
-    .toMatchObject({ type: "fill", paint: { "fill-color": ["get", "ownerColor"], "fill-opacity": 0.22 } });
+    .toMatchObject({ type: "fill", paint: { "fill-color": ["get", "ownerColor"], "fill-opacity": 0.38 } });
   expect(map.layers.find((layer) => layer.id === "preview-territory-selected-outline"))
     .toMatchObject({ type: "line", paint: { "line-color": "#16231d", "line-width": 4 } });
   expect(JSON.stringify((fill?.paint as Record<string, unknown>)?.["fill-color"])).toMatch(/#7c5ce0.*#f25da5/);
@@ -629,7 +636,7 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
   );
   await waitFor(() => expect(map.fitBounds).toHaveBeenLastCalledWith(
     [[128.4813, 35.7683], [128.7623, 36.0093]],
-    { padding: { top: 56, right: 420, bottom: 56, left: 56 }, maxZoom: 9, duration: 700 },
+    { padding: 56, maxZoom: 9, duration: 700 },
   ));
 
   const allOpacity = map.setPaintProperty.mock.calls

@@ -264,7 +264,7 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
         type: "fill",
         source: boundarySourceId,
         filter: ["==", ["id"], selectedTerritoryIdRef.current ?? ""],
-        paint: { "fill-color": ["get", "ownerColor"], "fill-opacity": 0.22 },
+        paint: { "fill-color": ["get", "ownerColor"], "fill-opacity": 0.38 },
       });
       map.addLayer({
         id: "preview-territory-outline",
@@ -323,8 +323,8 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
         paint: {
           "circle-color": ["get", "ownerColor"],
           "circle-radius": strongholdRadiusExpression,
-          "circle-stroke-color": ["match", ["get", "stage"], "seed", "#fffef9", "tree", "#16231d", "landmark", "#dfff59", "#fffef9"],
-          "circle-stroke-width": ["match", ["get", "stage"], "seed", 2, "tree", 3, "landmark", 4, 2],
+          "circle-stroke-color": ["get", "ownerColor"],
+          "circle-stroke-width": 2,
           "circle-opacity": 0.68,
         },
       });
@@ -415,7 +415,7 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
       const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
       const compact = window.innerWidth < 768;
       map.fitBounds(bounds, {
-        padding: compact ? 32 : { top: 56, right: 420, bottom: 56, left: 56 },
+        padding: compact ? 32 : 56,
         maxZoom: 9,
         duration: reducedMotion ? 0 : 700,
       });

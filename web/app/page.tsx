@@ -1,4 +1,5 @@
 import { KTownApp } from "@/features/ktown-app";
+import { DemoEntryGate } from "@/components/demo-entry/demo-entry-gate";
 import { readMapConfig } from "@/lib/map-config";
 import type { ServiceMode } from "@/lib/service-factory";
 
@@ -7,5 +8,6 @@ export default function Page() {
     ? "integrated"
     : "demo";
   const mapConfig = readMapConfig(process.env);
-  return <KTownApp mode={mode} mapConfig={mapConfig} />;
+  const app = <KTownApp mode={mode} mapConfig={mapConfig} />;
+  return mode === "demo" ? <DemoEntryGate>{app}</DemoEntryGate> : app;
 }

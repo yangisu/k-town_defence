@@ -86,3 +86,10 @@ it("defines cross-flow profile, ranking, record, mobile, and reduced-motion cont
   expect(compactCss).toContain("@media(max-width:767px)");
   expect(compactCss).toContain("@media(prefers-reduced-motion:reduce)");
 });
+
+it("keeps the demo entry screens full-height and mobile-safe", () => {
+  expect(compactCss).toMatch(/\.demo-entry-screen\{[^}]*min-height:100(?:svh|vh)/);
+  expect(compactCss).toMatch(/\.demo-login-card\{[^}]*width:min\(100%,420px\)/);
+  expect(compactCss).toMatch(/\.demo-brand-transition\{[^}]*position:fixed[^}]*inset:0/);
+  expect(compactCss).toMatch(/@media\(prefers-reduced-motion:reduce\)\{[^}]*\.demo-brand-lockup/);
+});

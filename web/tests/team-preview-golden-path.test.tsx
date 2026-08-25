@@ -19,6 +19,8 @@ it("completes the personalized BTS territory journey and persists its profile an
   expect(screen.getByRole("button", { name: "내 팬덤 · ARMY" })).toBeVisible();
   expect(screen.getByRole("heading", { name: "영토 지도" })).toBeVisible();
   expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "auto" });
+  expect(screen.getByRole("heading", { name: "2. 추천 영토 확인" })).toBeVisible();
+  expect(screen.getByText("요약 카드나 지도에서 공략할 영토를 선택하세요.")).toBeVisible();
 
   const ownedList = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
   await user.click(within(ownedList).getByRole("button", { name: /^부산/ }));

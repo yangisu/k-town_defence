@@ -10,7 +10,7 @@ interface Props {
 }
 
 export function StartPanel({ locale, artist, recommendedTerritory, artistConfirmed, onChooseArtist }: Props) {
-  if (!artistConfirmed || !artist || !recommendedTerritory) {
+  if (!artistConfirmed || !artist) {
     return (
       <aside className="start-panel" aria-label={t(locale, "selectArtistStep")}>
         <span>{t(locale, "seasonName")}</span>
@@ -21,6 +21,22 @@ export function StartPanel({ locale, artist, recommendedTerritory, artistConfirm
         </button>
         <ol>
           <li>{t(locale, "selectTerritoryStep")}</li>
+          <li>{t(locale, "startExpeditionStep")}</li>
+        </ol>
+      </aside>
+    );
+  }
+
+  if (!recommendedTerritory) {
+    return (
+      <aside className="start-panel recommended" aria-label={t(locale, "selectTerritoryStep")}>
+        <span>{artist.artistName[locale]} · {artist.fandomName}</span>
+        <h2>{t(locale, "selectTerritoryStep")}</h2>
+        <p>{t(locale, "chooseTerritoryObjective")}</p>
+        <button className="text-button" type="button" onClick={onChooseArtist}>
+          {t(locale, "changeArtist")}
+        </button>
+        <ol>
           <li>{t(locale, "startExpeditionStep")}</li>
         </ol>
       </aside>

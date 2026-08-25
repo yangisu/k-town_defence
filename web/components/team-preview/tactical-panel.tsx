@@ -86,7 +86,7 @@ function nextStageGap(points: number) {
   return null;
 }
 
-function estimateAward(expedition: PreviewExpedition, territory: PreviewTerritory, session: DemoSession) {
+function estimateAward(expedition: PreviewExpedition, territory: PreviewTerritory, session: DemoSession, artistId: ArtistProfile["id"]) {
   const firstStop = previewContent.places.find((place) => place.id === expedition.stopIds[0]);
   return calculateMissionAward({
     visitBase: firstStop?.visitBase ?? 0,
@@ -97,6 +97,7 @@ function estimateAward(expedition: PreviewExpedition, territory: PreviewTerritor
     fandomSizeMultiplier: 1,
     repeatCount: firstStop ? (session.missionVisitCounts[firstStop.id] ?? 0) : 0,
     contributedToday: session.contributedToday,
+    ownerStrongholdStage: territory.ownerArtistId === artistId ? territory.strongholdStage : null,
   });
 }
 
@@ -128,7 +129,6 @@ export function TacticalPanel({
   connection,
   expedition,
   expeditionTerritory,
-  onChangeArtist,
 }: {
   session: DemoSession;
   artist: ArtistProfile;
@@ -137,7 +137,6 @@ export function TacticalPanel({
   expedition: PreviewExpedition;
   expeditionTerritory: PreviewTerritory;
   onStartExpedition(): void;
-  onChangeArtist(): void;
 }) {
   const demoSession = useDemoSession();
   const locale: Locale = session.locale;
@@ -151,7 +150,7 @@ export function TacticalPanel({
   const defenseGap = Math.max(ownerPoints - (challenger?.validPoints ?? 0), 0);
   const captureGap = Math.max(ownerPoints - selectedPoints + 1, 1);
   const buildGap = nextStageGap(selectedPoints);
-  const award = estimateAward(expedition, expeditionTerritory, session);
+  const award = estimateAward(expedition, expeditionTerritory, session, artist.id);
   const expeditionStanding = expeditionTerritory.standings.find((standing) => standing.artistId === artist.id);
   const expeditionPoints = expeditionStanding?.validPoints ?? 0;
   const projectedPoints = expeditionPoints + award.cappedPoints;
@@ -228,6 +227,7 @@ export function TacticalPanel({
           <div><dt>{t(locale, "rewardDwell")}</dt><dd>{award.dwell}P</dd></div>
           <div><dt>{t(locale, "rewardLocalSpend")}</dt><dd>{award.localSpend}P</dd></div>
           <div><dt>{t(locale, "rewardAccommodation")}</dt><dd>{award.accommodation}P</dd></div>
+          {award.strongholdBonus > 0 ? <div><dt>{t(locale, "rewardStrongholdBonus")}</dt><dd>+{award.strongholdBonus}P</dd></div> : null}
         </dl>
       </section>
 
@@ -236,6 +236,7 @@ export function TacticalPanel({
         aria-label={`${expeditionTerritory.name[locale]} ${locale === "ko" ? "추천 원정 영향" : "recommended expedition impact"}`}
       >
         <p><strong>{copy.multiplier} {expeditionTerritory.balanceMultiplier}×</strong> · {expeditionTerritory.balanceReason[locale]}</p>
+        {award.strongholdBonus > 0 ? <p><strong>{t(locale, "rewardStrongholdBonus")}</strong>: {t(locale, expeditionTerritory.strongholdStage === "seed" ? "strongholdSeedBuff" : expeditionTerritory.strongholdStage === "tree" ? "strongholdTreeBuff" : "strongholdLandmarkBuff")}</p> : null}
         <p><strong>{copy.territoryImpact}</strong>: {rank.captures ? copy.captureExpected : expeditionSelectedOwns ? copy.hold : copy.advance} · {expeditionStageCopy} → {copy[predictedStage]}</p>
         <p><strong>{copy.rankImpact}</strong>: #{rank.currentRank}{rank.currentRank === rank.projectedRank ? ` · ${copy.rankHold}` : ` → #${rank.projectedRank}`}</p>
       </section>
@@ -247,7 +248,6 @@ export function TacticalPanel({
       })}>
         {actionLabel}
       </button>
-      <button className="text-button" type="button" onClick={onChangeArtist}>{copy.changeArtist}</button>
     </aside>
   );
 }

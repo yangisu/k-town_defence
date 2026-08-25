@@ -28,6 +28,7 @@ const expeditionSourceId = "preview-selected-expedition";
 const connectionSourceId = "preview-artist-connections";
 const territoryLayerId = "preview-territory-fill";
 const selectedLayerId = "preview-territory-selected";
+const selectedOutlineLayerId = "preview-territory-selected-outline";
 const nationalBounds = [[124.5, 32.8], [131.9, 38.9]] as [[number, number], [number, number]];
 const ownerColors = Object.fromEntries(previewContent.artists.map((artist) => [artist.id, artist.color]));
 const strongholdRadiusExpression: ExpressionSpecification = ["match", ["get", "stage"], "seed", 7, "tree", 11, "landmark", 16, 7];
@@ -260,10 +261,10 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
       });
       map.addLayer({
         id: selectedLayerId,
-        type: "line",
+        type: "fill",
         source: boundarySourceId,
         filter: ["==", ["id"], selectedTerritoryIdRef.current ?? ""],
-        paint: { "line-color": "#16231d", "line-width": 4 },
+        paint: { "fill-color": ["get", "ownerColor"], "fill-opacity": 0.22 },
       });
       map.addLayer({
         id: "preview-territory-outline",
@@ -278,6 +279,13 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
         source: boundarySourceId,
         filter: ["==", ["get", "ownerArtistId"], sessionRef.current.selectedArtistId ?? ""],
         paint: { "line-color": ["get", "ownerColor"], "line-width": 2.5 },
+      });
+      map.addLayer({
+        id: selectedOutlineLayerId,
+        type: "line",
+        source: boundarySourceId,
+        filter: ["==", ["id"], selectedTerritoryIdRef.current ?? ""],
+        paint: { "line-color": "#16231d", "line-width": 4 },
       });
       map.addLayer({
         id: "preview-expedition-line",
@@ -315,8 +323,8 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
         paint: {
           "circle-color": ["get", "ownerColor"],
           "circle-radius": strongholdRadiusExpression,
-          "circle-stroke-color": "#fffef9",
-          "circle-stroke-width": 2,
+          "circle-stroke-color": ["match", ["get", "stage"], "seed", "#fffef9", "tree", "#16231d", "landmark", "#dfff59", "#fffef9"],
+          "circle-stroke-width": ["match", ["get", "stage"], "seed", 2, "tree", 3, "landmark", 4, 2],
           "circle-opacity": 0.68,
         },
       });
@@ -424,6 +432,9 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
     }
     if (map.getLayer(selectedLayerId)) {
       map.setFilter(selectedLayerId, ["==", ["id"], selectedTerritoryId ?? ""]);
+    }
+    if (map.getLayer(selectedOutlineLayerId)) {
+      map.setFilter(selectedOutlineLayerId, ["==", ["id"], selectedTerritoryId ?? ""]);
     }
     updateGeoJsonSource(map, expeditionSourceId, expeditionCollection(session, selectedTerritoryId));
   }, [boundsByTerritoryId, selectedTerritoryId, session]);

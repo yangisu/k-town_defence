@@ -154,8 +154,12 @@ it("uses Amazon Location and keeps map selection equivalent to the territory lis
       onSelectTerritory={onSelectTerritory}
     />,
   );
-  expect(mapHarness.instances[0].setFilter).toHaveBeenLastCalledWith(
+  expect(mapHarness.instances[0].setFilter).toHaveBeenCalledWith(
     "preview-territory-selected",
+    ["==", ["id"], ""],
+  );
+  expect(mapHarness.instances[0].setFilter).toHaveBeenCalledWith(
+    "preview-territory-selected-outline",
     ["==", ["id"], ""],
   );
   expect(mapHarness.instances[0].sources.get("preview-selected-expedition")?.setData)
@@ -502,6 +506,35 @@ it("renders translucent territory ownership with artist identity inside each str
   expect(source.features.every((feature) => feature.properties.artistLabel.length > 0)).toBe(true);
 });
 
+it("adds a translucent selected-area fill and stage-specific stronghold rings", () => {
+  const session = createInitialDemoSession();
+  render(
+    <TerritoryMap
+      mapConfig={config}
+      session={session}
+      selectedTerritoryId="seongnam"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+  const map = mapHarness.instances[0];
+  map.emit("load");
+
+  expect(map.layers.find((layer) => layer.id === "preview-territory-selected")).toMatchObject({
+    type: "fill",
+    filter: ["==", ["id"], "seongnam"],
+    paint: { "fill-color": ["get", "ownerColor"], "fill-opacity": 0.22 },
+  });
+  expect(map.layers.find((layer) => layer.id === "preview-territory-selected-outline")).toMatchObject({
+    type: "line",
+    filter: ["==", ["id"], "seongnam"],
+    paint: { "line-color": "#16231d", "line-width": 4 },
+  });
+  expect(map.layers.find((layer) => layer.id === "preview-stronghold-symbols")?.paint).toEqual(expect.objectContaining({
+    "circle-stroke-width": ["match", ["get", "stage"], "seed", 2, "tree", 3, "landmark", 4, 2],
+    "circle-stroke-color": ["match", ["get", "stage"], "seed", "#fffef9", "tree", "#16231d", "landmark", "#dfff59", "#fffef9"],
+  }));
+});
+
 it("uses an immediate camera transition when reduced motion is requested and polygon bounds are unavailable", () => {
   vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
   const initial = {
@@ -569,6 +602,8 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
   expect(map.layers.find((layer) => layer.id === "preview-selected-fandom-outline")?.paint)
     .toEqual({ "line-color": ["get", "ownerColor"], "line-width": 2.5 });
   expect(map.layers.find((layer) => layer.id === "preview-territory-selected"))
+    .toMatchObject({ type: "fill", paint: { "fill-color": ["get", "ownerColor"], "fill-opacity": 0.22 } });
+  expect(map.layers.find((layer) => layer.id === "preview-territory-selected-outline"))
     .toMatchObject({ type: "line", paint: { "line-color": "#16231d", "line-width": 4 } });
   expect(JSON.stringify((fill?.paint as Record<string, unknown>)?.["fill-color"])).toMatch(/#7c5ce0.*#f25da5/);
 

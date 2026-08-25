@@ -19,6 +19,7 @@ const award = (points: number): MissionAward => ({
   dwell: 0,
   localSpend: 0,
   accommodation: 0,
+  strongholdBonus: 0,
   subtotal: points,
   multiplier: 1,
   validPoints: points,

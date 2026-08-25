@@ -138,7 +138,6 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
           <ProfileMenu
             locale={session.state.locale}
             fandomName={selectedArtist.fandomName}
-            onOpen={() => setDrawerOpen(true)}
           />
         ) : null}
         onLocaleChange={(locale) => session.dispatch({ type: "setLocale", locale })}
@@ -159,7 +158,6 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
             <TerritoryView
               key={session.state.artistConfirmed ? `artist:${session.state.selectedArtistId}` : "unconfirmed"}
               mapConfig={mapConfig}
-              onChooseArtist={() => setDrawerOpen(true)}
             />
         ) : null}
         {session.state.artistConfirmed && session.state.activeTab === "expedition" ? (
@@ -183,6 +181,7 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
             locale={session.state.locale}
             session={session.state}
             onExploreTerritories={() => session.dispatch({ type: "changeTab", tab: "explore" })}
+            onChangeArtist={() => setDrawerOpen(true)}
           />
         ) : null}
         <ArtistDrawer

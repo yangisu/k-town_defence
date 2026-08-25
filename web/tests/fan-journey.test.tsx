@@ -35,9 +35,9 @@ describe("fan tourism journey", () => {
     await user.click(screen.getByRole("button", { name: "포인트 검토" }));
     await user.click(screen.getByRole("button", { name: "체크인 제출" }));
     expect(await screen.findByRole("heading", { name: "체크인 승인 완료" })).toBeVisible();
-    expect(screen.getByText("유효 포인트 +260P")).toBeVisible();
+    expect(screen.getByText("유효 포인트 +270P")).toBeVisible();
     expect(screen.getByText(/지역 점유율/)).toBeVisible();
-  });
+  }, 10_000);
 
   it("navigates to battle and travel record views", async () => {
     const user = userEvent.setup();

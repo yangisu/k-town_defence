@@ -6,19 +6,15 @@ interface Props {
   artist: ArtistProfile | null;
   recommendedTerritory: PreviewTerritory | null;
   artistConfirmed: boolean;
-  onChooseArtist(): void;
 }
 
-export function StartPanel({ locale, artist, recommendedTerritory, artistConfirmed, onChooseArtist }: Props) {
+export function StartPanel({ locale, artist, recommendedTerritory, artistConfirmed }: Props) {
   if (!artistConfirmed || !artist) {
     return (
       <aside className="start-panel" aria-label={t(locale, "selectArtistStep")}>
         <span>{t(locale, "seasonName")}</span>
         <h2>{t(locale, "selectArtistStep")}</h2>
         <p>{t(locale, "chooseArtistObjective")}</p>
-        <button className="primary-button" type="button" onClick={onChooseArtist}>
-          {t(locale, "chooseArtist")}
-        </button>
         <ol>
           <li>{t(locale, "selectTerritoryStep")}</li>
           <li>{t(locale, "startExpeditionStep")}</li>
@@ -33,9 +29,6 @@ export function StartPanel({ locale, artist, recommendedTerritory, artistConfirm
         <span>{artist.artistName[locale]} · {artist.fandomName}</span>
         <h2>{t(locale, "selectTerritoryStep")}</h2>
         <p>{t(locale, "chooseTerritoryObjective")}</p>
-        <button className="text-button" type="button" onClick={onChooseArtist}>
-          {t(locale, "changeArtist")}
-        </button>
         <ol>
           <li>{t(locale, "startExpeditionStep")}</li>
         </ol>
@@ -49,9 +42,6 @@ export function StartPanel({ locale, artist, recommendedTerritory, artistConfirm
       <h2>{t(locale, "selectTerritoryStep")}</h2>
       <p>{t(locale, "recommendedTerritory")}</p>
       <strong className="recommended-region">{recommendedTerritory.name[locale]}</strong>
-      <button className="text-button" type="button" onClick={onChooseArtist}>
-        {t(locale, "changeArtist")}
-      </button>
     </aside>
   );
 }

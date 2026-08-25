@@ -17,6 +17,7 @@ const missionAward: MissionAward = {
   dwell: 60,
   localSpend: 100,
   accommodation: 0,
+  strongholdBonus: 0,
   subtotal: 260,
   multiplier: 1,
   validPoints: 260,
@@ -163,6 +164,24 @@ it("clears preview selection and history without changing the selected locale", 
   expect(reset.contributedToday).toBe(0);
 });
 
+it("moves artist changes from the global header into My Record", async () => {
+  const user = userEvent.setup();
+  window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({
+    ...createInitialDemoSession(),
+    artistConfirmed: true,
+    selectedArtistId: "bts",
+    activeTab: "journey",
+  }));
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  expect(await screen.findByRole("heading", { name: "내 기록" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "내 팬덤 · ARMY" })).not.toBeInTheDocument();
+  const settings = screen.getByRole("region", { name: "내 팬덤 설정" });
+  expect(settings).toHaveTextContent("방탄소년단 · ARMY");
+  await user.click(within(settings).getByRole("button", { name: "아티스트 변경" }));
+  expect(screen.getByRole("dialog", { name: "아티스트 선택" })).toBeVisible();
+});
+
 it("confirms replay, removes only the demo session, keeps locale, and restores the three-step start", async () => {
   const user = userEvent.setup();
   const clear = vi.spyOn(Storage.prototype, "clear");
@@ -171,7 +190,7 @@ it("confirms replay, removes only the demo session, keeps locale, and restores t
   window.localStorage.setItem("ktown-locale-neighbor", "preserve-me");
   render(<KTownApp mode="demo" mapConfig={null} />);
 
-  expect(await screen.findByRole("button", { name: "My fandom · ARMY" })).toBeVisible();
+  expect(await screen.findByLabelText("My fandom · ARMY")).toBeVisible();
   await waitFor(() => expect(window.localStorage.getItem(LEGACY_DEMO_SESSION_KEY)).toBeNull());
   await user.click(screen.getAllByRole("button", { name: "My Record" })[0]);
   expect(screen.getByRole("heading", { name: "My Record" })).toBeVisible();

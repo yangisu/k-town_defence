@@ -29,7 +29,7 @@ const demoCopy = {
   ko: {
     pill: "데모 체크인", title: "현장 체크인", close: "체크인 닫기", approved: "체크인 승인 완료",
     visitApproved: "방문이 승인됐어요.", visit: "방문 기본", dwellBonus: "체류 보너스", localSpend: "로컬 소비",
-    accommodation: "숙박", validPoints: "유효 포인트", territoryShare: "지역 점유율", stronghold: "거점",
+    accommodation: "숙박", strongholdBonus: "거점 버프", validPoints: "유효 포인트", territoryShare: "지역 점유율", stronghold: "거점",
     fandomRank: "팬덤 순위", personalRank: "내 기여 순위", continue: "여행 계속하기",
     intro: "데모 인증을 진행해 주세요.", gpsTitle: "현재 위치 3회", gpsDone: "GPS 위치 확인 완료",
     photoTitle: "현장 사진", photoPrompt: "원본 사진을 비공개 검토용으로 업로드", photoDone: "현장 사진 확인 완료", dwellTitle: "체류 시간", dwellDone: "체류 45분 확인",
@@ -41,7 +41,7 @@ const demoCopy = {
   en: {
     pill: "Demo check-in", title: "On-site check-in", close: "Close check-in", approved: "Check-in approved",
     visitApproved: "visit approved.", visit: "Visit base", dwellBonus: "Dwell bonus", localSpend: "Local spend",
-    accommodation: "Accommodation", validPoints: "Valid points", territoryShare: "Territory share", stronghold: "Stronghold",
+    accommodation: "Accommodation", strongholdBonus: "Stronghold buff", validPoints: "Valid points", territoryShare: "Territory share", stronghold: "Stronghold",
     fandomRank: "Fandom rank", personalRank: "My contribution rank", continue: "Continue trip",
     intro: "Run demo verification to simulate the evidence sequence.", gpsTitle: "Three GPS positions", gpsDone: "GPS position verified",
     photoTitle: "On-site photo", photoPrompt: "Upload the original photo for private review", photoDone: "On-site photo verified", dwellTitle: "Dwell time", dwellDone: "Dwell 45 minutes verified",
@@ -195,6 +195,7 @@ export function CheckInFlow({
                     <div><small>{demoLabels.dwellBonus}</small><strong>{award.dwell}P</strong></div>
                     <div><small>{demoLabels.localSpend}</small><strong>{award.localSpend}P</strong></div>
                     <div><small>{demoLabels.accommodation}</small><strong>{award.accommodation}P</strong></div>
+                    {award.strongholdBonus > 0 ? <div><small>{demoLabels.strongholdBonus}</small><strong>+{award.strongholdBonus}P</strong></div> : null}
                   </div>
                 ) : null}
                 {award ? <p><strong>{demoLabels.validPoints} +{award.cappedPoints}P</strong></p> : null}

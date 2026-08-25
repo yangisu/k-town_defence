@@ -41,11 +41,13 @@ function recordSummary(session: DemoSession) {
 export function RecordView({
   locale,
   session,
-  onExploreTerritories,
+  onExploreTerritories = () => undefined,
+  onChangeArtist = () => undefined,
 }: {
   locale: Locale;
   session: DemoSession;
-  onExploreTerritories: () => void;
+  onExploreTerritories?: () => void;
+  onChangeArtist?: () => void;
 }) {
   const summary = recordSummary(session);
   const artist = previewContent.artists.find((candidate) => candidate.id === session.selectedArtistId);
@@ -70,6 +72,15 @@ export function RecordView({
         </dl>
       </section>
 
+      <section className="record-fandom-settings" aria-label={t(locale, "recordFandomSettings")}>
+        <div>
+          <span>{t(locale, "recordFandomSettings")}</span>
+          <strong>{artist ? `${artist.artistName[locale]} · ${artist.fandomName}` : "—"}</strong>
+          <p>{t(locale, "recordFandomSettingsDescription")}</p>
+        </div>
+        <button type="button" onClick={onChangeArtist}>{t(locale, "recordChangeArtist")}</button>
+      </section>
+
       {summary.approvedCheckIns.length === 0 ? (
         <section className="record-empty">
           <h2>{t(locale, "recordEmptyTitle")}</h2>
@@ -86,7 +97,8 @@ export function RecordView({
             return (
               <li key={stage} className={unlocked ? "unlocked" : "locked"}>
                 <StrongholdMark stage={stage} locale={locale} ownerColor={artist?.color} />
-                <span>{t(locale, unlocked ? "recordUnlocked" : "recordLocked")}</span>
+                <span>{t(locale, stage === "seed" ? "strongholdSeedBuff" : stage === "tree" ? "strongholdTreeBuff" : "strongholdLandmarkBuff")}</span>
+                <small>{t(locale, unlocked ? "recordUnlocked" : "recordLocked")}</small>
               </li>
             );
           })}

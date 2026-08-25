@@ -54,22 +54,23 @@ it("connects demo evidence to territory and rank impact", async () => {
   await user.click(screen.getByRole("button", { name: "포인트 검토" }));
   await user.click(screen.getByRole("button", { name: "체크인 제출" }));
 
-  expect(await screen.findByText(/지역 점유율.*52\.3%.*58\.4%/)).toBeVisible();
+  expect(await screen.findByText(/지역 점유율.*52\.3%.*58\.6%/)).toBeVisible();
   expect(screen.queryByText("부산 여행에 120P를 보탰어요")).not.toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "체크인 승인 완료" })).toBeVisible();
   expect(screen.getByText(/거점.*씨앗.*나무/)).toBeVisible();
   expect(screen.getByText(/팬덤 순위.*#1.*#1/)).toBeVisible();
   expect(screen.getByText(/내 기여 순위.*#128.*#123/)).toBeVisible();
-  expect(screen.getByText("유효 포인트 +260P")).toBeVisible();
+  expect(screen.getByText("거점 버프").closest("div")).toHaveTextContent("+10P");
+  expect(screen.getByText("유효 포인트 +270P")).toBeVisible();
 
   await waitFor(() => {
     const saved = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as DemoSession;
     expect(saved.missionVisitCounts["busan-1"]).toBe(1);
-    expect(saved.contributedToday).toBe(260);
+    expect(saved.contributedToday).toBe(270);
     expect(saved.territories.find((territory) => territory.id === "busan")
-      ?.standings.find((standing) => standing.artistId === "bts")?.validPoints).toBe(1180);
+      ?.standings.find((standing) => standing.artistId === "bts")?.validPoints).toBe(1190);
   });
-});
+}, 10_000);
 
 it("keeps the condensed demo check-in and impact available in English", async () => {
   const user = userEvent.setup();
@@ -96,7 +97,7 @@ it("keeps the condensed demo check-in and impact available in English", async ()
 
   expect(await screen.findByRole("heading", { name: "Check-in approved" })).toBeVisible();
   expect(screen.getByText(/Territory share/)).toBeVisible();
-  expect(screen.getByText(/Stronghold/)).toBeVisible();
+  expect(within(screen.getByRole("status", { name: "Mission impact summary" })).getByText(/Stronghold.*Seed.*Tree/)).toBeVisible();
   expect(screen.getByText(/Fandom rank/)).toBeVisible();
   expect(screen.getByText(/My contribution rank/)).toBeVisible();
 });

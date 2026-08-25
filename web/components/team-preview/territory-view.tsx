@@ -11,9 +11,8 @@ import { t } from "@/features/team-preview/i18n";
 import { summarizeTerritories } from "@/features/team-preview/territory-summary";
 import type { MapConfig } from "@/lib/map-config";
 
-export function TerritoryView({ mapConfig, onChooseArtist }: {
+export function TerritoryView({ mapConfig }: {
   mapConfig: MapConfig | null;
-  onChooseArtist(): void;
 }) {
   const session = useDemoSession();
   const [filter, setFilter] = useState<TerritoryFilter>("my_fandom");
@@ -68,7 +67,6 @@ export function TerritoryView({ mapConfig, onChooseArtist }: {
           connection={connection}
           expedition={expedition}
           expeditionTerritory={expeditionTerritory}
-          onChangeArtist={onChooseArtist}
           onStartExpedition={() => session.dispatch({ type: "openExpedition", expeditionId: expedition.id })}
         />
       );
@@ -128,7 +126,6 @@ export function TerritoryView({ mapConfig, onChooseArtist }: {
             artist={selectedArtist}
             recommendedTerritory={selectedTerritory}
             artistConfirmed={session.state.artistConfirmed}
-            onChooseArtist={onChooseArtist}
           />
         )}
       </div>

@@ -19,6 +19,7 @@ describe("preview game rules", () => {
       dwell: 60,
       localSpend: 100,
       accommodation: 0,
+      strongholdBonus: 0,
       subtotal: 260,
       multiplier: 1.8,
       validPoints: 468,
@@ -45,6 +46,26 @@ describe("preview game rules", () => {
 
     expect(award.validPoints).toBe(1590);
     expect(award.cappedPoints).toBe(50);
+  });
+
+  it.each([
+    ["seed", 10, 270],
+    ["tree", 30, 290],
+    ["landmark", 60, 320],
+  ] as const)("applies the owned %s stronghold travel buff without changing the daily cap", (ownerStrongholdStage, strongholdBonus, validPoints) => {
+    const award = calculateMissionAward({
+      visitBase: 100,
+      dwellMinutes: 45,
+      localSpendVerified: true,
+      accommodationVerified: false,
+      balanceMultiplier: 1,
+      fandomSizeMultiplier: 1,
+      repeatCount: 0,
+      contributedToday: 0,
+      ownerStrongholdStage,
+    });
+
+    expect(award).toMatchObject({ strongholdBonus, validPoints, cappedPoints: validPoints });
   });
 
   it("uses exact seed, tree, and landmark thresholds", () => {

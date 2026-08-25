@@ -20,6 +20,7 @@ interface ArtistSelectorProps {
   selectedArtistId: ArtistId | null;
   confirmLabel: string;
   confirmationDisabled?: boolean;
+  stickyConfirmation?: boolean;
   onSelect(artistId: ArtistId): void;
   onConfirm(): void;
 }
@@ -29,6 +30,7 @@ export function ArtistSelector({
   selectedArtistId,
   confirmLabel,
   confirmationDisabled = false,
+  stickyConfirmation = false,
   onSelect,
   onConfirm,
 }: ArtistSelectorProps) {
@@ -96,7 +98,15 @@ export function ArtistSelector({
         </div>
       </fieldset>
       {artists.length === 0 ? <p role="status">{t(locale, "noArtists")}</p> : null}
-      <button type="button" disabled={!selectionVisible || confirmationDisabled} onClick={onConfirm}>{confirmLabel}</button>
+      <div
+        className={`artist-selector-actions${stickyConfirmation ? " artist-selector-actions--sticky" : ""}`}
+        role="group"
+        aria-label={stickyConfirmation
+          ? (locale === "ko" ? "팬덤 변경 작업" : "Fandom change actions")
+          : (locale === "ko" ? "팬덤 선택 작업" : "Fandom selection actions")}
+      >
+        <button type="button" disabled={!selectionVisible || confirmationDisabled} onClick={onConfirm}>{confirmLabel}</button>
+      </div>
     </div>
   );
 }
@@ -138,6 +148,7 @@ function OpenArtistDrawer({ locale, selectedArtistId, onClose, onSelect }: Omit<
           onSelect={setDraftArtistId}
           confirmLabel={t(locale, "profileChangeConfirm")}
           confirmationDisabled={draftArtistId === selectedArtistId}
+          stickyConfirmation
           onConfirm={() => {
             if (!draftArtistId) return;
             onSelect(draftArtistId);

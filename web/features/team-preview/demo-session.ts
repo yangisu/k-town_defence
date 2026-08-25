@@ -219,7 +219,7 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         artistConfirmed: true,
         selectedArtistId: action.artistId,
         selectedTerritoryId: territory?.id ?? null,
-        activeTab: "explore",
+        activeTab: state.activeTab === "journey" ? "journey" : "explore",
         selectedExpeditionId: null,
       };
     }

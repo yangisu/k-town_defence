@@ -82,7 +82,7 @@ function asPlace(place: PreviewMissionPlace, locale: Locale): Place {
   };
 }
 
-function maximumAward(place: PreviewMissionPlace, multiplier: number) {
+function maximumAward(place: PreviewMissionPlace, multiplier: number, ownerStrongholdStage: StrongholdStage | null) {
   return calculateMissionAward({
     visitBase: place.visitBase,
     dwellMinutes: place.dwellMinutes,
@@ -92,6 +92,7 @@ function maximumAward(place: PreviewMissionPlace, multiplier: number) {
     fandomSizeMultiplier: 1,
     repeatCount: 0,
     contributedToday: 0,
+    ownerStrongholdStage,
   });
 }
 
@@ -167,7 +168,8 @@ export function PreviewExpeditionView({
     return <div className="panel-loading">{labels.missing}</div>;
   }
 
-  const awards = places.map((place) => maximumAward(place, territory.balanceMultiplier));
+  const ownerStrongholdStage = territory.ownerArtistId === session.state.selectedArtistId ? territory.strongholdStage : null;
+  const awards = places.map((place) => maximumAward(place, territory.balanceMultiplier, ownerStrongholdStage));
   const totalAward = awards.reduce((total, award) => total + award.cappedPoints, 0);
   const orderedStandings = [...territory.standings].sort((a, b) => b.validPoints - a.validPoints);
 
@@ -198,6 +200,7 @@ export function PreviewExpeditionView({
             <span><Clock3 size={16} /> {expedition.estimatedMinutes}{locale === "ko" ? "" : " "}{labels.minuteUnit}</span>
             <span><Navigation size={16} /> {expedition.transitSummary[locale]}</span>
             <span><Shield size={16} /> {labels.multiplier} {territory.balanceMultiplier}×</span>
+            {ownerStrongholdStage ? <span><Shield size={16} /> {t(locale, "rewardStrongholdBonus")} · {t(locale, ownerStrongholdStage === "seed" ? "strongholdSeedBuff" : ownerStrongholdStage === "tree" ? "strongholdTreeBuff" : "strongholdLandmarkBuff")}</span> : null}
             <strong>{labels.total} {totalAward.toLocaleString()}P</strong>
           </div>
         </div>
@@ -279,6 +282,7 @@ export function PreviewExpeditionView({
             fandomSizeMultiplier: 1,
             repeatCount: session.state.missionVisitCounts[checkInPlace.id] ?? 0,
             contributedToday: session.state.contributedToday,
+            ownerStrongholdStage,
           }}
           impact={impact}
           onApproved={applyApprovedAward}

@@ -53,7 +53,7 @@ it("renders a sourced public artist stop followed only by neutral nearby recomme
   expect(screen.getByRole("link", { name: "출처 확인" })).toBeInTheDocument();
   expect(screen.getByText(/부산도시철도와 시내버스 기준 약 90분/)).toBeVisible();
   expect(screen.getByText(/지역 배율 1×/)).toBeVisible();
-  expect(screen.getByText("예상 총 1,120P")).toBeVisible();
+  expect(screen.getByText("예상 총 1,140P")).toBeVisible();
 
   const linkedStop = screen.getByRole("listitem", { name: "부산아시아드주경기장" });
   expect(within(linkedStop).getByText("아티스트 연관 장소")).toBeVisible();
@@ -61,7 +61,7 @@ it("renders a sourced public artist stop followed only by neutral nearby recomme
     .toHaveAttribute("href", "https://weverse.io/bts/notice/3595");
   expect(within(linkedStop).getByText(/공식 공연 장소/)).toBeVisible();
   expect(within(linkedStop).getByText("체류 45분")).toBeVisible();
-  expect(within(linkedStop).getByText("최대 560P")).toBeVisible();
+  expect(within(linkedStop).getByText("최대 570P")).toBeVisible();
 
   const nearbyStop = screen.getByRole("listitem", { name: "감천문화마을" });
   expect(within(nearbyStop).getByText("인근 추천")).toBeVisible();

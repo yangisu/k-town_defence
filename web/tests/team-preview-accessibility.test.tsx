@@ -124,12 +124,24 @@ it("uses the first artist radio as the sequential group stop when none is checke
   expect(within(dialog).getAllByRole("radio")[0]).toHaveFocus();
 });
 
+it("keeps the fandom-change confirmation in a dedicated sticky action group", async () => {
+  const user = userEvent.setup();
+  render(<ArtistDrawerHarness selectedArtistId="bts" />);
+
+  await user.click(screen.getByRole("button", { name: "아티스트 서랍 열기" }));
+  const dialog = screen.getByRole("dialog", { name: "아티스트 선택" });
+  const actions = within(dialog).getByRole("group", { name: "팬덤 변경 작업" });
+  expect(within(actions).getByRole("button", { name: "이 팬덤으로 변경" })).toBeVisible();
+});
+
 it("traps the artist drawer, closes it with Escape, and returns focus to its trigger", async () => {
   const user = userEvent.setup();
   saveConfirmedBtsSession();
   render(<KTownApp mode="demo" mapConfig={null} />);
 
-  const trigger = await screen.findByRole("button", { name: "내 팬덤 · ARMY" });
+  const navigation = await screen.findByRole("navigation", { name: "주요 메뉴" });
+  await user.click(within(navigation).getByRole("button", { name: "내 기록" }));
+  const trigger = await screen.findByRole("button", { name: "아티스트 변경" });
   await user.click(trigger);
 
   const dialog = screen.getByRole("dialog", { name: "아티스트 선택" });
@@ -335,14 +347,16 @@ it("returns focus to the profile trigger after a keyboard-confirmed fandom chang
 
   await user.click(await screen.findByRole("radio", { name: /방탄소년단.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
-  const trigger = screen.getByRole("button", { name: "내 팬덤 · ARMY" });
+  const navigation = screen.getByRole("navigation", { name: "주요 메뉴" });
+  await user.click(within(navigation).getByRole("button", { name: "내 기록" }));
+  const trigger = screen.getByRole("button", { name: "아티스트 변경" });
   await user.click(trigger);
   await user.click(within(screen.getByRole("dialog", { name: "아티스트 선택" })).getByRole("radio", { name: /aespa.*MY/i }));
   const confirm = screen.getByRole("button", { name: "이 팬덤으로 변경" });
   confirm.focus();
   await user.keyboard("{Enter}");
 
-  await waitFor(() => expect(screen.getByRole("button", { name: "내 팬덤 · MY" })).toHaveFocus());
+  await waitFor(() => expect(screen.getByRole("button", { name: "아티스트 변경" })).toHaveFocus());
 });
 
 it("keeps the map fallback, territory-card selection, and selected-region text keyboard complete", async () => {
@@ -430,5 +444,5 @@ it("opens Ranking and Record CTA destinations from the keyboard", async () => {
   recordCta.focus();
   await user.keyboard("{Enter}");
   expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "내 팬덤 · ARMY" })).toBeVisible();
+  expect(screen.getByLabelText("내 팬덤 · ARMY")).toBeVisible();
 });

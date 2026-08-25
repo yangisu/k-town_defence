@@ -35,7 +35,6 @@ function renderPreviewWithArtist(overrides: Partial<DemoSession> = {}) {
     <DemoSessionProvider storage={window.localStorage}>
       <TerritoryView
         mapConfig={null}
-        onChooseArtist={vi.fn()}
       />
     </DemoSessionProvider>,
   );
@@ -47,6 +46,7 @@ const award = (points: number): MissionAward => ({
   dwell: 0,
   localSpend: 0,
   accommodation: 0,
+  strongholdBonus: 0,
   subtotal: points,
   multiplier: 1,
   validPoints: points,
@@ -240,7 +240,7 @@ it.each([
   ])).toEqual(summaryPairs);
   expect(screen.getByRole("list")).toHaveTextContent(`${owner} · ONEDOOR`);
   expect(screen.getByRole("button", { name: nationalView })).toBeVisible();
-  expect(screen.getByRole("button", { name: changeArtist })).toBeVisible();
+  expect(screen.queryByRole("button", { name: changeArtist })).not.toBeInTheDocument();
 
   const territoryNames = locale === "ko"
     ? {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import { AppShell } from "@/components/app-shell";
 import { ExploreView } from "@/components/explore/explore-view";
@@ -119,6 +119,9 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
     setDrawerOpen(false);
     setResetOpen(false);
   };
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [session.state.activeTab, session.state.artistConfirmed]);
   useModalFocus(resetOpen, resetDialogRef, resetTitleRef, () => setResetOpen(false));
 
   if (!session.hydrated) return <p role="status">{t(session.state.locale, "loading")}</p>;

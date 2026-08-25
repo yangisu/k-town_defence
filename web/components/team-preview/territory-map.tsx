@@ -31,8 +31,9 @@ const selectedLayerId = "preview-territory-selected";
 const nationalBounds = [[124.5, 32.8], [131.9, 38.9]] as [[number, number], [number, number]];
 const ownerColors = Object.fromEntries(previewContent.artists.map((artist) => [artist.id, artist.color]));
 const strongholdRadiusExpression: ExpressionSpecification = ["match", ["get", "stage"], "seed", 7, "tree", 11, "landmark", 16, 7];
+const markerLabels = Object.fromEntries(previewContent.artists.map((artist) => [artist.id, artist.markerLabel]));
 
-function pointCollection(territories: readonly PreviewTerritory[]) {
+function pointCollection(territories: readonly PreviewTerritory[], availableLogoIds: ReadonlySet<string> = new Set()) {
   return {
     type: "FeatureCollection" as const,
     features: territories.map((territory) => ({
@@ -42,6 +43,8 @@ function pointCollection(territories: readonly PreviewTerritory[]) {
         id: territory.id,
         ownerArtistId: territory.ownerArtistId,
         ownerColor: strongholdColor(territory.ownerArtistId, territory.strongholdStage, ownerColors),
+        artistLabel: markerLabels[territory.ownerArtistId] ?? territory.ownerArtistId.slice(0, 2).toUpperCase(),
+        logoId: availableLogoIds.has(territory.ownerArtistId) ? `artist-logo-${territory.ownerArtistId}` : "",
         stage: territory.strongholdStage,
       },
       geometry: {
@@ -134,8 +137,8 @@ function filterOpacityExpression(territories: readonly PreviewTerritory[], selec
   return [
     "match",
     ["id"],
-    ...territories.flatMap((territory) => [territory.id, territory.ownerArtistId === selectedArtistId ? 0.55 : 0.3]),
-    0.1,
+    ...territories.flatMap((territory) => [territory.id, territory.ownerArtistId === selectedArtistId ? 0.28 : 0.16]),
+    0.06,
   ] as ExpressionSpecification;
 }
 
@@ -181,6 +184,7 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
 
   const [boundsByTerritoryId, setBoundsByTerritoryId] = useState<Map<string, [[number, number], [number, number]]>>(new Map());
   const boundaryCollectionRef = useRef<{ type: string; features: unknown[] } | null>(null);
+  const availableLogoIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     let active = true;
@@ -313,8 +317,40 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
           "circle-radius": strongholdRadiusExpression,
           "circle-stroke-color": "#fffef9",
           "circle-stroke-width": 2,
+          "circle-opacity": 0.68,
         },
       });
+      map.addLayer({
+        id: "preview-stronghold-identities",
+        type: "symbol",
+        source: strongholdSourceId,
+        layout: {
+          "icon-image": ["get", "logoId"],
+          "icon-size": ["match", ["get", "stage"], "seed", 0.12, "tree", 0.18, "landmark", 0.24, 0.12],
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+          "text-field": ["case", ["==", ["get", "logoId"], ""], ["get", "artistLabel"], ""],
+          "text-size": ["match", ["get", "stage"], "seed", 7, "tree", 8, "landmark", 9, 7],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+        paint: {
+          "text-color": "#fffef9",
+          "text-halo-color": "rgba(22,35,29,.5)",
+          "text-halo-width": 0.7,
+          "text-opacity": 0.96,
+        },
+      });
+
+      for (const artist of previewContent.artists.filter((candidate) => candidate.logoPath)) {
+        const logoId = `artist-logo-${artist.id}`;
+        map.loadImage(artist.logoPath!).then((image) => {
+          if (!active || map.hasImage(logoId)) return;
+          map.addImage(logoId, image.data);
+          availableLogoIdsRef.current.add(artist.id);
+          updateGeoJsonSource(map, strongholdSourceId, pointCollection(sessionRef.current.territories, availableLogoIdsRef.current));
+        }).catch(() => undefined);
+      }
 
       map.on("click", territoryLayerId, (event) => {
         const feature = event.features?.[0];
@@ -335,7 +371,7 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    updateGeoJsonSource(map, strongholdSourceId, pointCollection(session.territories));
+    updateGeoJsonSource(map, strongholdSourceId, pointCollection(session.territories, availableLogoIdsRef.current));
     if (boundaryCollectionRef.current) {
       updateGeoJsonSource(map, boundarySourceId, ownerBoundaryCollection(boundaryCollectionRef.current, session.territories));
     }

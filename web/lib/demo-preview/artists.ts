@@ -4,21 +4,21 @@ type ConnectionSeed = Pick<ArtistConnection,
   "id" | "artistId" | "territoryId" | "memberName" | "relationType" | "sourceUrls">;
 
 export const artists: ArtistProfile[] = [
-  { id: "bts", artistName: { ko: "방탄소년단", en: "BTS" }, fandomName: "ARMY", color: "#7c5ce0", representativeTerritoryIds: ["busan", "daegu", "gwangju"] },
-  { id: "blackpink", artistName: { ko: "블랙핑크", en: "BLACKPINK" }, fandomName: "BLINK", color: "#f25da5", representativeTerritoryIds: ["gunpo", "seongnam"] },
-  { id: "rescene", artistName: { ko: "리센느", en: "RESCENE" }, fandomName: "REMINE", color: "#d66d55", representativeTerritoryIds: ["geoje", "suwon", "gyeongju"] },
-  { id: "cortis", artistName: { ko: "코르티스", en: "CORTIS" }, fandomName: "COER", color: "#4d7cfe", representativeTerritoryIds: ["daejeon", "suwon", "seoul"] },
-  { id: "btob", artistName: { ko: "비투비", en: "BTOB" }, fandomName: "MELODY", color: "#2e9d78", representativeTerritoryIds: ["yongin", "suwon", "goyang"] },
-  { id: "ive", artistName: { ko: "아이브", en: "IVE" }, fandomName: "DIVE", color: "#d2468d", representativeTerritoryIds: ["daejeon", "incheon", "jeju"] },
-  { id: "kiiikiii", artistName: { ko: "키키", en: "KiiiKiii" }, fandomName: "TiiiKiii", color: "#8b5cf6", representativeTerritoryIds: ["busan", "seoul"] },
-  { id: "riize", artistName: { ko: "라이즈", en: "RIIZE" }, fandomName: "BRIIZE", color: "#f28a45", representativeTerritoryIds: ["ulsan", "siheung", "seoul"] },
-  { id: "zerobaseone", artistName: { ko: "제로베이스원", en: "ZEROBASEONE" }, fandomName: "ZEROSE", color: "#3a9edb", representativeTerritoryIds: ["cheonan", "pohang", "wonju"] },
-  { id: "boynextdoor", artistName: { ko: "보이넥스트도어", en: "BOYNEXTDOOR" }, fandomName: "ONEDOOR", color: "#59a85f", representativeTerritoryIds: ["wonju", "gwangju", "busan", "suwon"] },
-  { id: "le-sserafim", artistName: { ko: "르세라핌", en: "LE SSERAFIM" }, fandomName: "FEARNOT", color: "#a964d7", representativeTerritoryIds: ["seoul"] },
-  { id: "aespa", artistName: { ko: "에스파", en: "aespa" }, fandomName: "MY", color: "#4c66d6", representativeTerritoryIds: ["suwon", "busan"] },
-  { id: "newjeans", artistName: { ko: "뉴진스", en: "NewJeans" }, fandomName: "Bunnies", color: "#4b9de0", representativeTerritoryIds: ["chuncheon", "incheon", "seoul"] },
-  { id: "iu", artistName: { ko: "아이유", en: "IU" }, fandomName: "UAENA", color: "#d960a8", representativeTerritoryIds: ["seoul", "uijeongbu"] },
-  { id: "seventeen", artistName: { ko: "세븐틴", en: "SEVENTEEN" }, fandomName: "CARAT", color: "#45a9ad", representativeTerritoryIds: ["namyangju"] },
+  { id: "bts", artistName: { ko: "방탄소년단", en: "BTS" }, fandomName: "ARMY", color: "#7c5ce0", markerLabel: "BTS", representativeTerritoryIds: ["busan", "daegu", "gwangju"] },
+  { id: "blackpink", artistName: { ko: "블랙핑크", en: "BLACKPINK" }, fandomName: "BLINK", color: "#f25da5", markerLabel: "BP", representativeTerritoryIds: ["gunpo", "seongnam"] },
+  { id: "rescene", artistName: { ko: "리센느", en: "RESCENE" }, fandomName: "REMINE", color: "#d66d55", markerLabel: "RS", representativeTerritoryIds: ["geoje", "suwon", "gyeongju"] },
+  { id: "cortis", artistName: { ko: "코르티스", en: "CORTIS" }, fandomName: "COER", color: "#4d7cfe", markerLabel: "CT", representativeTerritoryIds: ["daejeon", "suwon", "seoul"] },
+  { id: "btob", artistName: { ko: "비투비", en: "BTOB" }, fandomName: "MELODY", color: "#2e9d78", markerLabel: "BTOB", representativeTerritoryIds: ["yongin", "suwon", "goyang"] },
+  { id: "ive", artistName: { ko: "아이브", en: "IVE" }, fandomName: "DIVE", color: "#d2468d", markerLabel: "IVE", representativeTerritoryIds: ["daejeon", "incheon", "jeju"] },
+  { id: "kiiikiii", artistName: { ko: "키키", en: "KiiiKiii" }, fandomName: "TiiiKiii", color: "#8b5cf6", markerLabel: "K3", logoPath: "https://kiiikiii.kr/assets/home/0_Menu/Logo_1.png", representativeTerritoryIds: ["busan", "seoul"] },
+  { id: "riize", artistName: { ko: "라이즈", en: "RIIZE" }, fandomName: "BRIIZE", color: "#f28a45", markerLabel: "RZ", representativeTerritoryIds: ["ulsan", "siheung", "seoul"] },
+  { id: "zerobaseone", artistName: { ko: "제로베이스원", en: "ZEROBASEONE" }, fandomName: "ZEROSE", color: "#3a9edb", markerLabel: "ZB1", representativeTerritoryIds: ["cheonan", "pohang", "wonju"] },
+  { id: "boynextdoor", artistName: { ko: "보이넥스트도어", en: "BOYNEXTDOOR" }, fandomName: "ONEDOOR", color: "#59a85f", markerLabel: "BND", representativeTerritoryIds: ["wonju", "gwangju", "busan", "suwon"] },
+  { id: "le-sserafim", artistName: { ko: "르세라핌", en: "LE SSERAFIM" }, fandomName: "FEARNOT", color: "#a964d7", markerLabel: "LSF", representativeTerritoryIds: ["seoul"] },
+  { id: "aespa", artistName: { ko: "에스파", en: "aespa" }, fandomName: "MY", color: "#4c66d6", markerLabel: "æ", representativeTerritoryIds: ["suwon", "busan"] },
+  { id: "newjeans", artistName: { ko: "뉴진스", en: "NewJeans" }, fandomName: "Bunnies", color: "#4b9de0", markerLabel: "NJ", representativeTerritoryIds: ["chuncheon", "incheon", "seoul"] },
+  { id: "iu", artistName: { ko: "아이유", en: "IU" }, fandomName: "UAENA", color: "#d960a8", markerLabel: "IU", representativeTerritoryIds: ["seoul", "uijeongbu"] },
+  { id: "seventeen", artistName: { ko: "세븐틴", en: "SEVENTEEN" }, fandomName: "CARAT", color: "#45a9ad", markerLabel: "SVT", representativeTerritoryIds: ["namyangju"] },
 ];
 
 const sourceUrls = {
@@ -183,8 +183,8 @@ function honestTeamDataConnection(seed: ConnectionSeed): ArtistConnection {
       en: "This is a team-data research lead and has not completed independent source verification.",
     },
     story: {
-      ko: `팀 입력자료가 ${seed.memberName.ko}와 ${territoryName.ko}의 지역 연결을 검토 후보로 제안합니다. 직접 연관 장소를 주장하지 않고 공공 관광지만 안내합니다.`,
-      en: `Team research proposes a possible ${seed.memberName.en} connection to ${territoryName.en}. It does not claim an artist-linked venue and routes visitors only to public attractions.`,
+      ko: `${seed.memberName.ko}와 ${territoryName.ko}의 지역 연결 스토리를 참고해, 누구나 방문할 수 있는 공공 관광 코스를 추천합니다.`,
+      en: `This recommendation uses the regional story connecting ${seed.memberName.en} and ${territoryName.en}, and includes public attractions that anyone can visit.`,
     },
     sources,
   };

@@ -32,6 +32,8 @@ const panelCopy = {
     maxStage: "최고 단계 방어 중",
     sourceConnection: "연결 근거 출처",
     sourceTerritory: "영토 자료 출처",
+    evidenceDisclosure: "추천 근거 보기",
+    evidenceSource: "출처 확인",
     awardTitle: "추천 원정 예상 포인트",
     multiplier: "지역균형 보너스",
     territoryImpact: "영토 영향",
@@ -59,6 +61,8 @@ const panelCopy = {
     maxStage: "Defending the highest stage",
     sourceConnection: "Connection evidence source",
     sourceTerritory: "Territory data source",
+    evidenceDisclosure: "Why this is recommended",
+    evidenceSource: "View source",
     awardTitle: "Estimated recommended-expedition points",
     multiplier: "Regional-balance multiplier",
     territoryImpact: "Territory impact",
@@ -196,12 +200,7 @@ export function TacticalPanel({
       <section className="tactical-connection">
         {connection ? (
           <>
-            <div>
-              <strong>{copy.regionalStory} · {connection.memberName[locale]}</strong>
-              <span role="note" aria-label={locale === "ko" ? "연결 근거 등급" : "Connection evidence class"}>
-                {t(locale, connection.evidenceClass === "official" ? "evidenceOfficial" : connection.evidenceClass === "verified" ? "evidenceVerified" : "evidenceTeamData")}
-              </span>
-            </div>
+            <strong>{copy.regionalStory} · {connection.memberName[locale]}</strong>
             <p>{connection.story[locale]}</p>
           </>
         ) : (
@@ -210,9 +209,10 @@ export function TacticalPanel({
             <p>{noConnectionRecommendation}</p>
           </>
         )}
-        <a href={sourceUrl} target="_blank" rel="noreferrer">
-          {connection ? copy.sourceConnection : copy.sourceTerritory}
-        </a>
+        <details className="tactical-evidence">
+          <summary>{copy.evidenceDisclosure}</summary>
+          <a href={sourceUrl} target="_blank" rel="noreferrer">{copy.evidenceSource}</a>
+        </details>
         {expedition.artistId === null ? (
           <div>
             <strong>{copy.regionalSupport}</strong>

@@ -58,7 +58,8 @@ it("turns artist choice into a visible tactical recommendation", async () => {
 
   const panel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
   expect(within(panel).getByText("지역 연결 스토리 · 지민", { selector: "strong" })).toBeVisible();
-  expect(within(panel).getByRole("note", { name: "연결 근거 등급" })).toBeVisible();
+  expect(within(panel).queryByText("팀 데이터 · 미검증 제안")).not.toBeInTheDocument();
+  expect(within(panel).getByText("추천 근거 보기")).toBeVisible();
   expect(within(panel).getByRole("heading", { name: "부산" })).toBeVisible();
   expect(within(panel).getByText(/^방어 우위$/)).toBeVisible();
   expect(within(panel).getByText(/지역균형 보너스/)).toBeVisible();
@@ -68,7 +69,7 @@ it("turns artist choice into a visible tactical recommendation", async () => {
   expect(within(panel).getByText("숙박")).toBeVisible();
   expect(within(panel).getByText(/영토 영향/)).toBeVisible();
   expect(within(panel).getByText(/팬덤 순위 영향/)).toBeVisible();
-  expect(within(panel).getByRole("link", { name: "연결 근거 출처" })).toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
+  expect(within(panel).getByRole("link", { name: "출처 확인" })).toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
   expect(within(panel).getByRole("button", { name: /원정 시작/ })).toBeEnabled();
   expect(within(panel).getByRole("img", { name: /거점/ })).toHaveStyle({ "--owner-color": "#7c5ce0" });
 });
@@ -82,6 +83,7 @@ it("changes results when the user filters to contested territory", async () => {
 
   expect(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
     .toHaveTextContent("탈환까지");
+  expect(screen.getByText("정렬: 방어 긴급도 → 탈환 필요 포인트 → 내 거점 거리")).toBeVisible();
 });
 
 it("shows the resolved fandom owner after a mission captures a territory", () => {
@@ -140,7 +142,7 @@ it("routes an empty region to the nearest sourced artist-linked expedition witho
   expect(within(panel).getByText("인근 추천")).toBeVisible();
   expect(within(panel).queryByLabelText("연결 근거 등급")).not.toBeInTheDocument();
   expect(within(panel).getByText("이 영토에는 선택한 아티스트의 검증된 직접 연결이 없어 부산의 검증된 아티스트 연관 장소 중심 원정을 추천합니다.")).toBeVisible();
-  expect(within(panel).getByRole("link", { name: "영토 자료 출처" })).toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
+  expect(within(panel).getByRole("link", { name: "출처 확인" })).toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
 
   const action = within(panel).getByRole("button", { name: "원정 시작" });
   expect(action).toBeEnabled();
@@ -179,6 +181,23 @@ it.each([
   });
 });
 
+it("uses summary cards as map navigation and explains the distance anchor", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist({ selectedArtistId: "rescene", selectedTerritoryId: "geoje" });
+
+  const summary = await screen.findByRole("region", { name: "내 팬덤 영토 요약" });
+  const strongest = within(summary).getByRole("button", { name: /가장 강한 소유 영토.*경주/ });
+  const nearest = within(summary).getByRole("button", { name: /내 거점에서 가까운 접전지/ });
+
+  expect(nearest).toHaveTextContent(/거점 기준.*약 .*km/);
+  await user.click(strongest);
+
+  await waitFor(() => expect(JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!)).toMatchObject({
+    selectedTerritoryId: "gyeongju",
+  }));
+  expect(screen.getByRole("button", { name: /^경주/ })).toHaveAttribute("aria-pressed", "true");
+});
+
 it("describes the actual nearest artist-linked recommendation in English", async () => {
   renderPreviewWithArtist({ locale: "en", selectedTerritoryId: "yeongwol" });
 
@@ -191,7 +210,7 @@ it.each([
   [
     "ko",
     ["내 팬덤", "접전 지역", "아티스트 연결", "전체"],
-    [["소유 영토", "2"], ["가장 강한 소유 영토", "광주"], ["가장 가까운 접전 영토", "대전"], ["추천 행동", "탈환 · 대전"]],
+    [["소유 영토", "2"], ["가장 강한 소유 영토", "광주"], ["내 거점에서 가까운 접전지", "원주"], ["추천 행동", "방어 · 원주"]],
     "현재 소유",
     "전국 보기",
     "아티스트 변경",
@@ -200,7 +219,7 @@ it.each([
   [
     "en",
     ["My fandom", "Contested", "Artist connection", "All"],
-    [["Owned territories", "2"], ["Strongest owned territory", "Gwangju"], ["Nearest contested territory", "Daejeon"], ["Recommended action", "Capture · Daejeon"]],
+    [["Owned territories", "2"], ["Strongest owned territory", "Gwangju"], ["Contested territory near my base", "Wonju"], ["Recommended action", "Defend · Wonju"]],
     "Current owner",
     "National view",
     "Change artist",
@@ -215,9 +234,9 @@ it.each([
   expect(filters.map((button) => button.textContent)).toEqual(filterLabels);
   expect(filters[0]).toHaveAttribute("aria-pressed", "true");
   const summaryRegion = screen.getByRole("region", { name: summary });
-  expect([...summaryRegion.querySelectorAll("dt")].map((term) => [
-    term.textContent,
-    term.parentElement?.querySelector("dd")?.textContent,
+  expect(within(summaryRegion).getAllByRole("button").map((button) => [
+    button.querySelector("span")?.textContent,
+    button.querySelector("strong")?.textContent,
   ])).toEqual(summaryPairs);
   expect(screen.getByRole("list")).toHaveTextContent(`${owner} · ONEDOOR`);
   expect(screen.getByRole("button", { name: nationalView })).toBeVisible();
@@ -232,7 +251,7 @@ it.each([
       };
   const expectedTerritoryIds = [
     ["wonju", "gwangju"],
-    ["busan", "wonju", "gunpo", "daejeon", "yongin", "ulsan", "cheonan", "chuncheon"],
+    ["wonju", "chuncheon", "yongin", "gunpo", "cheonan", "daejeon", "busan", "ulsan"],
     ["busan", "wonju", "gwangju", "suwon"],
     ["busan", "wonju", "gwangju", "suwon", "gunpo", "daejeon", "yongin", "ulsan", "cheonan", "chuncheon", "yeongwol", "geoje", "gyeongju", "goyang", "namyangju", "daegu", "seoul", "seongnam", "siheung", "uijeongbu", "incheon", "jeju", "pohang"],
   ] as const;

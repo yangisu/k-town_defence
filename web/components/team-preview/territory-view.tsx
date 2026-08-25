@@ -40,6 +40,15 @@ export function TerritoryView({ mapConfig, onChooseArtist }: {
     }
   };
 
+  const openSummaryTerritory = (nextFilter: TerritoryFilter, territoryId: string | null) => {
+    setFilter(nextFilter);
+    if (territoryId) selectTerritory(territoryId);
+  };
+
+  const territoryName = (territoryId: string | null | undefined) => territoryId
+    ? session.state.territories.find((territory) => territory.id === territoryId)?.name[session.state.locale] ?? "—"
+    : "—";
+
   let tacticalPanel = null;
   if (selectedArtist && selectedTerritory) {
     const connection = previewContent.connections.find((candidate) => (
@@ -72,18 +81,36 @@ export function TerritoryView({ mapConfig, onChooseArtist }: {
       {selectedArtist ? <MapFilters locale={session.state.locale} activeFilter={filter} onChange={changeFilter} /> : null}
       {selectedArtist && summary ? (
         <section className="territory-summary" aria-label={t(session.state.locale, "territorySummary")}>
-          <dl>
-            <div><dt>{t(session.state.locale, "summaryOwned")}</dt><dd>{summary.ownedCount}</dd></div>
-            <div><dt>{t(session.state.locale, "summaryStrongest")}</dt><dd>{summary.strongestOwnedTerritoryId
-              ? session.state.territories.find((territory) => territory.id === summary.strongestOwnedTerritoryId)?.name[session.state.locale]
-              : t(session.state.locale, "noOwnedTerritory")}</dd></div>
-            <div><dt>{t(session.state.locale, "summaryNearestContested")}</dt><dd>{summary.nearestContestedTerritoryId
-              ? session.state.territories.find((territory) => territory.id === summary.nearestContestedTerritoryId)?.name[session.state.locale]
-              : "—"}</dd></div>
-            <div><dt>{t(session.state.locale, "summaryRecommendation")}</dt><dd>{summary.recommendation
-              ? `${t(session.state.locale, summary.recommendation.kind === "defend" ? "recommendDefend" : "recommendCapture")} · ${session.state.territories.find((territory) => territory.id === summary.recommendation?.territoryId)?.name[session.state.locale]}`
-              : "—"}</dd></div>
-          </dl>
+          <div className="territory-summary-grid">
+            <button type="button" onClick={() => openSummaryTerritory("my_fandom", summary.strongestOwnedTerritoryId)}>
+              <span>{t(session.state.locale, "summaryOwned")}</span>
+              <strong>{summary.ownedCount}</strong>
+              <small>{session.state.locale === "ko" ? "내 영토만 지도에서 보기" : "Show only my territories"}</small>
+            </button>
+            <button type="button" onClick={() => openSummaryTerritory("my_fandom", summary.strongestOwnedTerritoryId)} disabled={!summary.strongestOwnedTerritoryId}>
+              <span>{t(session.state.locale, "summaryStrongest")}</span>
+              <strong>{summary.strongestOwnedTerritoryId ? territoryName(summary.strongestOwnedTerritoryId) : t(session.state.locale, "noOwnedTerritory")}</strong>
+              <small>{session.state.locale === "ko" ? "선택하고 지도로 이동" : "Select and move the map"}</small>
+            </button>
+            <button type="button" onClick={() => openSummaryTerritory("contested", summary.nearestContestedTerritoryId)} disabled={!summary.nearestContestedTerritoryId}>
+              <span>{session.state.locale === "ko" ? "내 거점에서 가까운 접전지" : "Contested territory near my base"}</span>
+              <strong>{territoryName(summary.nearestContestedTerritoryId)}</strong>
+              <small>{summary.nearestContestedAnchorTerritoryId
+                ? `${territoryName(summary.nearestContestedAnchorTerritoryId)} ${session.state.locale === "ko" ? "거점 기준" : "base"} · ${session.state.locale === "ko" ? "약" : "about"} ${summary.nearestContestedDistanceKm ?? "—"}km`
+                : session.state.locale === "ko" ? "대표 연결 지역 기준" : "Based on the representative connected region"}</small>
+            </button>
+            <button className="territory-summary-action" type="button" onClick={() => openSummaryTerritory("contested", summary.recommendation?.territoryId ?? null)} disabled={!summary.recommendation}>
+              <span>{t(session.state.locale, "summaryRecommendation")}</span>
+              <strong>{summary.recommendation
+                ? `${t(session.state.locale, summary.recommendation.kind === "defend" ? "recommendDefend" : "recommendCapture")} · ${territoryName(summary.recommendation.territoryId)}`
+                : "—"}</strong>
+              <small>{summary.recommendation
+                ? summary.recommendation.kind === "defend"
+                  ? session.state.locale === "ko" ? `${summary.recommendation.pointsRequired}P 우위 · 방어가 가장 시급해요` : `${summary.recommendation.pointsRequired}P lead · Most urgent defense`
+                  : session.state.locale === "ko" ? `${summary.recommendation.pointsRequired}P 필요 · 가장 쉽게 탈환할 수 있어요` : `${summary.recommendation.pointsRequired}P needed · Easiest capture opportunity`
+                : ""}</small>
+            </button>
+          </div>
         </section>
       ) : null}
       <div className="preview-map-layout">

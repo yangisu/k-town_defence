@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, expect, it } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { KTownApp } from "@/features/ktown-app";
 import { createInitialDemoSession, DEMO_SESSION_KEY, type DemoSession } from "@/features/team-preview/demo-session";
 
@@ -8,14 +8,17 @@ beforeEach(() => window.localStorage.clear());
 
 it("completes the personalized BTS territory journey and persists its profile and progress", async () => {
   const user = userEvent.setup();
+  const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
   let view = render(<KTownApp mode="demo" mapConfig={null} />);
 
   expect(await screen.findByRole("navigation", { name: "주요 메뉴" })).toBeVisible();
   expect(screen.getByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
+  scrollTo.mockClear();
   await user.click(screen.getByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
   expect(screen.getByRole("button", { name: "내 팬덤 · ARMY" })).toBeVisible();
   expect(screen.getByRole("heading", { name: "영토 지도" })).toBeVisible();
+  expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "auto" });
 
   const ownedList = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
   await user.click(within(ownedList).getByRole("button", { name: /^부산/ }));
@@ -52,7 +55,8 @@ it("completes the personalized BTS territory journey and persists its profile an
   await user.click(within(restoredGwangjuPanel).getByRole("button", { name: "원정 시작" }));
   expect(await screen.findByRole("heading", { name: "BTS 부산 공식 공연장 원정" })).toBeVisible();
   expect(screen.getByText("아티스트 연관 장소 중심")).toBeVisible();
-  expect(screen.getByRole("link", { name: "아티스트 연결 출처" })).toHaveAttribute("href", "https://weverse.io/bts/notice/3595");
+  expect(screen.getByText("추천 근거 보기")).toBeVisible();
+  expect(screen.getByRole("link", { name: "출처 확인" })).toHaveAttribute("href", "https://weverse.io/bts/notice/3595");
   const linkedStop = screen.getByRole("listitem", { name: "부산아시아드주경기장" });
   expect(within(linkedStop).getByText("아티스트 연관 장소")).toBeVisible();
   expect(within(linkedStop).getByRole("link", { name: "부산아시아드주경기장 출처" }))
@@ -154,7 +158,8 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   await user.click(screen.getByRole("button", { name: "Start expedition" }));
   expect(await screen.findByRole("heading", { name: "BTS Busan official concert venue expedition" })).toBeVisible();
   expect(screen.getByText("Artist-linked places first")).toBeVisible();
-  expect(screen.getByRole("link", { name: "Artist connection source" })).toHaveAttribute("href", "https://weverse.io/bts/notice/3595");
+  expect(screen.getByText("Why this is recommended")).toBeVisible();
+  expect(screen.getByRole("link", { name: "View source" })).toHaveAttribute("href", "https://weverse.io/bts/notice/3595");
   const linkedStop = screen.getByRole("listitem", { name: "Busan Asiad Main Stadium" });
   expect(within(linkedStop).getByText("Artist-linked place")).toBeVisible();
   expect(within(linkedStop).getByRole("link", { name: "Busan Asiad Main Stadium source" }))

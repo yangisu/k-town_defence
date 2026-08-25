@@ -49,7 +49,8 @@ it("renders a sourced public artist stop followed only by neutral nearby recomme
   );
 
   expect(await screen.findByText("아티스트 연관 장소 중심")).toBeVisible();
-  expect(screen.getByRole("link", { name: "아티스트 연결 출처" })).toBeVisible();
+  expect(screen.getByText("추천 근거 보기")).toBeVisible();
+  expect(screen.getByRole("link", { name: "출처 확인" })).toBeInTheDocument();
   expect(screen.getByText(/부산도시철도와 시내버스 기준 약 90분/)).toBeVisible();
   expect(screen.getByText(/지역 배율 1×/)).toBeVisible();
   expect(screen.getByText("예상 총 1,120P")).toBeVisible();

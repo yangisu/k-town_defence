@@ -20,7 +20,8 @@ describe("fan tourism journey", () => {
     await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getByRole("button", { name: /^부산/ }));
     const tacticalPanel = screen.getByRole("complementary", { name: "부산 전술 패널" });
     expect(tacticalPanel).toBeVisible();
-    expect(screen.getByRole("link", { name: "연결 근거 출처" })).toBeVisible();
+    expect(screen.getByText("추천 근거 보기")).toBeVisible();
+    expect(screen.getByRole("link", { name: "출처 확인" })).toBeInTheDocument();
 
     await user.click(within(tacticalPanel).getByRole("button", { name: "원정 시작" }));
     expect(await screen.findByRole("heading", { name: "BTS 부산 공식 공연장 원정" })).toBeVisible();

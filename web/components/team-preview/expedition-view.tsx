@@ -15,6 +15,8 @@ const copy = {
   ko: {
     back: "영토 지도로",
     connectionSource: "아티스트 연결 출처",
+    evidenceDisclosure: "추천 근거 보기",
+    evidenceSource: "출처 확인",
     route: "오늘의 원정",
     nearby: "인근 추천",
     direct: "아티스트 연관 장소",
@@ -38,6 +40,8 @@ const copy = {
   en: {
     back: "Back to territory map",
     connectionSource: "Artist connection source",
+    evidenceDisclosure: "Why this is recommended",
+    evidenceSource: "View source",
     route: "Today's expedition",
     nearby: "Nearby recommendation",
     direct: "Artist-linked place",
@@ -203,12 +207,12 @@ export function PreviewExpeditionView({
         {connection ? (
           <>
             <strong>{labels.artistLinked}</strong>
-            <div>
-              <strong>{connection.memberName[locale]}</strong>
-              <span>{t(locale, connection.evidenceClass === "official" ? "evidenceOfficial" : connection.evidenceClass === "verified" ? "evidenceVerified" : "evidenceTeamData")}</span>
-            </div>
+            <h2>{connection.memberName[locale]} · {territory.name[locale]}</h2>
             <p>{connection.story[locale]}</p>
-            <a href={connection.sourceUrls[0]} target="_blank" rel="noreferrer">{labels.connectionSource}</a>
+            <details className="tactical-evidence">
+              <summary>{labels.evidenceDisclosure}</summary>
+              <a href={connection.sourceUrls[0]} target="_blank" rel="noreferrer">{labels.evidenceSource}</a>
+            </details>
           </>
         ) : (
           <>

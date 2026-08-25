@@ -22,6 +22,9 @@ interface MapHarness {
   flyTo: ReturnType<typeof vi.fn>;
   jumpTo: ReturnType<typeof vi.fn>;
   fitBounds: ReturnType<typeof vi.fn>;
+  loadImage: ReturnType<typeof vi.fn>;
+  hasImage: ReturnType<typeof vi.fn>;
+  addImage: ReturnType<typeof vi.fn>;
   setFilter: ReturnType<typeof vi.fn>;
   setPaintProperty: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
@@ -41,6 +44,9 @@ vi.mock("maplibre-gl", () => {
     flyTo = vi.fn();
     jumpTo = vi.fn();
     fitBounds = vi.fn();
+    loadImage = vi.fn(async () => ({ data: { width: 16, height: 16, data: new Uint8Array(16 * 16 * 4) } }));
+    hasImage = vi.fn(() => false);
+    addImage = vi.fn();
     setFilter = vi.fn();
     setPaintProperty = vi.fn();
     remove = vi.fn();
@@ -465,6 +471,37 @@ it("recolors a captured boundary and stronghold without recreating the map", () 
     .toBe("#f25da5");
 });
 
+it("renders translucent territory ownership with artist identity inside each stronghold marker", () => {
+  const session = createInitialDemoSession();
+  render(
+    <TerritoryMap
+      mapConfig={config}
+      session={session}
+      selectedTerritoryId="busan"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+  mapHarness.instances[0].emit("load");
+
+  const fill = mapHarness.instances[0].layers.find((layer) => layer.id === "preview-territory-fill");
+  const strongholds = mapHarness.instances[0].layers.find((layer) => layer.id === "preview-stronghold-symbols");
+  const identities = mapHarness.instances[0].layers.find((layer) => layer.id === "preview-stronghold-identities");
+  const source = mapHarness.instances[0].sources.get("preview-strongholds")?.initialData as {
+    features: Array<{ properties: { artistLabel: string; logoId: string | null } }>;
+  };
+
+  expect(fill?.paint).toEqual(expect.objectContaining({ "fill-opacity": expect.any(Array) }));
+  expect(strongholds?.paint).toEqual(expect.objectContaining({ "circle-opacity": 0.68 }));
+  expect(identities).toEqual(expect.objectContaining({
+    type: "symbol",
+    layout: expect.objectContaining({
+      "icon-image": ["get", "logoId"],
+      "text-field": ["case", ["==", ["get", "logoId"], ""], ["get", "artistLabel"], ""],
+    }),
+  }));
+  expect(source.features.every((feature) => feature.properties.artistLabel.length > 0)).toBe(true);
+});
+
 it("uses an immediate camera transition when reduced motion is requested and polygon bounds are unavailable", () => {
   vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
   const initial = {
@@ -564,10 +601,10 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
     .filter(([layer, property]) => layer === "preview-territory-fill" && property === "fill-opacity")
     .at(-1)?.[2];
   expect(allOpacity).toEqual(expect.arrayContaining([
-    "busan", 0.55,
-    "daegu", 0.55,
-    "yeongwol", 0.55,
-    "gwangju", 0.3,
+    "busan", 0.28,
+    "daegu", 0.28,
+    "yeongwol", 0.28,
+    "gwangju", 0.16,
   ]));
 
   const initialInnerWidth = window.innerWidth;

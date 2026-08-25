@@ -78,7 +78,13 @@ export function ArtistSelector({
                   checked={selectedArtistId === artist.id}
                   onChange={() => onSelect(artist.id)}
                 />
-                <span className="artist-swatch" aria-hidden="true" />
+                <span
+                  className={`artist-swatch${artist.logoPath ? " artist-swatch--logo" : ""}`}
+                  aria-hidden="true"
+                  style={artist.logoPath ? { backgroundImage: `url(${artist.logoPath})` } : undefined}
+                >
+                  {!artist.logoPath ? <b>{artist.markerLabel}</b> : null}
+                </span>
                 <span>
                   <strong>{artist.artistName[locale]} <small>{artist.artistName.en}</small></strong>
                   <b>{artist.fandomName}</b>

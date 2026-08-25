@@ -28,6 +28,8 @@ export interface ArtistProfile {
   artistName: LocalizedText;
   fandomName: string;
   color: string;
+  markerLabel: string;
+  logoPath?: string;
   representativeTerritoryIds: TerritoryId[];
 }
 

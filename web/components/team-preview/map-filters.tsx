@@ -3,6 +3,7 @@
 import { previewContent } from "@/features/team-preview/content";
 import { t, type CopyKey } from "@/features/team-preview/i18n";
 import { isContestedTerritory } from "@/features/team-preview/territory-rules";
+import { orderContestedTerritories } from "@/features/team-preview/territory-summary";
 import type { ArtistId, Locale, PreviewTerritory } from "@/features/team-preview/types";
 
 export type TerritoryFilter =
@@ -35,6 +36,13 @@ export function filterAndOrderTerritories(
     }
   });
 
+  if (filter === "contested") {
+    const owned = territories.filter((territory) => territory.ownerArtistId === artistId);
+    const connectedAnchor = territories.find((territory) => connectedIds.has(territory.id));
+    const anchors = owned.length > 0 ? owned : connectedAnchor ? [connectedAnchor] : [];
+    return orderContestedTerritories(filtered, artistId, anchors).map((candidate) => candidate.territory);
+  }
+
   return [...filtered].sort((a, b) => (
     Number(connectedIds.has(b.id)) - Number(connectedIds.has(a.id))
     || Number(isContestedTerritory(b)) - Number(isContestedTerritory(a))
@@ -60,6 +68,13 @@ export function MapFilters({ locale, activeFilter, onChange }: {
           {t(locale, filter.labelKey)}
         </button>
       ))}
+      {activeFilter === "contested" ? (
+        <p className="map-sort-explanation" role="status">
+          {locale === "ko"
+            ? "정렬: 방어 긴급도 → 탈환 필요 포인트 → 내 거점 거리"
+            : "Sorted by: defense urgency → capture points needed → distance from my base"}
+        </p>
+      ) : null}
     </div>
   );
 }

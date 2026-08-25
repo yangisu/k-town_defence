@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { DemoBrandTransition } from "@/components/demo-entry/demo-brand-transition";
 import { DemoLogin } from "@/components/demo-entry/demo-login";
 import { hasDemoLogin, saveDemoLogin, type DemoLoginStorage } from "@/features/demo-entry/demo-auth";
 
-type EntryState = "checking" | "login" | "brand-transition" | "service";
+type EntryState = "login" | "brand-transition" | "service";
+
+const subscribeToDemoLogin = () => () => undefined;
 
 interface Props {
   children: ReactNode;
@@ -13,7 +15,7 @@ interface Props {
 }
 
 export function DemoEntryGate({ children, storage }: Props) {
-  const [state, setState] = useState<EntryState>("checking");
+  const [state, setState] = useState<EntryState>("login");
   const [resolvedStorage] = useState<DemoLoginStorage | undefined>(() => {
     if (storage) return storage;
     try {
@@ -22,12 +24,14 @@ export function DemoEntryGate({ children, storage }: Props) {
       return undefined;
     }
   });
+  const authenticated = useSyncExternalStore(
+    subscribeToDemoLogin,
+    () => resolvedStorage ? hasDemoLogin(resolvedStorage) : false,
+    () => null,
+  );
 
-  useEffect(() => {
-    setState(resolvedStorage && hasDemoLogin(resolvedStorage) ? "service" : "login");
-  }, [resolvedStorage]);
-
-  if (state === "checking") return <p className="demo-entry-loading" role="status">데모를 준비하고 있어요.</p>;
+  if (authenticated === null) return <p className="demo-entry-loading" role="status">데모를 준비하고 있어요.</p>;
+  if (state === "login" && authenticated) return <>{children}</>;
   if (state === "login") {
     return (
       <DemoLogin onComplete={() => {

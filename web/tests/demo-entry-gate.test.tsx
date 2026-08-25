@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { DemoBrandTransition } from "@/components/demo-entry/demo-brand-transition";
@@ -16,7 +16,9 @@ it("validates credentials before entering the brand transition", async () => {
   const user = userEvent.setup();
   render(<DemoEntryGate><div>service workspace</div></DemoEntryGate>);
 
-  expect(await screen.findByRole("heading", { name: "K-TOWN DEFENCE 로그인" })).toBeVisible();
+  const heading = await screen.findByRole("heading", { name: "K-TOWN DEFENCE 로그인" });
+  expect(within(heading).getByText("K-TOWN DEFENCE")).toBeVisible();
+  expect(within(heading).getByText("로그인")).toBeVisible();
   await user.type(screen.getByLabelText("이메일"), "invalid");
   await user.click(screen.getByRole("button", { name: "로그인" }));
   expect(screen.getByText("올바른 이메일 주소를 입력해 주세요.")).toBeVisible();

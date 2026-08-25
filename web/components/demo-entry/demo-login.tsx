@@ -29,7 +29,10 @@ export function DemoLogin({ onComplete }: { onComplete(): void }) {
     <main className="demo-entry-screen demo-login-screen">
       <section className="demo-login-card" aria-labelledby="demo-login-title">
         <DemoBrandLockup />
-        <h1 id="demo-login-title">K-TOWN DEFENCE 로그인</h1>
+        <h1 id="demo-login-title" aria-label="K-TOWN DEFENCE 로그인">
+          <span>K-TOWN DEFENCE</span>
+          <span>로그인</span>
+        </h1>
         <p>좋아하는 아티스트와 함께 대한민국 팬덤 영토를 여행하세요.</p>
         <form noValidate onSubmit={submit}>
           <label htmlFor="demo-login-email">이메일</label>

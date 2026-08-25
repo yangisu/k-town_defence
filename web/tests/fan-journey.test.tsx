@@ -3,17 +3,28 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import Page from "@/app/page";
 
+async function loginToDemo(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(await screen.findByLabelText("이메일"), "fan@example.com");
+  await user.type(screen.getByLabelText("비밀번호"), "demo");
+  await user.click(screen.getByRole("button", { name: "로그인" }));
+  await user.click(screen.getByRole("button", { name: /K-TOWN DEFENCE 시작 화면/ }));
+}
+
 async function selectDemoMembership(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
 }
 
 describe("fan tourism journey", () => {
-  beforeEach(() => window.localStorage.clear());
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
 
   it("moves from regional discovery through an approved check-in", async () => {
     const user = userEvent.setup();
     render(<Page />);
+    await loginToDemo(user);
     await selectDemoMembership(user);
 
     expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
@@ -42,6 +53,7 @@ describe("fan tourism journey", () => {
   it("navigates to battle and travel record views", async () => {
     const user = userEvent.setup();
     render(<Page />);
+    await loginToDemo(user);
     await selectDemoMembership(user);
 
     await user.click((await screen.findAllByRole("button", { name: "랭킹" }))[0]);

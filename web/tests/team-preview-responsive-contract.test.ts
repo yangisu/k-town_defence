@@ -13,10 +13,22 @@ it("defines the stable desktop map and tactical-panel split", () => {
   const desktop = compactCss.slice(compactCss.indexOf("@media(min-width:768px)"));
 
   expect(desktop).toMatch(/\.preview-map-layout\{[^}]*grid-template-columns:minmax\(0,1fr\)360px/);
+  expect(desktop).toMatch(/\.preview-territory-map\{[^}]*height:clamp\(26rem,52dvh,36rem\)/);
+  expect(desktop).toMatch(/\.tactical-panel\{[^}]*position:static[^}]*max-height:none[^}]*overflow:visible/);
+  expect(desktop).toMatch(/\.territory-view\{[^}]*padding-top:18px/);
+  expect(compactCss).not.toContain(".territory-view{padding-top:0}");
   expect(compactCss).toMatch(/\.preview-map-boundary\{[^}]*min-width:0/);
   expect(compactCss).toMatch(/\.maplibregl-map\{[^}]*width:100%[^}]*height:100%/);
+  expect(previewSource).not.toContain('style={{ minHeight: "32rem", width: "100%" }}');
   expect(compactCss).toContain(".tactical-panel");
   expect(compactCss).toContain(".artist-drawer");
+});
+
+it("renders territory filters as distinct wrapping controls aligned with the workspace", () => {
+  expect(compactCss).toMatch(/\.map-filters\{[^}]*display:flex[^}]*flex-wrap:wrap[^}]*gap:8px/);
+  expect(compactCss).toMatch(/\.map-filtersbutton\{[^}]*min-height:40px[^}]*border-radius:999px/);
+  expect(compactCss).toMatch(/\.map-filtersbutton\[aria-pressed="true"\]\{[^}]*background:var\(--ink\)[^}]*color:white/);
+  expect(compactCss).toMatch(/\.tactical-connection>div:has\(>p\)\{[^}]*display:block/);
 });
 
 it("keeps a 52dvh map and scrollable safe-area tactical sheet below 768px", () => {

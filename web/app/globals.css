@@ -57,3 +57,10 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px soli
 .record-growth li.locked,.record-rewards li.locked{opacity:1}
 .record-growth li.locked>span:last-child,.record-rewards li.locked>span:last-child{color:var(--ink)}
 .record-growth li.locked .stronghold-silhouette,.record-rewards li.locked .stronghold-silhouette{opacity:.35}
+
+/* Territory workspace layout repair */
+.territory-view>.preview-page-title{margin-top:18px;font-size:clamp(32px,4vw,46px);line-height:1}.map-filters{max-width:1480px;margin:12px auto 0;padding:0 18px 10px;display:flex;flex-wrap:wrap;gap:8px}.map-filters button{min-height:40px;padding:0 15px;border:1px solid var(--line);border-radius:999px;background:var(--white);color:var(--muted);font-weight:800;cursor:pointer}.map-filters button[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:white}.territory-summary{margin-top:10px}.preview-territory-map{min-height:24rem}.tactical-connection>div:has(>p){display:block}.tactical-connection>div:has(>p)>p{margin-bottom:0}
+.objective-strip span,.tactical-panel>header span{color:#684be5}.objective-strip button{color:var(--ink)}.preview-territory-list .territory-owner,.preview-territory-list button>small,.tactical-award dt{color:#56615b}.bottom-nav button{color:#56615b}
+@media(min-width:768px){.map-filters{padding-inline:34px}.preview-territory-map{min-height:26rem;height:clamp(26rem,52dvh,36rem)}.tactical-panel{position:static;top:auto;max-height:none;overflow:visible}.territory-view{padding-top:18px}}
+@media(min-width:1200px){.map-filters{padding-inline:54px}}
+@media(max-width:767px){.territory-view>.map-filters{margin:12px 0 0;padding:0 18px 10px}}

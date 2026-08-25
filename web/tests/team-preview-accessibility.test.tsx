@@ -302,6 +302,7 @@ it("enters profile setup by keyboard and keeps primary navigation inert until co
   render(<KTownApp mode="demo" mapConfig={null} />);
 
   const navigation = await screen.findByRole("navigation", { name: "주요 메뉴" });
+  expect(screen.getByRole("img", { name: "K-Town Defense" })).toBeVisible();
   expect(within(navigation).getAllByRole("button").every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
 
   await user.tab();

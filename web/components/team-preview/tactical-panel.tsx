@@ -198,7 +198,7 @@ export function TacticalPanel({
           <>
             <div>
               <strong>{copy.regionalStory} · {connection.memberName[locale]}</strong>
-              <span aria-label={locale === "ko" ? "연결 근거 등급" : "Connection evidence class"}>
+              <span role="note" aria-label={locale === "ko" ? "연결 근거 등급" : "Connection evidence class"}>
                 {t(locale, connection.evidenceClass === "official" ? "evidenceOfficial" : connection.evidenceClass === "verified" ? "evidenceVerified" : "evidenceTeamData")}
               </span>
             </div>

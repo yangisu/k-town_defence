@@ -54,7 +54,7 @@ export function AppShell({
       onClickCapture={interactionDisabled ? blockInteraction : undefined}
     >
       <aside className="side-rail">
-        <div className="brand-mark" aria-label="K-Town Defense">
+        <div className="brand-mark" role="img" aria-label="K-Town Defense">
           <span>K</span><strong>K‑TOWN<br />DEFENSE</strong>
         </div>
         <nav aria-label={t(locale, "mainNavigation")} className="rail-nav">

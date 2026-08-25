@@ -91,10 +91,10 @@ it("completes the personalized BTS territory journey and persists its profile an
   const selectedFandom = within(ranking).getByRole("listitem", { current: true });
   expect(selectedFandom).toHaveTextContent("#1");
   expect(selectedFandom).toHaveTextContent("방탄소년단 · ARMY");
-  expect(selectedFandom).toHaveTextContent("19,820P");
+  expect(selectedFandom).toHaveTextContent("23,380P");
 
-  await user.click(screen.getByRole("button", { name: "광주 영토 자세히 보기" }));
-  expect(await screen.findByRole("complementary", { name: "광주 전술 패널" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "대전 영토 자세히 보기" }));
+  expect(await screen.findByRole("complementary", { name: "대전 전술 패널" })).toBeVisible();
   await user.click(screen.getAllByRole("button", { name: "랭킹" })[0]);
   expect(await screen.findByRole("heading", { name: "랭킹" })).toBeVisible();
 
@@ -108,7 +108,7 @@ it("completes the personalized BTS territory journey and persists its profile an
   expect(await screen.findByRole("button", { name: "내 팬덤 · ARMY" })).toBeVisible();
   await user.click(screen.getAllByRole("button", { name: "랭킹" })[0]);
   const persistedRanking = screen.getByRole("list", { name: "팬덤 랭킹" });
-  expect(within(persistedRanking).getByRole("listitem", { current: true })).toHaveTextContent("19,820P");
+  expect(within(persistedRanking).getByRole("listitem", { current: true })).toHaveTextContent("23,380P");
   await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
   expect(await screen.findByText("부산아시아드주경기장")).toBeVisible();
   expect(screen.getByRole("region", { name: "내 시즌 요약" })).toHaveTextContent("기여 포인트260P");
@@ -137,7 +137,7 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   const initialRanking = screen.getByRole("list", { name: "Fandom ranking" });
   const initialSelectedFandom = within(initialRanking).getByRole("listitem", { current: true });
   expect(initialSelectedFandom).toHaveTextContent("BTS · ARMY");
-  expect(initialSelectedFandom).toHaveTextContent("19,560P");
+  expect(initialSelectedFandom).toHaveTextContent("23,120P");
   expect(screen.queryByRole("list", { name: "팬덤 랭킹" })).not.toBeInTheDocument();
   await user.click(screen.getAllByRole("button", { name: "Territory Map" })[0]);
 
@@ -195,7 +195,7 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   const selectedFandom = within(ranking).getByRole("listitem", { current: true });
   expect(selectedFandom).toHaveTextContent("#1");
   expect(selectedFandom).toHaveTextContent("BTS · ARMY");
-  expect(selectedFandom).toHaveTextContent("19,820P");
+  expect(selectedFandom).toHaveTextContent("23,380P");
   expect(screen.queryByText("선택한 팬덤")).not.toBeInTheDocument();
 
   await user.click(screen.getAllByRole("button", { name: "My Record" })[0]);
@@ -210,7 +210,7 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   expect(screen.getByRole("button", { name: "EN" })).toHaveAttribute("aria-pressed", "true");
   await user.click(screen.getAllByRole("button", { name: "Ranking" })[0]);
   const persistedRanking = screen.getByRole("list", { name: "Fandom ranking" });
-  expect(within(persistedRanking).getByRole("listitem", { current: true })).toHaveTextContent("19,820P");
+  expect(within(persistedRanking).getByRole("listitem", { current: true })).toHaveTextContent("23,380P");
   await user.click(screen.getAllByRole("button", { name: "My Record" })[0]);
   expect(await screen.findByText("Busan Asiad Main Stadium")).toBeVisible();
   expect(screen.getByRole("region", { name: "My season summary" })).toHaveTextContent("Contribution points260P");

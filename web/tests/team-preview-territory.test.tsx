@@ -58,6 +58,7 @@ it("turns artist choice into a visible tactical recommendation", async () => {
 
   const panel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
   expect(within(panel).getByText("지역 연결 스토리 · 지민", { selector: "strong" })).toBeVisible();
+  expect(within(panel).getByRole("note", { name: "연결 근거 등급" })).toBeVisible();
   expect(within(panel).getByRole("heading", { name: "부산" })).toBeVisible();
   expect(within(panel).getByText(/^방어 우위$/)).toBeVisible();
   expect(within(panel).getByText(/지역균형 보너스/)).toBeVisible();
@@ -128,7 +129,7 @@ it("keeps personalized filter IDs and fandom filtering", () => {
   ]);
   expect(filterAndOrderTerritories(state.territories, "my_fandom", "bts")
     .map((territory) => territory.id))
-    .toEqual(["daegu", "busan", "yeongwol"]);
+    .toEqual(["busan", "daegu", "yeongwol"]);
 });
 
 it("routes an empty region to the nearest sourced artist-linked expedition without fabricating evidence", async () => {
@@ -190,7 +191,7 @@ it.each([
   [
     "ko",
     ["내 팬덤", "접전 지역", "아티스트 연결", "전체"],
-    [["소유 영토", "2"], ["가장 강한 소유 영토", "광주"], ["가장 가까운 접전 영토", "광주"], ["추천 행동", "방어 · 광주"]],
+    [["소유 영토", "2"], ["가장 강한 소유 영토", "광주"], ["가장 가까운 접전 영토", "대전"], ["추천 행동", "탈환 · 대전"]],
     "현재 소유",
     "전국 보기",
     "아티스트 변경",
@@ -199,7 +200,7 @@ it.each([
   [
     "en",
     ["My fandom", "Contested", "Artist connection", "All"],
-    [["Owned territories", "2"], ["Strongest owned territory", "Gwangju"], ["Nearest contested territory", "Gwangju"], ["Recommended action", "Defend · Gwangju"]],
+    [["Owned territories", "2"], ["Strongest owned territory", "Gwangju"], ["Nearest contested territory", "Daejeon"], ["Recommended action", "Capture · Daejeon"]],
     "Current owner",
     "National view",
     "Change artist",
@@ -230,10 +231,10 @@ it.each([
         busan: "Busan", daegu: "Daegu", gwangju: "Gwangju", gunpo: "Gunpo", seongnam: "Seongnam", geoje: "Geoje", suwon: "Suwon", gyeongju: "Gyeongju", daejeon: "Daejeon", seoul: "Seoul", yongin: "Yongin", goyang: "Goyang", incheon: "Incheon", jeju: "Jeju", ulsan: "Ulsan", siheung: "Siheung", cheonan: "Cheonan", pohang: "Pohang", wonju: "Wonju", chuncheon: "Chuncheon", uijeongbu: "Uijeongbu", namyangju: "Namyangju", yeongwol: "Yeongwol",
       };
   const expectedTerritoryIds = [
-    ["gwangju", "wonju"],
-    ["gwangju", "busan", "suwon", "wonju", "yeongwol", "geoje", "gyeongju", "goyang", "gunpo", "namyangju", "daegu", "daejeon", "seoul", "seongnam", "siheung", "yongin", "ulsan", "uijeongbu", "incheon", "jeju", "cheonan", "chuncheon", "pohang"],
-    ["gwangju", "busan", "suwon", "wonju"],
-    ["gwangju", "busan", "suwon", "wonju", "yeongwol", "geoje", "gyeongju", "goyang", "gunpo", "namyangju", "daegu", "daejeon", "seoul", "seongnam", "siheung", "yongin", "ulsan", "uijeongbu", "incheon", "jeju", "cheonan", "chuncheon", "pohang"],
+    ["wonju", "gwangju"],
+    ["busan", "wonju", "gunpo", "daejeon", "yongin", "ulsan", "cheonan", "chuncheon"],
+    ["busan", "wonju", "gwangju", "suwon"],
+    ["busan", "wonju", "gwangju", "suwon", "gunpo", "daejeon", "yongin", "ulsan", "cheonan", "chuncheon", "yeongwol", "geoje", "gyeongju", "goyang", "namyangju", "daegu", "seoul", "seongnam", "siheung", "uijeongbu", "incheon", "jeju", "pohang"],
   ] as const;
   const list = screen.getByRole("list");
   for (const [index, filter] of filterLabels.entries()) {

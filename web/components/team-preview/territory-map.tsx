@@ -412,7 +412,6 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
           className="preview-territory-map"
           role="region"
           aria-label={session.locale === "ko" ? "대한민국 팬덤 영토 지도" : "Korea fandom territory map"}
-          style={{ minHeight: "32rem", width: "100%" }}
         />
       ) : (
         <div className="preview-map-configuration" role="status">

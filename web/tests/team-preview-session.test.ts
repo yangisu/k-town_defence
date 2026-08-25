@@ -10,7 +10,7 @@ import {
   selectProfileTerritory,
 } from "@/features/team-preview/demo-session";
 import type { MissionAward } from "@/features/team-preview/game-rules";
-import { calculateMissionAward } from "@/features/team-preview/game-rules";
+import { calculateMissionAward, stageForPoints } from "@/features/team-preview/game-rules";
 import { previewContent } from "@/features/team-preview/content";
 import { selectRecommendedExpedition } from "@/features/team-preview/expedition-selection";
 
@@ -109,7 +109,7 @@ describe("demo preview session", () => {
     expect(changed).toMatchObject({
       artistConfirmed: true,
       selectedArtistId: "bts",
-      selectedTerritoryId: "daegu",
+      selectedTerritoryId: "yeongwol",
       selectedExpeditionId: null,
       activeTab: "explore",
     });
@@ -213,8 +213,28 @@ describe("demo preview session", () => {
       (territory) => territory.ownerArtistId === "bts" && territory.strongholdStage === "seed",
     );
 
-    expect(seedOwnedByArmy).toHaveLength(3);
+    expect(seedOwnedByArmy).toHaveLength(1);
     expect(army.strongholds).toBe(3);
+  });
+
+  it("starts the demo with a deliberate seed, tree, and landmark mix derived from owner points", () => {
+    const state = createInitialDemoSession();
+    const stageCounts = state.territories.reduce<Record<string, number>>((counts, territory) => {
+      counts[territory.strongholdStage] = (counts[territory.strongholdStage] ?? 0) + 1;
+      const ownerPoints = territory.standings.find((standing) => standing.artistId === territory.ownerArtistId)!.validPoints;
+      expect(territory.strongholdStage, territory.id).toBe(stageForPoints(ownerPoints));
+      return counts;
+    }, {});
+
+    expect(stageCounts).toEqual({ seed: 8, tree: 8, landmark: 7 });
+    expect(state.territories
+      .filter((territory) => territory.ownerArtistId === "bts")
+      .map(({ id, strongholdStage }) => [id, strongholdStage]))
+      .toEqual([
+        ["busan", "seed"],
+        ["daegu", "tree"],
+        ["yeongwol", "landmark"],
+      ]);
   });
 
   it("transfers territory ownership only when the challenger becomes the strict leader", () => {

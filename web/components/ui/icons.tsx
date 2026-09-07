@@ -17,6 +17,7 @@ export {
   Lock,
   Map,
   MapPin,
+  Maximize,
   Navigation,
   Route,
   RotateCcw,

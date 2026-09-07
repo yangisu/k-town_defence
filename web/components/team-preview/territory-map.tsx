@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { TerritoryList } from "@/components/team-preview/territory-list";
-import { ChevronRight, RotateCcw } from "@/components/ui/icons";
+import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
+import { ChevronRight, Maximize, RotateCcw, X } from "@/components/ui/icons";
 import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
 import type { DemoSession } from "@/features/team-preview/demo-session";
 import { t } from "@/features/team-preview/i18n";
@@ -178,6 +179,7 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
   const [mapError, setMapError] = useState(false);
   const [listExpanded, setListExpanded] = useState(false);
   const [mapFocused, setMapFocused] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
 
   const toggleList = () => {
     const next = !listExpanded;
@@ -230,12 +232,13 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
       cooperativeGestures: window.matchMedia?.("(max-width: 767px)").matches ?? false,
       dragPan: false,
       scrollZoom: false,
+      attributionControl: false,
     });
     mapRef.current = map;
     map.addControl(new maplibregl.AttributionControl({
       compact: true,
       customAttribution: '<a href="https://www.geoboundaries.org/" target="_blank" rel="noreferrer">geoBoundaries</a>',
-    }));
+    }), "bottom-right");
 
     map.on("error", () => {
       if (active && !styleLoaded) setMapError(true);
@@ -482,6 +485,16 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
     return () => document.removeEventListener("pointerdown", release);
   }, [mapFocused]);
 
+  useBodyScrollLock(fullscreen);
+
+  // The map keeps its own size, so it has to be told when the box changes.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const frame = window.requestAnimationFrame(() => map.resize?.());
+    return () => window.cancelAnimationFrame(frame);
+  }, [fullscreen, mapError, retryKey]);
+
   const resetNationalView = () => {
     const map = mapRef.current;
     if (!map) return;
@@ -490,7 +503,7 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
   };
 
   return (
-    <section className="preview-map-boundary">
+    <section className={fullscreen ? "preview-map-boundary fullscreen" : "preview-map-boundary"}>
       {mapConfig && !mapError ? (
         <div
           ref={containerRef}
@@ -499,14 +512,21 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
           role="region"
           aria-label={session.locale === "ko" ? "대한민국 팬덤 영토 지도" : "Korea fandom territory map"}
         >
-          <button
-            type="button"
-            className="preview-map-reset"
-            aria-label={t(session.locale, "nationalView")}
-            onClick={resetNationalView}
-          >
-            <RotateCcw size={16} strokeWidth={2.4} aria-hidden="true" />
-          </button>
+          <div className="preview-map-tools">
+            <button type="button" aria-label={t(session.locale, "nationalView")} onClick={resetNationalView}>
+              <RotateCcw size={16} strokeWidth={2.4} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="preview-map-fullscreen"
+              aria-label={t(session.locale, fullscreen ? "mapExitFullscreen" : "mapFullscreen")}
+              onClick={() => setFullscreen((open) => !open)}
+            >
+              {fullscreen
+                ? <X size={16} strokeWidth={2.4} aria-hidden="true" />
+                : <Maximize size={16} strokeWidth={2.4} aria-hidden="true" />}
+            </button>
+          </div>
         </div>
       ) : (
         <div className="preview-map-configuration" role="status">
@@ -519,7 +539,15 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
         Map © <a href="https://aws.amazon.com/location/" target="_blank" rel="noreferrer">Amazon Location Service</a>
         {" · "}Boundaries © <a href="https://www.geoboundaries.org/" target="_blank" rel="noreferrer">geoBoundaries</a>
       </p>
-      <div className="preview-map-actions">{filters}</div>
+      <div className="preview-map-actions">
+        {filters}
+        {mapConfig && !mapError ? (
+          <button type="button" className="preview-map-reset-inline" onClick={resetNationalView}>
+            <RotateCcw size={15} strokeWidth={2.4} aria-hidden="true" />
+            {t(session.locale, "nationalView")}
+          </button>
+        ) : null}
+      </div>
       {listedTerritories.length > 0 ? (
         <button
           type="button"

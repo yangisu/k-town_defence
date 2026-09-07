@@ -607,3 +607,21 @@ it("keeps a deselected map after the filter changes", async () => {
   expect(screen.queryByRole("complementary", { name: "영월 전술 패널" })).not.toBeInTheDocument();
   expect(screen.getByRole("complementary", { name: /전술 패널$/ })).toBeVisible();
 });
+
+it("brings the map into view when a territory card is chosen", async () => {
+  const user = userEvent.setup();
+  const scrollIntoView = vi.fn();
+  Element.prototype.scrollIntoView = scrollIntoView;
+  renderPreviewWithArtist();
+
+  await user.click(within(await screen.findByRole("list", { name: "지도와 같은 영토 목록" }))
+    .getByRole("button", { name: /^대구/ }));
+
+  expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+
+  // Deselecting is not a reason to move the page.
+  scrollIntoView.mockClear();
+  await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
+    .getByRole("button", { name: /^대구/ }));
+  expect(scrollIntoView).not.toHaveBeenCalled();
+});

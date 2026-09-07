@@ -28,10 +28,10 @@ export function TerritoryView({ mapConfig }: {
 
   // Picking the selected territory again clears it and puts the panel away.
   const selectTerritory = (territoryId: string) => {
-    session.dispatch({
-      type: "selectTerritory",
-      territoryId: session.state.selectedTerritoryId === territoryId ? null : territoryId,
-    });
+    const cleared = session.state.selectedTerritoryId === territoryId;
+    session.dispatch({ type: "selectTerritory", territoryId: cleared ? null : territoryId });
+    // A new selection acts on the map, so follow it there.
+    if (!cleared) mapRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   };
 
   const changeFilter = (nextFilter: TerritoryFilter) => {

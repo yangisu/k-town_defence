@@ -205,3 +205,13 @@ it("keeps the collapsed rail narrow at every desktop width", () => {
     expect(block.slice(0, 160)).toContain(".app-shell--rail-collapsed{grid-template-columns:66px1fr}");
   }
 });
+
+it("keeps the record section heading from banding twice", () => {
+  // The shared h2 band rule sits later in the file, so the wrapper's reset has
+  // to outrank it or the inner heading draws a second, wider band.
+  expect(compactCss).toContain(".record-view.record-section-headingh2{margin:0;border:0;padding:0");
+  expect(compactCss.indexOf(".record-view.record-section-headingh2"))
+    .toBeLessThan(compactCss.indexOf(".record-growthh2,"));
+  // The primary action carries its lift at every width.
+  expect(compactCss).toMatch(/\.primary-button\{[^}]*box-shadow:08px20pxrgba\(22,35,29,\.18\)/);
+});

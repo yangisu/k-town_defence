@@ -583,3 +583,27 @@ it("slides the tactical card in from the side it was paged from", async () => {
 
   expect(document.getElementById("tactical-panel-body")).toHaveClass("slide-previous");
 });
+
+it("keeps a deselected map after the filter changes", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist();
+
+  const panel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
+  await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
+    .getByRole("button", { name: /^부산/ }));
+  expect(panel).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "전체" }));
+  expect(screen.queryByRole("complementary", { name: /전술 패널$/ })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "내 팬덤" }));
+  expect(screen.queryByRole("complementary", { name: /전술 패널$/ })).not.toBeInTheDocument();
+
+  // A filter that hides the current selection still moves it somewhere visible.
+  await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
+    .getByRole("button", { name: /^영월/ }));
+  expect(await screen.findByRole("complementary", { name: "영월 전술 패널" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "접전 지역" }));
+  expect(screen.queryByRole("complementary", { name: "영월 전술 패널" })).not.toBeInTheDocument();
+  expect(screen.getByRole("complementary", { name: /전술 패널$/ })).toBeVisible();
+});

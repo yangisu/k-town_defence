@@ -36,7 +36,9 @@ export function TerritoryView({ mapConfig }: {
 
   const changeFilter = (nextFilter: TerritoryFilter) => {
     setFilter(nextFilter);
-    if (!selectedArtist) return;
+    // A deliberate deselection outlives a filter change; only a selection that
+    // the new filter hides is moved onto the first territory it does show.
+    if (!selectedArtist || session.state.selectedTerritoryId === null) return;
     const nextTerritories = filterAndOrderTerritories(session.state.territories, nextFilter, selectedArtist.id);
     if (nextTerritories.length > 0 && !nextTerritories.some((territory) => territory.id === session.state.selectedTerritoryId)) {
       selectTerritory(nextTerritories[0].id);

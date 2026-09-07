@@ -1,8 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ArrowLeft, Clock3, Footprints, MapPin, Navigation, Shield } from "@/components/ui/icons";
+import { useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { ArrowLeft, Clock3, ExternalLink, Footprints, MapPin, Shield } from "@/components/ui/icons";
 import { CheckInFlow } from "@/components/check-in/check-in-flow";
+import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
+import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { previewContent } from "@/features/team-preview/content";
 import { useDemoSession } from "@/features/team-preview/demo-session-context";
 import type { DemoSession } from "@/features/team-preview/demo-session";
@@ -17,24 +20,36 @@ const copy = {
     connectionSource: "아티스트 연결 출처",
     evidenceDisclosure: "추천 근거 보기",
     evidenceSource: "출처 확인",
-    route: "오늘의 원정",
-    nearby: "인근 추천",
+    route: "원정 코스",
+    estimated: "예상 시간",
+    publicTag: "공공 관광 추천지",
     direct: "아티스트 연관 장소",
     source: "출처",
-    dwell: "체류",
+    dwell: "체류 인정 시간",
     minuteUnit: "분",
     maximum: "최대",
     multiplier: "지역 배율",
     total: "예상 총",
     standings: "영토 현황",
     checkIn: "체크인",
+    checkInDone: "체크인 완료",
+    end: "원정 종료",
+    endComplete: "원정 완료",
+    endCompleteTitle: "원정을 완료할까요?",
+    endCompleteBody: "모든 코스를 마쳤어요. 완료하면 어느 지역에서든 새 원정을 시작할 수 있게 됩니다.",
+    endConfirmTitle: "원정을 종료할까요?",
+    endConfirmKept: "지금까지 체크인한 코스와 거기서 얻은 포인트는 그대로 남습니다.",
+    endConfirmLost: "종료하면 남은 코스는 더 이상 체크인할 수 없어요. 대신 이 지역을 포함해 어느 지역에서든 새 원정을 시작할 수 있게 됩니다.",
+    endCancel: "취소",
+    emptyTitle: "진행 중인 원정이 없어요",
+    emptyBody: "영토 지도에서 원정을 시작하면 여기에 표시됩니다.",
     seed: "씨앗",
     tree: "나무",
     landmark: "랜드마크",
     missing: "선택한 원정을 찾지 못했어요.",
-    publicRoute: "공식 관광 출처 기반 공공 원정 · 아티스트 직접 연관 주장 없음",
+    publicRoute: "공식 관광 출처 기반 공공 원정 · 아티스트 직접 연관 없음",
     artistLinked: "아티스트 연관 장소 중심",
-    regionalSupport: "지역을 응원하는 공공 관광 코스",
+    regionalSupport: "지역의 공공 관광 코스",
     noDirectPlace: "검증된 아티스트 직접 연관 장소가 없어 지역의 공공 관광지만 안내합니다.",
   },
   en: {
@@ -42,24 +57,36 @@ const copy = {
     connectionSource: "Artist connection source",
     evidenceDisclosure: "Why this is recommended",
     evidenceSource: "View source",
-    route: "Today's expedition",
-    nearby: "Nearby recommendation",
+    route: "Expedition route",
+    estimated: "Estimated",
+    publicTag: "Public tourism pick",
     direct: "Artist-linked place",
     source: "source",
-    dwell: "Dwell",
+    dwell: "Credited dwell",
     minuteUnit: "min",
     maximum: "Up to",
     multiplier: "Regional multiplier",
     total: "Estimated total",
     standings: "territory standings",
     checkIn: "check in",
+    checkInDone: "Checked in",
+    end: "End expedition",
+    endComplete: "Expedition complete",
+    endCompleteTitle: "Finish this expedition?",
+    endCompleteBody: "Every stop is done. Finishing opens any territory up for a new expedition.",
+    endConfirmTitle: "End this expedition?",
+    endConfirmKept: "Every stop you already checked into keeps the points it earned.",
+    endConfirmLost: "The remaining stops can no longer be checked into. In exchange, any territory — including this one — opens up for a new expedition.",
+    endCancel: "Cancel",
+    emptyTitle: "No expedition in progress",
+    emptyBody: "Start an expedition from the territory map and it will appear here.",
     seed: "Seed",
     tree: "Tree",
     landmark: "Landmark",
     missing: "The selected expedition could not be found.",
-    publicRoute: "Public route from official tourism sources · no direct artist claim",
+    publicRoute: "Public route from official tourism sources · no direct artist link",
     artistLinked: "Artist-linked places first",
-    regionalSupport: "Public tourism route supporting the region",
+    regionalSupport: "Public tourism route in this region",
     noDirectPlace: "No verified direct artist destination is available; this route includes regional public attractions only.",
   },
 } as const;
@@ -158,16 +185,42 @@ export function PreviewExpeditionView({
     .map((id) => previewContent.places.find((candidate) => candidate.id === id))
     .filter((place): place is PreviewMissionPlace => Boolean(place)) ?? [];
   const [checkInPlace, setCheckInPlace] = useState<PreviewMissionPlace | null>(null);
+  const [endOpen, setEndOpen] = useState(false);
+  const endDialogRef = useRef<HTMLDivElement>(null);
+  const endTitleRef = useRef<HTMLHeadingElement>(null);
   const [impactBefore, setImpactBefore] = useState<DemoSession | null>(null);
+  useModalFocus(endOpen, endDialogRef, endTitleRef, () => setEndOpen(false));
+  useBodyScrollLock(endOpen);
   const impact = useMemo(
     () => impactBefore && checkInPlace ? missionImpact(impactBefore, session.state, checkInPlace) : null,
     [checkInPlace, impactBefore, session.state],
   );
 
+  const leaveForMap = () => {
+    session.dispatch({ type: "changeTab", tab: "explore" });
+    onBack();
+  };
+
+  if (!requestedExpeditionId) {
+    return (
+      <div className="view preview-expedition-view">
+        <section className="expedition-empty" aria-labelledby="expedition-empty-title">
+          <h1 id="expedition-empty-title">{labels.emptyTitle}</h1>
+          <p>{labels.emptyBody}</p>
+          <button type="button" onClick={leaveForMap}>{labels.back}</button>
+        </section>
+      </div>
+    );
+  }
+
   if (!expedition || !territory) {
     return <div className="panel-loading">{labels.missing}</div>;
   }
 
+  // Every stop checked in turns the closing action into a completion.
+  const allStopsCheckedIn = places.length > 0 && places.every((place) => session.state.approvedCheckIns.some((record) => (
+    record.expeditionId === expedition.id && record.placeId === place.id
+  )));
   const ownerStrongholdStage = territory.ownerArtistId === session.state.selectedArtistId ? territory.strongholdStage : null;
   const awards = places.map((place) => maximumAward(place, territory.balanceMultiplier, ownerStrongholdStage));
   const totalAward = awards.reduce((total, award) => total + award.cappedPoints, 0);
@@ -187,23 +240,28 @@ export function PreviewExpeditionView({
 
   return (
     <div className="view preview-expedition-view">
-      <button className="text-button" type="button" onClick={() => {
-        session.dispatch({ type: "changeTab", tab: "explore" });
-        onBack();
-      }}><ArrowLeft size={17} /> {labels.back}</button>
+      <button className="text-button" type="button" onClick={leaveForMap}><ArrowLeft size={17} /> {labels.back}</button>
       <section className="expedition-hero">
         <div className="expedition-title">
           <span className="eyebrow">{territory.name[locale]} · {session.selectedArtist?.fandomName}</span>
           <h1>{expedition.title[locale]}</h1>
-          <p>{expedition.description[locale]}</p>
+          {expedition.description[locale] ? <p>{expedition.description[locale]}</p> : null}
           <div className="hero-meta">
-            <span><Clock3 size={16} /> {expedition.estimatedMinutes}{locale === "ko" ? "" : " "}{labels.minuteUnit}</span>
-            <span><Navigation size={16} /> {expedition.transitSummary[locale]}</span>
+            <span><Clock3 size={16} /> {labels.estimated} {expedition.estimatedMinutes}{locale === "ko" ? "" : " "}{labels.minuteUnit}</span>
             <span><Shield size={16} /> {labels.multiplier} {territory.balanceMultiplier}×</span>
             {ownerStrongholdStage ? <span><Shield size={16} /> {t(locale, "rewardStrongholdBonus")} · {t(locale, ownerStrongholdStage === "seed" ? "strongholdSeedBuff" : ownerStrongholdStage === "tree" ? "strongholdTreeBuff" : "strongholdLandmarkBuff")}</span> : null}
-            <strong>{labels.total} {totalAward.toLocaleString()}P</strong>
           </div>
+          <p className="hero-total"><strong>{labels.total} {totalAward.toLocaleString()}P</strong></p>
         </div>
+        <aside className="battle-card" role="region" aria-label={`${territory.name[locale]} ${labels.standings}`}>
+          <span className="eyebrow">{labels.standings}</span>
+          <ul>
+            {orderedStandings.map((standing) => (
+              <li key={standing.artistId}>{standing.fandomName} · {standing.validPoints}P</li>
+            ))}
+          </ul>
+          <p>{territory.balanceReason[locale]}</p>
+        </aside>
       </section>
 
       <section className="tactical-connection preview-expedition-connection">
@@ -232,43 +290,74 @@ export function PreviewExpeditionView({
           <ol className="stop-list">
             {places.map((place, index) => {
               const stopAward = awards[index];
-              const relationship = place.relationship === "nearby_recommendation" ? labels.nearby : labels.direct;
+              // An artist-linked stop wears the member's tag; anything else is public.
+              const member = place.artistConnectionId
+                ? previewContent.connections.find((candidate) => candidate.id === place.artistConnectionId)?.memberName[locale]
+                : null;
+              const checkedIn = session.state.approvedCheckIns.some((record) => (
+                record.expeditionId === expedition.id && record.placeId === place.id
+              ));
               return (
-                <li key={place.id} aria-label={place.name[locale]}>
-                  <div className="stop-marker">{String(index + 1).padStart(2, "0")}</div>
+                <li key={place.id} className={checkedIn ? "done" : undefined} aria-label={place.name[locale]}>
+                  <a
+                    className="stop-source"
+                    href={place.sourceUrls[0]}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`${place.name[locale]} ${labels.source}`}
+                  >
+                    <ExternalLink size={16} strokeWidth={2.2} aria-hidden="true" />
+                  </a>
                   <div className="stop-copy">
-                    <span>{relationship}</span>
                     <h3>{place.name[locale]}</h3>
-                    <p>{place.description[locale]}</p>
+                    <span className="stop-tag">{member ?? labels.publicTag}</span>
+                    {place.description[locale] ? <p>{place.description[locale]}</p> : null}
                     <div className="stop-meta">
                       <span><MapPin size={13} /> {place.address[locale]}</span>
-                      <span><Navigation size={13} /> {place.transport.summary[locale]}</span>
                       <span><Footprints size={13} /> {labels.dwell} {place.dwellMinutes}{locale === "ko" ? "" : " "}{labels.minuteUnit}</span>
                       <span className="benefit">{place.localBenefit[locale]}</span>
                     </div>
-                    <a href={place.sourceUrls[0]} target="_blank" rel="noreferrer">{place.name[locale]} {labels.source}</a>
                   </div>
                   <div className="stop-action">
                     <strong>{labels.maximum} {stopAward.cappedPoints}P</strong>
-                    <button type="button" onClick={() => startCheckIn(place)} aria-label={`${place.name[locale]} ${labels.checkIn}`}>{labels.checkIn}</button>
+                    {checkedIn
+                      ? <span className="stop-done">{labels.checkInDone}</span>
+                      : <button type="button" onClick={() => startCheckIn(place)} aria-label={`${place.name[locale]} ${labels.checkIn}`}>{labels.checkIn}</button>}
                   </div>
                 </li>
               );
             })}
           </ol>
         </section>
-
-        <aside className="battle-card" role="region" aria-label={`${territory.name[locale]} ${labels.standings}`}>
-          <span className="eyebrow">{labels.standings}</span>
-          <h2>{territory.name[locale]}</h2>
-          <ul>
-            {orderedStandings.map((standing) => (
-              <li key={standing.artistId}>{standing.fandomName} · {standing.validPoints}P</li>
-            ))}
-          </ul>
-          <p>{territory.balanceReason[locale]}</p>
-        </aside>
       </div>
+
+      {session.state.activeExpeditionId === expedition.id ? (
+        <button
+          className={allStopsCheckedIn ? "expedition-end expedition-end--complete" : "expedition-end"}
+          type="button"
+          onClick={() => setEndOpen(true)}
+        >{allStopsCheckedIn ? labels.endComplete : labels.end}</button>
+      ) : null}
+
+      {endOpen && typeof document !== "undefined" ? createPortal(
+        <div className="reset-dialog-overlay">
+          <div className="reset-dialog expedition-end-dialog" role="dialog" aria-modal="true" aria-labelledby="expedition-end-title" ref={endDialogRef}>
+            <h2 id="expedition-end-title" tabIndex={-1} ref={endTitleRef}>
+              {allStopsCheckedIn ? labels.endCompleteTitle : labels.endConfirmTitle}
+            </h2>
+            <p>{labels.endConfirmKept}</p>
+            <p>{allStopsCheckedIn ? labels.endCompleteBody : labels.endConfirmLost}</p>
+            <div>
+              <button type="button" onClick={() => setEndOpen(false)}>{labels.endCancel}</button>
+              <button type="button" className="danger" onClick={() => {
+                setEndOpen(false);
+                session.dispatch({ type: "endExpedition" });
+              }}>{allStopsCheckedIn ? labels.endComplete : labels.end}</button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      ) : null}
 
       {checkInPlace ? (
         <CheckInFlow

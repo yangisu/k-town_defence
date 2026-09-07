@@ -168,7 +168,8 @@ it("keeps one current primary navigation item and labels locale and reset dialog
     .toHaveLength(1);
   expect(screen.getByRole("group", { name: "언어 선택" })).toBeVisible();
 
-  const reset = screen.getByRole("button", { name: "데모 초기화" });
+  await user.click(within(navigation).getByRole("button", { name: "내 기록" }));
+  const reset = await screen.findByRole("button", { name: "데모 초기화" });
   await user.click(reset);
   const dialog = screen.getByRole("dialog", { name: "데모를 초기화할까요?" });
   expect(within(dialog).getByRole("heading", { name: "데모를 초기화할까요?" })).toHaveFocus();
@@ -184,16 +185,17 @@ it("blocks pointer activation of navigation and locale controls behind the reset
   render(<KTownApp mode="demo" mapConfig={null} />);
 
   const navigation = await screen.findByRole("navigation", { name: "주요 메뉴" });
-  const territoryTab = within(navigation).getByRole("button", { name: "영토 지도" });
+  const recordTab = within(navigation).getByRole("button", { name: "내 기록" });
   const rankingTab = within(navigation).getByRole("button", { name: "랭킹" });
   const english = screen.getByRole("button", { name: "EN" });
-  await user.click(screen.getByRole("button", { name: "데모 초기화" }));
+  await user.click(recordTab);
+  await user.click(await screen.findByRole("button", { name: "데모 초기화" }));
   expect(screen.getByRole("dialog", { name: "데모를 초기화할까요?" })).toBeVisible();
 
   await user.click(rankingTab);
   await user.click(english);
 
-  expect(territoryTab).toHaveAttribute("aria-current", "page");
+  expect(recordTab).toHaveAttribute("aria-current", "page");
   expect(rankingTab).not.toHaveAttribute("aria-current");
   expect(english).toHaveAttribute("aria-pressed", "false");
   expect(screen.getByRole("dialog", { name: "데모를 초기화할까요?" })).toBeVisible();
@@ -205,7 +207,8 @@ it("redirects programmatic background focus into the reset dialog", async () => 
   render(<KTownApp mode="demo" mapConfig={null} />);
 
   const english = await screen.findByRole("button", { name: "EN" });
-  await user.click(screen.getByRole("button", { name: "데모 초기화" }));
+  await user.click(within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole("button", { name: "내 기록" }));
+  await user.click(await screen.findByRole("button", { name: "데모 초기화" }));
   const dialog = screen.getByRole("dialog", { name: "데모를 초기화할까요?" });
   const title = within(dialog).getByRole("heading", { name: "데모를 초기화할까요?" });
 
@@ -261,7 +264,7 @@ it("exposes map-equivalent territory buttons with selection and stronghold names
 it("renders all stronghold states as distinct named silhouettes with visible labels", () => {
   render(<RecordView locale="ko" session={createInitialDemoSession()} />);
 
-  const growth = screen.getByRole("list", { name: "성장 단계" });
+  const growth = screen.getByRole("list", { name: "팬덤 성장 단계" });
   expect(within(growth).getByRole("img", { name: "씨앗 거점" })).toHaveTextContent("씨앗");
   expect(within(growth).getByRole("img", { name: "나무 거점" })).toHaveTextContent("나무");
   expect(within(growth).getByRole("img", { name: "랜드마크 거점" })).toHaveTextContent("랜드마크");
@@ -298,7 +301,6 @@ it("announces the complete mission impact as one polite textual summary", async 
   );
 
   await user.click(await screen.findByRole("button", { name: "데모 인증 진행" }));
-  await user.click(screen.getByRole("button", { name: "포인트 검토" }));
   await user.click(screen.getByRole("button", { name: "체크인 제출" }));
 
   const impact = await screen.findByRole("status", { name: "미션 영향 요약" });
@@ -309,14 +311,20 @@ it("announces the complete mission impact as one polite textual summary", async 
   expect(impact).toHaveTextContent("내 기여 순위 · #128 → #123");
 });
 
-it("enters profile setup by keyboard and keeps primary navigation inert until confirmation", async () => {
+it("enters profile setup by keyboard while the shell withholds its primary navigation", async () => {
   const user = userEvent.setup();
   render(<KTownApp mode="demo" mapConfig={null} />);
 
-  const navigation = await screen.findByRole("navigation", { name: "주요 메뉴" });
-  expect(screen.getByRole("img", { name: "K-Town Defense" })).toBeVisible();
-  expect(within(navigation).getAllByRole("button").every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+  expect(await screen.findByRole("img", { name: "K-Town Defense" })).toBeVisible();
+  // No tab is reachable before confirmation, so the shell renders none of them.
+  expect(screen.queryByRole("navigation", { name: "주요 메뉴" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("navigation", { name: "모바일 주요 메뉴" })).not.toBeInTheDocument();
 
+  await user.tab();
+  // The rail collapse toggle is the first control in reading order.
+  expect(screen.getByRole("button", { name: "메뉴 접기" })).toHaveFocus();
+  await user.tab();
+  expect(screen.getByRole("button", { name: "시즌 설명 보기" })).toHaveFocus();
   await user.tab();
   expect(screen.getByRole("button", { name: "한국어" })).toHaveFocus();
   await user.tab();
@@ -338,6 +346,8 @@ it("enters profile setup by keyboard and keeps primary navigation inert until co
   await user.keyboard("{Enter}");
 
   expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
+  // Confirmation reveals the tabs, all of them usable.
+  const navigation = screen.getByRole("navigation", { name: "주요 메뉴" });
   expect(within(navigation).getAllByRole("button").every((button) => !(button as HTMLButtonElement).disabled)).toBe(true);
 });
 
@@ -385,7 +395,8 @@ it("keeps the map fallback, territory-card selection, and selected-region text k
   const selectedRegion = await screen.findByRole("complementary", { name: "광주 전술 패널" });
   expect(within(selectedRegion).getByRole("heading", { name: "광주" })).toBeVisible();
   expect(within(selectedRegion).getByText("현재 소유 · ONEDOOR")).toBeVisible();
-  expect(screen.getByRole("button", { name: "전국 보기" })).toBeVisible();
+  // The camera reset only appears when a live map exists to reset.
+  expect(screen.queryByRole("button", { name: "전국 보기" })).not.toBeInTheDocument();
 });
 
 it("labels ranking progress and gives every locked reward a non-color status", () => {
@@ -444,5 +455,5 @@ it("opens Ranking and Record CTA destinations from the keyboard", async () => {
   recordCta.focus();
   await user.keyboard("{Enter}");
   expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
-  expect(screen.getByLabelText("내 팬덤 · ARMY")).toBeVisible();
+  expect(within(screen.getByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
 });

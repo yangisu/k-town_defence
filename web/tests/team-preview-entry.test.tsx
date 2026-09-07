@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { AppShell } from "@/components/app-shell";
+import { ObjectiveStrip } from "@/components/team-preview/objective-strip";
 import { KTownApp } from "@/features/ktown-app";
 import { getArtistHomeTerritories, previewContent } from "@/features/team-preview/content";
 import { DEMO_SESSION_KEY, createInitialDemoSession } from "@/features/team-preview/demo-session";
@@ -19,8 +20,9 @@ it("requires profile confirmation before rendering the territory workspace", asy
   expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
   expect(screen.queryByRole("heading", { name: "영토 지도" })).not.toBeInTheDocument();
   expect(screen.queryByText("게스트 데모")).not.toBeInTheDocument();
-  expect(within(screen.getByRole("navigation", { name: "주요 메뉴" })).getAllByRole("button")
-    .every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+  // Nothing behind the profile gate is reachable, so the shell offers no tabs at all.
+  expect(screen.queryByRole("navigation", { name: "주요 메뉴" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("navigation", { name: "모바일 주요 메뉴" })).not.toBeInTheDocument();
 });
 
 it("confirms a fandom profile before exposing the personalized workspace", async () => {
@@ -31,7 +33,7 @@ it("confirms a fandom profile before exposing the personalized workspace", async
   expect(screen.getByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
 
-  expect(await screen.findByLabelText("내 팬덤 · ARMY")).toBeVisible();
+  expect(within(await screen.findByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   expect(screen.getByRole("heading", { name: "영토 지도" })).toBeVisible();
   expect(screen.queryByText("게스트 데모")).not.toBeInTheDocument();
 });
@@ -43,8 +45,7 @@ it("persists initial profile confirmation at the national view across reload", a
   await user.click(await screen.findByRole("radio", { name: /방탄소년단.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
 
-  expect(await screen.findByLabelText("내 팬덤 · ARMY")).toBeVisible();
-  expect(screen.getByRole("region", { name: "현재 목표" })).toHaveTextContent("목표 지역 · 추천 영토");
+  expect(within(await screen.findByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   expect(screen.queryByRole("button", { name: "전국 보기" })).not.toBeInTheDocument();
   expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getAllByRole("button")
     .every((button) => button.getAttribute("aria-pressed") === "false")).toBe(true);
@@ -57,8 +58,7 @@ it("persists initial profile confirmation at the national view across reload", a
   view.unmount();
   render(<KTownApp mode="demo" mapConfig={null} />);
 
-  expect(await screen.findByLabelText("내 팬덤 · ARMY")).toBeVisible();
-  expect(screen.getByRole("region", { name: "현재 목표" })).toHaveTextContent("목표 지역 · 추천 영토");
+  expect(within(await screen.findByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   expect(screen.queryByRole("button", { name: "전국 보기" })).not.toBeInTheDocument();
 });
 
@@ -66,8 +66,8 @@ it("opens in the product shell and enters the service after explicit profile con
   const user = userEvent.setup();
   render(<KTownApp mode="demo" mapConfig={null} />);
 
-  expect(await screen.findByRole("navigation", { name: "주요 메뉴" })).toBeVisible();
-  expect(screen.getByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
+  expect(screen.queryByRole("navigation", { name: "주요 메뉴" })).not.toBeInTheDocument();
   expect(screen.getAllByRole("radio")).toHaveLength(15);
   expect(screen.getAllByRole("radio").every((radio) => !(radio as HTMLInputElement).checked)).toBe(true);
   expect(document.querySelector(".map-grid")).not.toBeInTheDocument();
@@ -80,15 +80,15 @@ it("opens in the product shell and enters the service after explicit profile con
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
 
   expect(screen.getByRole("heading", { name: "영토 지도" })).toBeVisible();
+  expect(screen.getByRole("navigation", { name: "주요 메뉴" })).toBeVisible();
   expect(screen.getByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).toBeVisible();
-  expect(screen.getByRole("region", { name: "현재 목표" })).toHaveTextContent("목표 지역 · 추천 영토");
   const fallbackList = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
   expect(within(fallbackList).getAllByRole("button")).toHaveLength(3);
   await user.click(screen.getByRole("button", { name: "전체" }));
   expect(within(fallbackList).getAllByRole("button")).toHaveLength(previewContent.territories.length);
-  expect(screen.getByLabelText("내 팬덤 · ARMY")).toBeVisible();
+  expect(within(screen.getByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   const objective = screen.getByRole("region", { name: "현재 목표" });
-  expect(objective).toHaveTextContent("내 팬덤 · ARMY");
+  expect(objective).toHaveTextContent("ARMY");
 });
 
 it("searches localized artists and recommends their first home territory", async () => {
@@ -182,12 +182,12 @@ it("hydrates a confirmed returning profile directly into its personalized worksp
   render(<KTownApp mode="demo" mapConfig={null} />);
 
   expect(screen.queryByRole("heading", { name: "응원할 아티스트를 선택하세요" })).not.toBeInTheDocument();
-  expect(await screen.findByLabelText("내 팬덤 · ARMY")).toBeVisible();
+  expect(within(await screen.findByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   expect(screen.getByRole("heading", { name: "영토 지도" })).toBeVisible();
   expect(screen.queryByRole("heading", { name: "응원할 아티스트를 선택하세요" })).not.toBeInTheDocument();
 });
 
-it("opens the deterministic eligible expedition from a restored national-view profile", async () => {
+it("keeps the expedition tab empty until a route is started from the territory map", async () => {
   const user = userEvent.setup();
   window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({
     ...createInitialDemoSession(),
@@ -197,19 +197,28 @@ it("opens the deterministic eligible expedition from a restored national-view pr
   }));
   render(<KTownApp mode="demo" mapConfig={null} />);
 
-  expect(await screen.findByLabelText("내 팬덤 · ARMY")).toBeVisible();
-  expect(screen.getByRole("region", { name: "현재 목표" })).toHaveTextContent("목표 지역 · 추천 영토");
+  expect(within(await screen.findByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   await user.click(screen.getAllByRole("button", { name: "원정" })[0]);
+
+  // Nothing has been started, so the tab holds an empty state, not a suggestion.
+  expect(await screen.findByRole("heading", { name: "진행 중인 원정이 없어요" })).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "BTS 부산 공식 공연장 원정" })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "영토 지도로" }));
+  await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getByRole("button", { name: /^부산/ }));
+  await user.click(within(screen.getByRole("complementary", { name: /(전술 패널|tactical panel)$/ })).getByRole("button", { name: "원정 시작" }));
 
   expect(await screen.findByRole("heading", { name: "BTS 부산 공식 공연장 원정" })).toBeVisible();
   const saved = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as {
     selectedTerritoryId: string | null;
     selectedExpeditionId: string | null;
+    activeExpeditionId: string | null;
     activeTab: string;
   };
   expect(saved).toMatchObject({
     selectedTerritoryId: "busan",
     selectedExpeditionId: "bts-busan-artist-linked-expedition",
+    activeExpeditionId: "bts-busan-artist-linked-expedition",
     activeTab: "expedition",
   });
 });
@@ -261,8 +270,9 @@ it("keeps locale controls and omits ambiguous identity when no fandom is selecte
       variant="demo"
       activeTab="explore"
       locale="ko"
-      onLocaleChange={vi.fn()}
       onTabChange={vi.fn()}
+      onLocaleChange={vi.fn()}
+      statusContent={<ObjectiveStrip locale="ko" fandomName={null} territoryName={null} />}
     >
       <div>service</div>
     </AppShell>,
@@ -291,7 +301,8 @@ it("keeps the current objective, reset, and locale controls in one non-overlappi
   expect(header).toContainElement(locale);
   expect(objective).toHaveAttribute("data-shell-region", "objective");
   expect(locale).toHaveAttribute("data-shell-region", "locale");
-  expect(within(objective).getByRole("button", { name: "데모 초기화" })).toBeVisible();
+  expect(objective).not.toContainElement(locale);
+  expect(screen.queryByRole("button", { name: "데모 초기화" })).not.toBeInTheDocument();
 });
 
 it("switches artists without carrying the previous artist's expedition route", async () => {
@@ -300,7 +311,8 @@ it("switches artists without carrying the previous artist's expedition route", a
 
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
-  await user.click(screen.getAllByRole("button", { name: "원정" })[0]);
+  await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getByRole("button", { name: /^부산/ }));
+  await user.click(within(screen.getByRole("complementary", { name: /(전술 패널|tactical panel)$/ })).getByRole("button", { name: "원정 시작" }));
   expect(await screen.findByRole("heading", { name: "BTS 부산 공식 공연장 원정" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "영토 지도로" }));
 
@@ -311,10 +323,15 @@ it("switches artists without carrying the previous artist's expedition route", a
   await user.click(within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole("button", { name: "영토 지도" }));
   expect(await screen.findByRole("complementary", { name: "수원 전술 패널" })).toBeVisible();
 
+  // The new profile inherits no route, so the tab starts empty again.
   await user.click(screen.getAllByRole("button", { name: "원정" })[0]);
-  expect(await screen.findByRole("heading", { name: "수원 지역 응원 원정" })).toBeVisible();
-  expect(screen.getByText("지역을 응원하는 공공 관광 코스")).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "진행 중인 원정이 없어요" })).toBeVisible();
   expect(screen.queryByRole("heading", { name: "BTS 부산 공식 공연장 원정" })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "영토 지도로" }));
+  await user.click(within(screen.getByRole("complementary", { name: /(전술 패널|tactical panel)$/ })).getByRole("button", { name: "원정 시작" }));
+  expect(await screen.findByRole("heading", { name: "수원 지역 원정" })).toBeVisible();
+  expect(screen.getByText("지역의 공공 관광 코스")).toBeVisible();
 });
 
 it("synchronizes the root document language for persisted and runtime locale changes", async () => {
@@ -356,10 +373,58 @@ it("keeps integrated mode on the existing membership entry without personalized 
   expect(screen.queryByRole("heading", { name: "응원할 아티스트를 선택하세요" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /내 팬덤/ })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "데모 초기화" })).not.toBeInTheDocument();
-  expect(screen.queryByText("지역을 응원하는 공공 관광 코스")).not.toBeInTheDocument();
+  expect(screen.queryByText("지역의 공공 관광 코스")).not.toBeInTheDocument();
   expect(window.localStorage.getItem(DEMO_SESSION_KEY)).toBeNull();
   expect(fetcher.mock.calls.map(([input]) => String(input))).toEqual([
     "/api/ktown/api/v1/fandoms",
     "/api/ktown/api/v1/me/season-membership",
   ]);
+});
+
+it("paints the header fandom pill with the fandom's own colour", async () => {
+  const user = userEvent.setup();
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
+  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
+
+  const objective = await screen.findByRole("region", { name: "현재 목표" });
+  const armyColor = previewContent.artists.find((artist) => artist.id === "bts")!.color;
+  expect(objective).toHaveTextContent("ARMY");
+  expect(objective.style.getPropertyValue("--fandom-color")).toBe(armyColor);
+  // The text tone is chosen for contrast, not hard-coded.
+  expect(["#ffffff", "#16231d"]).toContain(objective.style.getPropertyValue("--fandom-ink"));
+});
+
+it("opens the artist drawer from the header fandom pill", async () => {
+  const user = userEvent.setup();
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
+  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
+
+  await user.click(await screen.findByRole("button", { name: "ARMY · 아티스트 변경" }));
+
+  expect(await screen.findByRole("dialog", { name: "아티스트 선택" })).toBeVisible();
+});
+
+it("collapses and restores the side rail from the logo toggle", async () => {
+  const user = userEvent.setup();
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
+  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
+
+  const shell = document.querySelector(".app-shell")!;
+  expect(shell).not.toHaveClass("app-shell--rail-collapsed");
+
+  await user.click(screen.getByRole("button", { name: "메뉴 접기" }));
+
+  // Collapsing only hides the labels; every destination stays reachable.
+  expect(shell).toHaveClass("app-shell--rail-collapsed");
+  expect(within(screen.getByRole("navigation", { name: "주요 메뉴" }))
+    .getByRole("button", { name: "내 기록" })).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "메뉴 펼치기" }));
+  expect(shell).not.toHaveClass("app-shell--rail-collapsed");
 });

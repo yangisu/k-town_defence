@@ -6,7 +6,6 @@ export interface DemoEvidence {
   simulatedDwellMinutes: number;
   localSpendVerified: boolean;
   accommodationVerified: boolean;
-  reviewAccepted: boolean;
 }
 
 export interface CheckInUiState {
@@ -30,7 +29,6 @@ export type CheckInAction =
   | { type: "dwellUpdated"; activeSeconds: number }
   | { type: "demoEvidenceCollected"; dwellMinutes: number }
   | { type: "setDemoEvidence"; field: "localSpendVerified" | "accommodationVerified"; value: boolean }
-  | { type: "acceptDemoReview" }
   | { type: "pause" }
   | { type: "resume" }
   | { type: "submit" }
@@ -60,7 +58,6 @@ export function createInitialCheckInState(
       simulatedDwellMinutes: 0,
       localSpendVerified: false,
       accommodationVerified: false,
-      reviewAccepted: false,
     },
   };
 }
@@ -69,8 +66,7 @@ export function deriveCheckInProgress(state: CheckInUiState) {
   const gpsCount = new Set(state.samples.filter((sample) => sample.accuracyMeters <= 100).map((sample) => sample.kind)).size;
   const dwellPercent = Math.min(100, Math.round((state.activeSeconds / 300) * 100));
   const evidenceComplete = gpsCount === 3 && Boolean(state.photoAssetId);
-  const reviewAccepted = state.evidenceMode === "integrated" || state.demoEvidence.reviewAccepted;
-  return { gpsCount, dwellPercent, canSubmit: evidenceComplete && reviewAccepted };
+  return { gpsCount, dwellPercent, canSubmit: evidenceComplete };
 }
 
 function withReadiness(state: CheckInUiState): CheckInUiState {
@@ -89,7 +85,7 @@ export function checkInReducer(state: CheckInUiState, action: CheckInAction): Ch
     case "dwellUpdated": return state.status === "collecting" ? withReadiness({ ...state, activeSeconds: Math.max(state.activeSeconds, action.activeSeconds) }) : state;
     case "demoEvidenceCollected":
       if (state.status !== "collecting" || state.evidenceMode !== "demo") return state;
-      return {
+      return withReadiness({
         ...state,
         samples: [
           { kind: "start", accuracyMeters: 24 },
@@ -102,19 +98,14 @@ export function checkInReducer(state: CheckInUiState, action: CheckInAction): Ch
         demoEvidence: {
           ...state.demoEvidence,
           simulatedDwellMinutes: action.dwellMinutes,
-          reviewAccepted: false,
         },
-      };
+      });
     case "setDemoEvidence":
       if (!["collecting", "ready_to_submit"].includes(state.status) || state.evidenceMode !== "demo") return state;
-      return {
+      return withReadiness({
         ...state,
-        status: "collecting",
-        demoEvidence: { ...state.demoEvidence, [action.field]: action.value, reviewAccepted: false },
-      };
-    case "acceptDemoReview":
-      if (state.status !== "collecting" || state.evidenceMode !== "demo") return state;
-      return withReadiness({ ...state, demoEvidence: { ...state.demoEvidence, reviewAccepted: true } });
+        demoEvidence: { ...state.demoEvidence, [action.field]: action.value },
+      });
     case "pause": return state.status === "collecting" ? { ...state, status: "paused" } : state;
     case "resume": return state.status === "paused" ? withReadiness({ ...state, status: "collecting" }) : state;
     case "submit": return state.status === "ready_to_submit" ? { ...state, status: "submitting", issue: null } : state;

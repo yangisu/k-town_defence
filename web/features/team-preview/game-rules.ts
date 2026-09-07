@@ -1,6 +1,8 @@
 import type { FandomStanding, StrongholdStage } from "./types";
 
 export const GAME_RULES = {
+  dwellShortMinutes: 20,
+  dwellLongMinutes: 40,
   dwell30Minutes: 30,
   dwell60Minutes: 60,
   localSpend: 100,
@@ -46,9 +48,9 @@ function repeatMultiplier(repeatCount: number) {
 
 export function calculateMissionAward(input: MissionAwardInput): MissionAward {
   const visit = input.visitBase;
-  const dwell = input.dwellMinutes >= 40
+  const dwell = input.dwellMinutes >= GAME_RULES.dwellLongMinutes
     ? GAME_RULES.dwell60Minutes
-    : input.dwellMinutes >= 20
+    : input.dwellMinutes >= GAME_RULES.dwellShortMinutes
       ? GAME_RULES.dwell30Minutes
       : 0;
   const localSpend = input.localSpendVerified ? GAME_RULES.localSpend : 0;

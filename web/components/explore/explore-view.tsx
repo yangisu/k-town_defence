@@ -24,7 +24,7 @@ export function ExploreView({ services, selectedRegionId, mode = "demo", territo
     <div className="view explore-view">
       <header className="view-header hero-header">
         <div><span className="eyebrow">TRAVEL THE MUSIC · DEFEND THE REGION</span><h1 aria-label="팬덤으로 여는 한국 여행">팬덤으로 여는<br /><em>한국 여행</em></h1><p>좋아하는 마음을 따라 낯선 지역으로. 여행할수록 우리 팬덤의 색이 지도 위에 선명해져요.</p></div>
-        <div className="season-chip"><span>SEASON 01</span><strong>우리 팬덤 2위</strong><small>18일 남음</small></div>
+        <div className="season-chip"><span>SEASON 01</span><strong>우리 팬덤 2위</strong><small>D-18</small></div>
       </header>
       <div className="filter-bar" aria-label="관광 유형 필터">{filters.map((item) => <button key={item.value} className={filter === item.value ? "active" : ""} aria-pressed={filter === item.value} onClick={() => setFilter(item.value)}>{item.value === "all" ? <Sparkles size={15} /> : null}{item.label}</button>)}</div>
       <div className="explore-grid">

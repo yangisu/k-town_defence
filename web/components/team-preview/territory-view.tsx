@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { MapFilters, filterAndOrderTerritories, type TerritoryFilter } from "@/components/team-preview/map-filters";
 import { StartPanel } from "@/components/team-preview/start-panel";
 import { TacticalPanel } from "@/components/team-preview/tactical-panel";
@@ -16,6 +16,7 @@ export function TerritoryView({ mapConfig }: {
 }) {
   const session = useDemoSession();
   const [filter, setFilter] = useState<TerritoryFilter>("my_fandom");
+  const mapRef = useRef<HTMLDivElement>(null);
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
   const selectedTerritory = session.state.artistConfirmed ? session.selectedTerritory : null;
   const visibleTerritories = useMemo(() => selectedArtist
@@ -42,6 +43,8 @@ export function TerritoryView({ mapConfig }: {
   const openSummaryTerritory = (nextFilter: TerritoryFilter, territoryId: string | null) => {
     setFilter(nextFilter);
     if (territoryId) selectTerritory(territoryId);
+    // The card acts on the map below it, so bring the map along.
+    mapRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   };
 
   const territoryName = (territoryId: string | null | undefined) => territoryId
@@ -59,6 +62,8 @@ export function TerritoryView({ mapConfig }: {
       : null;
 
     if (expedition && expeditionTerritory) {
+      // The panel is the pager: arrows and dots walk the listed territories.
+      const pageIndex = visibleTerritories.findIndex((candidate) => candidate.id === selectedTerritory.id);
       tacticalPanel = (
         <TacticalPanel
           session={session.state}
@@ -67,6 +72,12 @@ export function TerritoryView({ mapConfig }: {
           connection={connection}
           expedition={expedition}
           expeditionTerritory={expeditionTerritory}
+          pageIndex={pageIndex}
+          pageCount={visibleTerritories.length}
+          onPage={(index) => {
+            const next = visibleTerritories[index];
+            if (next) selectTerritory(next.id);
+          }}
           onStartExpedition={() => session.dispatch({ type: "openExpedition", expeditionId: expedition.id })}
         />
       );
@@ -76,7 +87,6 @@ export function TerritoryView({ mapConfig }: {
   return (
     <div className="view territory-view">
       <h1 className="preview-page-title">{t(session.state.locale, "navTerritory")}</h1>
-      {selectedArtist ? <MapFilters locale={session.state.locale} activeFilter={filter} onChange={changeFilter} /> : null}
       {selectedArtist && summary ? (
         <section className="territory-summary" aria-label={t(session.state.locale, "territorySummary")}>
           <div className="territory-summary-grid">
@@ -111,8 +121,9 @@ export function TerritoryView({ mapConfig }: {
           </div>
         </section>
       ) : null}
-      <div className="preview-map-layout">
+      <div className="preview-map-layout" ref={mapRef}>
         <TerritoryMap
+          filters={selectedArtist ? <MapFilters locale={session.state.locale} activeFilter={filter} onChange={changeFilter} /> : null}
           mapConfig={mapConfig}
           session={session.state}
           listedTerritories={visibleTerritories}

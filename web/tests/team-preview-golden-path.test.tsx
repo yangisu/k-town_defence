@@ -11,13 +11,14 @@ it("completes the personalized BTS territory journey and persists its profile an
   const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
   let view = render(<KTownApp mode="demo" mapConfig={null} />);
 
-  expect(await screen.findByRole("navigation", { name: "주요 메뉴" })).toBeVisible();
-  expect(screen.getByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
+  expect(screen.queryByRole("navigation", { name: "주요 메뉴" })).not.toBeInTheDocument();
   scrollTo.mockClear();
   await user.click(screen.getByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
-  expect(screen.getByLabelText("내 팬덤 · ARMY")).toBeVisible();
+  expect(within(screen.getByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   expect(screen.getByRole("heading", { name: "영토 지도" })).toBeVisible();
+  expect(screen.getByRole("navigation", { name: "주요 메뉴" })).toBeVisible();
   expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "auto" });
   expect(screen.getByRole("heading", { name: "2. 추천 영토 확인" })).toBeVisible();
   expect(screen.getByText("요약 카드나 지도에서 공략할 영토를 선택하세요.")).toBeVisible();
@@ -44,14 +45,18 @@ it("completes the personalized BTS territory journey and persists its profile an
     activeTab: "expedition",
     selectedTerritoryId: "gwangju",
     selectedExpeditionId: "gwangju-regional-support-expedition",
+    activeExpeditionId: "gwangju-regional-support-expedition",
   }));
   view = render(<KTownApp mode="demo" mapConfig={null} />);
 
-  expect(await screen.findByRole("heading", { name: "광주 지역 응원 원정" })).toBeVisible();
-  expect(screen.getByText("지역을 응원하는 공공 관광 코스")).toBeVisible();
-  expect(screen.getByText(/아티스트 직접 연관 주장 없음/)).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "광주 지역 원정" })).toBeVisible();
+  expect(screen.getByText("지역의 공공 관광 코스")).toBeVisible();
+  expect(screen.getByText(/아티스트 직접 연관 없음/)).toBeVisible();
   expect(screen.queryByText("아티스트 연관 장소 중심")).not.toBeInTheDocument();
 
+  await user.click(screen.getByRole("button", { name: "원정 종료" }));
+  await user.click(within(await screen.findByRole("dialog", { name: "원정을 종료할까요?" }))
+    .getByRole("button", { name: "원정 종료" }));
   await user.click(screen.getByRole("button", { name: "영토 지도로" }));
   const restoredGwangjuPanel = await screen.findByRole("complementary", { name: "광주 전술 패널" });
   await user.click(within(restoredGwangjuPanel).getByRole("button", { name: "원정 시작" }));
@@ -60,7 +65,7 @@ it("completes the personalized BTS territory journey and persists its profile an
   expect(screen.getByText("추천 근거 보기")).toBeVisible();
   expect(screen.getByRole("link", { name: "출처 확인" })).toHaveAttribute("href", "https://weverse.io/bts/notice/3595");
   const linkedStop = screen.getByRole("listitem", { name: "부산아시아드주경기장" });
-  expect(within(linkedStop).getByText("아티스트 연관 장소")).toBeVisible();
+  expect(within(linkedStop).getByText("BTS")).toBeVisible();
   expect(within(linkedStop).getByRole("link", { name: "부산아시아드주경기장 출처" }))
     .toHaveAttribute("href", "https://weverse.io/bts/notice/3595");
   expect(within(screen.getByRole("region", { name: "부산 영토 현황" })).getByText(/ARMY.*920P/)).toBeVisible();
@@ -72,7 +77,6 @@ it("completes the personalized BTS territory journey and persists its profile an
   expect(within(checkIn).getByText("현장 사진 확인 완료")).toBeVisible();
   expect(within(checkIn).getByText("체류 45분 확인")).toBeVisible();
   await user.click(within(checkIn).getByRole("checkbox", { name: "로컬 소비 인증 포함" }));
-  await user.click(within(checkIn).getByRole("button", { name: "포인트 검토" }));
   await user.click(within(checkIn).getByRole("button", { name: "체크인 제출" }));
 
   expect(await within(checkIn).findByRole("heading", { name: "체크인 승인 완료" })).toBeVisible();
@@ -111,7 +115,7 @@ it("completes the personalized BTS territory journey and persists its profile an
 
   view.unmount();
   render(<KTownApp mode="demo" mapConfig={null} />);
-  expect(await screen.findByLabelText("내 팬덤 · ARMY")).toBeVisible();
+  expect(within(await screen.findByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   await user.click(screen.getAllByRole("button", { name: "랭킹" })[0]);
   const persistedRanking = screen.getByRole("list", { name: "팬덤 랭킹" });
   expect(within(persistedRanking).getByRole("listitem", { current: true })).toHaveTextContent("23,390P");
@@ -126,7 +130,7 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
 
   expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "EN" }));
-  expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
+  expect(screen.queryByRole("navigation", { name: "Main navigation" })).not.toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Choose an artist to support" })).toBeVisible();
   expect(screen.queryByText("영토 지도")).not.toBeInTheDocument();
   expect(screen.queryByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).not.toBeInTheDocument();
@@ -136,8 +140,10 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   expect(screen.getAllByRole("radio")).toHaveLength(1);
   await user.click(screen.getByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "Start with this fandom" }));
-  expect(screen.getByLabelText("My fandom · ARMY")).toBeVisible();
+  expect(within(screen.getByRole("region", { name: "Current objective" })).getByText("ARMY")).toBeVisible();
   expect(screen.getByRole("heading", { name: "Territory Map" })).toBeVisible();
+  // Confirming the fandom is what puts the shell tabs on screen.
+  expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
 
   await user.click(screen.getAllByRole("button", { name: "Ranking" })[0]);
   const initialRanking = screen.getByRole("list", { name: "Fandom ranking" });
@@ -157,13 +163,13 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   expect(screen.getByRole("complementary", { name: "Yeongwol tactical panel" })).toBeVisible();
   expect(screen.queryByRole("group", { name: "영토 필터" })).not.toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "Start expedition" }));
+  await user.click(within(screen.getByRole("complementary", { name: /(전술 패널|tactical panel)$/ })).getByRole("button", { name: "Start expedition" }));
   expect(await screen.findByRole("heading", { name: "BTS Busan official concert venue expedition" })).toBeVisible();
   expect(screen.getByText("Artist-linked places first")).toBeVisible();
   expect(screen.getByText("Why this is recommended")).toBeVisible();
   expect(screen.getByRole("link", { name: "View source" })).toHaveAttribute("href", "https://weverse.io/bts/notice/3595");
   const linkedStop = screen.getByRole("listitem", { name: "Busan Asiad Main Stadium" });
-  expect(within(linkedStop).getByText("Artist-linked place")).toBeVisible();
+  expect(within(linkedStop).getByText("BTS")).toBeVisible();
   expect(within(linkedStop).getByRole("link", { name: "Busan Asiad Main Stadium source" }))
     .toHaveAttribute("href", "https://weverse.io/bts/notice/3595");
   expect(within(screen.getByRole("region", { name: "Busan territory standings" })).getByText(/ARMY.*920P/)).toBeVisible();
@@ -177,7 +183,6 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   expect(within(checkIn).getByText("On-site photo verified")).toBeVisible();
   expect(within(checkIn).getByText("Dwell 45 minutes verified")).toBeVisible();
   await user.click(within(checkIn).getByRole("checkbox", { name: "Include local spend verification" }));
-  await user.click(within(checkIn).getByRole("button", { name: "Review points" }));
   await user.click(within(checkIn).getByRole("button", { name: "Submit check-in" }));
 
   expect(await within(checkIn).findByRole("heading", { name: "Check-in approved" })).toBeVisible();
@@ -213,7 +218,7 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
 
   view.unmount();
   render(<KTownApp mode="demo" mapConfig={null} />);
-  expect(await screen.findByLabelText("My fandom · ARMY")).toBeVisible();
+  expect(within(await screen.findByRole("region", { name: "Current objective" })).getByText("ARMY")).toBeVisible();
   expect(screen.getByRole("button", { name: "EN" })).toHaveAttribute("aria-pressed", "true");
   await user.click(screen.getAllByRole("button", { name: "Ranking" })[0]);
   const persistedRanking = screen.getByRole("list", { name: "Fandom ranking" });
@@ -229,7 +234,9 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
 
   expect(await screen.findByRole("heading", { name: "Choose an artist to support" })).toBeVisible();
   expect(screen.queryByText("1. 아티스트 선택")).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "My fandom · ARMY" })).not.toBeInTheDocument();
+  // The header drops the fandom and falls back to the pick-an-artist prompt.
+  expect(screen.getByRole("region", { name: "Current objective" }))
+    .toHaveTextContent("Choose the artist you will support");
   expect(window.localStorage.getItem("ktown-english-neighbor")).toBe("preserve-me");
   await waitFor(() => expect(window.localStorage.getItem(DEMO_SESSION_KEY)).toBeNull());
 }, 20_000);
@@ -249,7 +256,7 @@ it("returns an empty season dashboard to Explore without resetting the confirmed
   await user.click(screen.getByRole("button", { name: "영토 둘러보기" }));
 
   expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
-  expect(screen.getByLabelText("내 팬덤 · ARMY")).toBeVisible();
+  expect(within(screen.getByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   await waitFor(() => {
     const saved = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as DemoSession;
     expect(saved.selectedArtistId).toBe("bts");
@@ -266,14 +273,18 @@ it("shows Gwangju regional support before opening the nearest eligible BTS-linke
     selectedArtistId: "bts",
     selectedTerritoryId: "gwangju",
     selectedExpeditionId: "gwangju-regional-support-expedition",
+    activeExpeditionId: "gwangju-regional-support-expedition",
     activeTab: "expedition",
   }));
   render(<KTownApp mode="demo" mapConfig={null} />);
 
-  expect(await screen.findByRole("heading", { name: "광주 지역 응원 원정" })).toBeVisible();
-  expect(screen.getByText("지역을 응원하는 공공 관광 코스")).toBeVisible();
-  expect(screen.getByText(/아티스트 직접 연관 주장 없음/)).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "광주 지역 원정" })).toBeVisible();
+  expect(screen.getByText("지역의 공공 관광 코스")).toBeVisible();
+  expect(screen.getByText(/아티스트 직접 연관 없음/)).toBeVisible();
 
+  await user.click(screen.getByRole("button", { name: "원정 종료" }));
+  await user.click(within(await screen.findByRole("dialog", { name: "원정을 종료할까요?" }))
+    .getByRole("button", { name: "원정 종료" }));
   await user.click(screen.getByRole("button", { name: "영토 지도로" }));
   const gwangjuPanel = await screen.findByRole("complementary", { name: "광주 전술 패널" });
   expect(within(gwangjuPanel).getByText(/지역 연결 스토리 · 제이홉/)).toBeVisible();
@@ -282,7 +293,7 @@ it("shows Gwangju regional support before opening the nearest eligible BTS-linke
   expect(await screen.findByRole("heading", { name: "BTS 부산 공식 공연장 원정" })).toBeVisible();
   expect(screen.getByText("아티스트 연관 장소 중심")).toBeVisible();
   const linkedStop = screen.getByRole("listitem", { name: "부산아시아드주경기장" });
-  expect(within(linkedStop).getByText("아티스트 연관 장소")).toBeVisible();
+  expect(within(linkedStop).getByText("BTS")).toBeVisible();
   expect(within(linkedStop).getByRole("link", { name: "부산아시아드주경기장 출처" }))
     .toHaveAttribute("href", "https://weverse.io/bts/notice/3595");
 }, 20_000);

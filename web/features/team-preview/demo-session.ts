@@ -1,7 +1,6 @@
 import type { AppTab } from "@/features/app-controller";
 import { getArtistHomeTerritories, previewContent } from "./content";
 import { GAME_RULES, stageForPoints, type MissionAward } from "./game-rules";
-import { selectRecommendedExpedition } from "./expedition-selection";
 import type { ArtistId, FandomStanding, Locale, PreviewTerritory, StrongholdStage, TerritoryId } from "./types";
 
 export const DEMO_SESSION_VERSION = 3;
@@ -26,6 +25,7 @@ export interface DemoSession {
   selectedTerritoryId: TerritoryId | null;
   activeTab: AppTab;
   selectedExpeditionId: string | null;
+  activeExpeditionId: string | null;
   territories: PreviewTerritory[];
   fandoms: FandomStanding[];
   completedExpeditionIds: string[];
@@ -41,6 +41,7 @@ export type DemoSessionAction =
   | { type: "changeTab"; tab: AppTab }
   | { type: "openExpedition"; expeditionId: string }
   | { type: "openRecommendedExpedition"; expeditionId: string; territoryId: TerritoryId }
+  | { type: "endExpedition" }
   | { type: "setLocale"; locale: Locale }
   | { type: "completeCheckIn"; expeditionId: string; placeId: string; award: MissionAward }
   | { type: "hydrate"; state: DemoSession }
@@ -130,6 +131,7 @@ export function createInitialDemoSession(): DemoSession {
     selectedTerritoryId: null,
     activeTab: "explore",
     selectedExpeditionId: null,
+    activeExpeditionId: null,
     territories,
     fandoms: recomputeFandoms(territories),
     completedExpeditionIds: [],
@@ -210,6 +212,7 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         selectedTerritoryId: null,
         activeTab: "explore",
         selectedExpeditionId: null,
+        activeExpeditionId: null,
       };
     case "changeProfile": {
       if (state.artistConfirmed && state.selectedArtistId === action.artistId) return state;
@@ -221,6 +224,7 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         selectedTerritoryId: territory?.id ?? null,
         activeTab: state.activeTab === "journey" ? "journey" : "explore",
         selectedExpeditionId: null,
+        activeExpeditionId: null,
       };
     }
     case "selectTerritory":
@@ -230,31 +234,44 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
     case "changeTab": {
       if (action.tab !== "expedition") return { ...state, activeTab: action.tab, selectedExpeditionId: null };
       if (!state.selectedArtistId) return state;
-      const anchorTerritoryId = state.selectedTerritoryId
-        ?? selectProfileTerritory(state.selectedArtistId, state.territories)?.id
-        ?? null;
-      if (!anchorTerritoryId) return state;
-      const recommended = selectRecommendedExpedition(state.selectedArtistId, anchorTerritoryId);
-      return recommended ? {
-        ...state,
-        selectedTerritoryId: recommended.territoryId,
-        activeTab: "expedition",
-        selectedExpeditionId: recommended.expedition.id,
-      } : state;
+      // The tab shows a route only once the traveller has started one; until
+      // then it stays empty instead of opening a recommendation for them.
+      const active = state.activeExpeditionId
+        ? previewContent.expeditions.find((candidate) => candidate.id === state.activeExpeditionId)
+        : undefined;
+      return active && (active.artistId === null || active.artistId === state.selectedArtistId)
+        ? {
+            ...state,
+            selectedTerritoryId: active.territoryId,
+            activeTab: "expedition",
+            selectedExpeditionId: active.id,
+          }
+        : { ...state, activeTab: "expedition", selectedExpeditionId: null };
     }
+    case "endExpedition":
+      // Approved check-ins already landed in the territories, so only the
+      // running route is cleared and its territory opens up again.
+      return state.activeExpeditionId === null
+        ? state
+        : { ...state, activeExpeditionId: null, selectedExpeditionId: null };
     case "openExpedition": {
       if (!state.selectedArtistId || !state.selectedTerritoryId) return state;
       const expedition = compatibleExpedition(action.expeditionId, state.selectedArtistId, state.selectedTerritoryId);
-      return expedition ? { ...state, activeTab: "expedition", selectedExpeditionId: expedition.id } : state;
+      if (expedition && state.activeExpeditionId !== null && state.activeExpeditionId !== expedition.id) return state;
+      return expedition
+        ? { ...state, activeTab: "expedition", selectedExpeditionId: expedition.id, activeExpeditionId: expedition.id }
+        : state;
     }
     case "openRecommendedExpedition": {
       if (!state.artistConfirmed || !state.selectedArtistId) return state;
       const expedition = compatibleExpedition(action.expeditionId, state.selectedArtistId, action.territoryId);
+      if (expedition && state.activeExpeditionId !== null && state.activeExpeditionId !== expedition.id) return state;
       return expedition && expedition.territoryId === action.territoryId
         ? {
             ...state,
             selectedTerritoryId: action.territoryId,
             selectedExpeditionId: expedition.id,
+            activeExpeditionId: expedition.id,
             activeTab: "expedition",
           }
         : state;
@@ -394,6 +411,7 @@ function isValidDemoSession(value: unknown): value is DemoSession {
     || (value.selectedTerritoryId !== null && !isTerritoryId(value.selectedTerritoryId))
     || !["explore", "expedition", "battle", "journey"].includes(value.activeTab as string)
     || (value.selectedExpeditionId !== null && (typeof value.selectedExpeditionId !== "string" || !expeditionIds.has(value.selectedExpeditionId)))
+    || (value.activeExpeditionId !== null && (typeof value.activeExpeditionId !== "string" || !expeditionIds.has(value.activeExpeditionId)))
     || !Array.isArray(value.territories)
     || !value.territories.every(isValidTerritory)
     || !hasExactIds(value.territories, territoryIds, (territory) => isRecord(territory) && isTerritoryId(territory.id) ? territory.id : null)
@@ -413,11 +431,18 @@ function isValidDemoSession(value: unknown): value is DemoSession {
   if (value.artistConfirmed !== (value.selectedArtistId !== null)) return false;
   if (!value.artistConfirmed && value.selectedTerritoryId !== null) return false;
   if (!value.artistConfirmed && (value.activeTab !== "explore" || value.selectedExpeditionId !== null)) return false;
+  if (!value.artistConfirmed && value.activeExpeditionId !== null) return false;
+  if (value.activeExpeditionId !== null) {
+    const active = previewContent.expeditions.find((candidate) => candidate.id === value.activeExpeditionId);
+    if (!active || (active.artistId !== null && active.artistId !== value.selectedArtistId)) return false;
+  }
   if (value.selectedExpeditionId !== null) {
     if (!value.selectedArtistId || !value.selectedTerritoryId
       || !compatibleExpedition(value.selectedExpeditionId, value.selectedArtistId, value.selectedTerritoryId)) return false;
   }
-  if ((value.activeTab === "expedition") !== (value.selectedExpeditionId !== null)) return false;
+  // An open route implies the expedition tab, but the tab may sit empty.
+  if (value.selectedExpeditionId !== null && value.activeTab !== "expedition") return false;
+  if (value.selectedExpeditionId !== null && value.selectedExpeditionId !== value.activeExpeditionId) return false;
 
   const derivedCounts = value.approvedCheckIns.reduce<Record<string, number>>((counts, record) => {
     counts[record.placeId] = (counts[record.placeId] ?? 0) + 1;

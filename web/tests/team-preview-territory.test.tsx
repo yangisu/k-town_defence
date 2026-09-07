@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { TerritoryView } from "@/components/team-preview/territory-view";
@@ -13,7 +13,7 @@ import {
   demoSessionReducer,
   type DemoSession,
 } from "@/features/team-preview/demo-session";
-import type { MissionAward } from "@/features/team-preview/game-rules";
+import { GAME_RULES, type MissionAward } from "@/features/team-preview/game-rules";
 import { DemoSessionProvider } from "@/features/team-preview/demo-session-context";
 
 beforeEach(() => window.localStorage.clear());
@@ -238,8 +238,9 @@ it.each([
     button.querySelector("span")?.textContent,
     button.querySelector("strong")?.textContent,
   ])).toEqual(summaryPairs);
-  expect(screen.getByRole("list")).toHaveTextContent(`${owner} · ONEDOOR`);
-  expect(screen.getByRole("button", { name: nationalView })).toBeVisible();
+  const territoryListLabel = locale === "ko" ? "지도와 같은 영토 목록" : "Map-equivalent territory list";
+  expect(screen.getByRole("list", { name: territoryListLabel })).toHaveTextContent(`${owner} · ONEDOOR`);
+  expect(screen.queryByRole("button", { name: nationalView })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: changeArtist })).not.toBeInTheDocument();
 
   const territoryNames = locale === "ko"
@@ -255,7 +256,7 @@ it.each([
     ["busan", "wonju", "gwangju", "suwon"],
     ["busan", "wonju", "gwangju", "suwon", "gunpo", "daejeon", "yongin", "ulsan", "cheonan", "chuncheon", "yeongwol", "geoje", "gyeongju", "goyang", "namyangju", "daegu", "seoul", "seongnam", "siheung", "uijeongbu", "incheon", "jeju", "pohang"],
   ] as const;
-  const list = screen.getByRole("list");
+  const list = screen.getByRole("list", { name: locale === "ko" ? "지도와 같은 영토 목록" : "Map-equivalent territory list" });
   for (const [index, filter] of filterLabels.entries()) {
     await user.click(screen.getByRole("button", { name: filter }));
     const actualTerritoryIds = within(list).getAllByRole("button").map((button) => {
@@ -264,4 +265,227 @@ it.each([
     });
     expect(actualTerritoryIds).toEqual(expectedTerritoryIds[index]);
   }
+});
+
+it("explains the point breakdown from the award box help toggle", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist();
+
+  const award = await screen.findByRole("region", { name: "추천 원정 예상 포인트" });
+  expect(within(award).queryByText("방문 기본", { selector: "strong" })).not.toBeInTheDocument();
+
+  const help = within(award).getByRole("button", { name: "포인트 계산 방식 보기" });
+  expect(help).toHaveAttribute("aria-expanded", "false");
+  await user.click(help);
+
+  expect(help).toHaveAttribute("aria-expanded", "true");
+  const note = document.getElementById("tactical-award-help")!;
+  expect(award).toContainElement(note);
+  // The thresholds and values come from GAME_RULES, so the copy cannot drift.
+  expect(note).toHaveTextContent(`${GAME_RULES.dwellLongMinutes}분 이상 머물면 ${GAME_RULES.dwell60Minutes}P`);
+  expect(note).toHaveTextContent(`지역 가게에서 쓴 내역을 인증하면 ${GAME_RULES.localSpend}P`);
+  expect(note).toHaveTextContent(`숙박을 인증하면 ${GAME_RULES.accommodation}P`);
+  expect(note).toHaveTextContent(`씨앗 +${GAME_RULES.strongholdVisitBonus}P`);
+  expect(note).toHaveTextContent(`하루 상한은 ${GAME_RULES.dailyCap.toLocaleString()}P`);
+
+  await user.click(help);
+  expect(help).toHaveAttribute("aria-expanded", "false");
+  expect(document.getElementById("tactical-award-help")).toBeNull();
+});
+
+it("explains the impact figures from their own help toggle", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist();
+
+  const impact = await screen.findByRole("region", { name: "부산 추천 원정 영향" });
+  const help = within(impact).getByRole("button", { name: "영향 지표 설명 보기" });
+  expect(help).toHaveAttribute("aria-expanded", "false");
+
+  await user.click(help);
+
+  const note = document.getElementById("tactical-impact-help")!;
+  expect(impact).toContainElement(note);
+  // Each term repeats a label rendered in the same box.
+  expect(within(note).getByText("지역균형 보너스")).toBeVisible();
+  expect(within(note).getByText("영토 영향")).toBeVisible();
+  expect(within(note).getByText("팬덤 순위 영향")).toBeVisible();
+  expect(note).toHaveTextContent("소유자를 넘어서면 점령 예상");
+  expect(note).toHaveTextContent("거점 수를 먼저 보고, 같으면 유효 포인트로 갈립니다");
+
+  // The two help toggles are independent.
+  expect(within(impact).getByRole("button", { name: "영향 지표 설명 보기" })).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("button", { name: "포인트 계산 방식 보기" })).toHaveAttribute("aria-expanded", "false");
+
+  await user.click(help);
+  expect(document.getElementById("tactical-impact-help")).toBeNull();
+});
+
+it("reports a started route as in progress on the tactical panel", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist({ selectedArtistId: "blackpink", selectedTerritoryId: "gunpo" });
+
+  await user.click(within(await screen.findByRole("complementary", { name: "군포 전술 패널" }))
+    .getByRole("button", { name: "원정 시작" }));
+
+  expect(within(screen.getByRole("complementary", { name: "군포 전술 패널" }))
+    .getByRole("button", { name: "원정 중" })).toBeVisible();
+});
+
+it("pages the tactical panel through the listed territories", async () => {
+  const user = userEvent.setup();
+  // BLINK owns exactly two territories, so the pager holds two pages.
+  renderPreviewWithArtist({ selectedArtistId: "blackpink", selectedTerritoryId: "gunpo" });
+
+  const panel = await screen.findByRole("complementary", { name: "군포 전술 패널" });
+  expect(within(panel).getAllByRole("button", { name: /번째 영토 보기$/ })).toHaveLength(2);
+  expect(within(panel).getAllByRole("button", { name: /번째 영토 보기$/ })[0]).toHaveAttribute("aria-current", "true");
+  expect(within(panel).getByRole("button", { name: "이전 영토" })).toBeDisabled();
+
+  await user.click(within(panel).getByRole("button", { name: "다음 영토" }));
+
+  const next = await screen.findByRole("complementary", { name: "성남 전술 패널" });
+  expect(within(next).getByRole("heading", { name: "성남" })).toBeVisible();
+  expect(within(next).getAllByRole("button", { name: /번째 영토 보기$/ })[1]).toHaveAttribute("aria-current", "true");
+  expect(within(next).getByRole("button", { name: "다음 영토" })).toBeDisabled();
+
+  // A dot jumps straight back to its territory.
+  await user.click(within(next).getAllByRole("button", { name: /번째 영토 보기$/ })[0]);
+  expect(await screen.findByRole("complementary", { name: "군포 전술 패널" })).toBeVisible();
+});
+
+it("hides the pager while a single territory is listed", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist({ selectedArtistId: "seventeen", selectedTerritoryId: "namyangju" });
+
+  const panel = await screen.findByRole("complementary", { name: "남양주 전술 패널" });
+  expect(within(panel).queryByRole("button", { name: "다음 영토" })).not.toBeInTheDocument();
+  expect(within(panel).queryByRole("button", { name: /번째 영토 보기$/ })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "전체" }));
+
+  // Past a dozen territories the dots give way to a plain position readout.
+  const widened = await screen.findByRole("complementary", { name: "남양주 전술 패널" });
+  expect(within(widened).getByRole("button", { name: "다음 영토" })).toBeInTheDocument();
+  expect(within(widened).queryByRole("button", { name: /번째 영토 보기$/ })).not.toBeInTheDocument();
+  expect(within(widened).getByRole("status")).toHaveTextContent(/^\d+ \/ 23$/);
+});
+
+it("pages the panel with a horizontal swipe but leaves vertical drags alone", async () => {
+  renderPreviewWithArtist({ selectedArtistId: "blackpink", selectedTerritoryId: "gunpo" });
+
+  const panel = await screen.findByRole("complementary", { name: "군포 전술 패널" });
+  fireEvent.touchStart(panel, { touches: [{ clientX: 200, clientY: 100 }] });
+  fireEvent.touchEnd(panel, { changedTouches: [{ clientX: 176, clientY: 300 }] });
+  expect(screen.getByRole("complementary", { name: "군포 전술 패널" })).toBeVisible();
+
+  const beforeSwipe = screen.getByRole("complementary", { name: "군포 전술 패널" });
+  fireEvent.touchStart(beforeSwipe, { touches: [{ clientX: 240, clientY: 120 }] });
+  fireEvent.touchEnd(beforeSwipe, { changedTouches: [{ clientX: 120, clientY: 132 }] });
+  expect(await screen.findByRole("complementary", { name: "성남 전술 패널" })).toBeVisible();
+
+  // Swiping past the last territory stays put.
+  const last = screen.getByRole("complementary", { name: "성남 전술 패널" });
+  fireEvent.touchStart(last, { touches: [{ clientX: 240, clientY: 120 }] });
+  fireEvent.touchEnd(last, { changedTouches: [{ clientX: 120, clientY: 120 }] });
+  expect(screen.getByRole("complementary", { name: "성남 전술 패널" })).toBeVisible();
+});
+
+it("blocks another territory's expedition until the running one ends", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist({ selectedArtistId: "blackpink", selectedTerritoryId: "gunpo" });
+
+  await user.click(within(await screen.findByRole("complementary", { name: "군포 전술 패널" }))
+    .getByRole("button", { name: "원정 시작" }));
+  await user.click(within(screen.getByRole("complementary", { name: "군포 전술 패널" }))
+    .getByRole("button", { name: "다음 영토" }));
+
+  const seongnam = await screen.findByRole("complementary", { name: "성남 전술 패널" });
+  expect(within(seongnam).getByRole("button", { name: "다른 원정 진행 중" })).toBeDisabled();
+  expect(within(seongnam).getByText("진행 중인 원정을 종료해야 다른 지역 원정을 시작할 수 있어요.")).toBeVisible();
+});
+
+it("keeps the filters in the map action row and the camera reset out of it without a map", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist();
+
+  const filters = await screen.findByRole("group", { name: "영토 필터" });
+  const actions = filters.closest(".preview-map-actions");
+  expect(actions).not.toBeNull();
+  // The filter group sits with the map controls rather than above the map.
+  expect(document.querySelector(".preview-page-title ~ .map-filters")).toBeNull();
+  expect(within(actions!).queryByRole("button", { name: "전국 보기" })).not.toBeInTheDocument();
+
+  // Filtering still drives the list under it.
+  await user.click(within(filters).getByRole("button", { name: "전체" }));
+  const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
+  expect(within(list).getAllByRole("button")).toHaveLength(23);
+});
+
+it("renders the summary cards above the map", async () => {
+  renderPreviewWithArtist();
+
+  const summary = await screen.findByRole("region", { name: "내 팬덤 영토 요약" });
+  const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
+  // The four cards head the page, with the map block underneath them.
+  expect(summary.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it("puts the territory list behind a toggle once it runs long", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist();
+
+  await user.click(await screen.findByRole("button", { name: "전체" }));
+
+  const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
+  const toggle = screen.getByRole("button", { name: "지역 더 보기" });
+  // The collapse is a phone affordance, so every row stays in the document.
+  expect(list).toHaveClass("collapsed");
+  expect(toggle).toHaveAttribute("aria-controls", list.id);
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  // It sits between the filter row and the list it controls.
+  expect(toggle.previousElementSibling).toHaveClass("preview-map-actions");
+  expect(toggle.nextElementSibling).toBe(list);
+
+  // The control is an arrow; its purpose lives in the label.
+  expect(toggle).toHaveTextContent("");
+
+  const scrollBy = vi.fn();
+  vi.stubGlobal("scrollBy", scrollBy);
+  await user.click(toggle);
+
+  expect(list).not.toHaveClass("collapsed");
+  expect(scrollBy).toHaveBeenCalledWith({ top: 210, behavior: "smooth" });
+
+  // Collapsing leaves the page where it is.
+  scrollBy.mockClear();
+  await user.click(screen.getByRole("button", { name: "지역 접기" }));
+  expect(scrollBy).not.toHaveBeenCalled();
+});
+
+it("offers the filters as a select as well as the tag row", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist();
+
+  const filters = await screen.findByRole("group", { name: "영토 필터" });
+  const select = within(filters).getByRole("combobox", { name: "영토 필터" });
+  // The select is the phone control; the tag row stays for wider screens.
+  expect(select).toHaveValue("my_fandom");
+  expect(within(filters).getByRole("button", { name: "전체" })).toBeInTheDocument();
+
+  await user.selectOptions(select, "all");
+
+  expect(select).toHaveValue("all");
+  expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getAllByRole("button")).toHaveLength(23);
+});
+
+it("brings the map into view when a summary card is used", async () => {
+  const user = userEvent.setup();
+  const scrollIntoView = vi.fn();
+  Element.prototype.scrollIntoView = scrollIntoView;
+  renderPreviewWithArtist();
+
+  await user.click(within(await screen.findByRole("region", { name: "내 팬덤 영토 요약" }))
+    .getAllByRole("button")[0]);
+
+  expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
 });

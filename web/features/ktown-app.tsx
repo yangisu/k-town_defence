@@ -3,19 +3,21 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import { AppShell } from "@/components/app-shell";
+import { BackToLoginButton } from "@/components/demo-entry/back-to-login-button";
+import { useDemoSignOut } from "@/features/demo-entry/demo-sign-out";
 import { ExploreView } from "@/components/explore/explore-view";
 import { ExpeditionView } from "@/components/expedition/expedition-view";
 import { CheckInFlow } from "@/components/check-in/check-in-flow";
 import { BattleView } from "@/components/battle/battle-view";
 import { JourneyView } from "@/components/journey/journey-view";
 import { ArtistDrawer } from "@/components/team-preview/artist-drawer";
-import { ProfileMenu } from "@/components/team-preview/profile-menu";
 import { ProfileSetup } from "@/components/team-preview/profile-setup";
 import { ObjectiveStrip } from "@/components/team-preview/objective-strip";
 import { TerritoryView } from "@/components/team-preview/territory-view";
 import { PreviewExpeditionView } from "@/components/team-preview/expedition-view";
 import { RankingView } from "@/components/team-preview/ranking-view";
 import { RecordView } from "@/components/team-preview/record-view";
+import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { appReducer, initialAppState, openExpedition, type AppAction, type AppState } from "@/features/app-controller";
 import { MembershipProvider } from "@/features/membership/membership-context";
@@ -103,8 +105,8 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
   const resetDialogRef = useRef<HTMLDivElement>(null);
   const resetTitleRef = useRef<HTMLHeadingElement>(null);
   const session = useDemoSession();
+  const signOut = useDemoSignOut();
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
-  const selectedTerritory = session.state.artistConfirmed ? session.selectedTerritory : null;
 
   const chooseArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
     session.dispatch({ type: "changeProfile", artistId });
@@ -123,6 +125,7 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [session.state.activeTab, session.state.artistConfirmed]);
   useModalFocus(resetOpen, resetDialogRef, resetTitleRef, () => setResetOpen(false));
+  useBodyScrollLock(resetOpen);
 
   if (!session.hydrated) return <p role="status">{t(session.state.locale, "loading")}</p>;
 
@@ -133,23 +136,18 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
         activeTab={session.state.activeTab}
         locale={session.state.locale}
         interactionDisabled={resetOpen}
-        navigationDisabled={!session.state.artistConfirmed}
-        profileControl={selectedArtist ? (
-          <ProfileMenu
-            locale={session.state.locale}
-            fandomName={selectedArtist.fandomName}
-          />
-        ) : null}
+        navigationHidden={!session.state.artistConfirmed}
+        backControl={!session.state.artistConfirmed ? <BackToLoginButton locale={session.state.locale} /> : null}
         onLocaleChange={(locale) => session.dispatch({ type: "setLocale", locale })}
         onTabChange={(tab) => session.dispatch({ type: "changeTab", tab })}
-        statusContent={selectedArtist ? (
+        statusContent={(
           <ObjectiveStrip
             locale={session.state.locale}
             fandomName={selectedArtist?.fandomName ?? null}
-            territoryName={selectedTerritory?.name[session.state.locale] ?? null}
-            onReset={() => setResetOpen(true)}
+            fandomColor={selectedArtist?.color ?? null}
+            onChangeArtist={() => setDrawerOpen(true)}
           />
-        ) : null}
+        )}
       >
         {!session.state.artistConfirmed ? (
           <ProfileSetup locale={session.state.locale} onConfirm={confirmArtist} />
@@ -182,6 +180,8 @@ function DemoProduct({ services, mapConfig }: { services: AppServices; mapConfig
             session={session.state}
             onExploreTerritories={() => session.dispatch({ type: "changeTab", tab: "explore" })}
             onChangeArtist={() => setDrawerOpen(true)}
+            onSignOut={signOut ?? undefined}
+            onReset={() => setResetOpen(true)}
           />
         ) : null}
         <ArtistDrawer

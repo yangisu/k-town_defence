@@ -109,8 +109,8 @@ describe("team preview content", () => {
         expedition.territoryId === territory.id && expedition.artistId === null && expedition.connectionId === null
       ));
       expect(route, territory.id).toBeDefined();
-      expect(route?.title.ko, territory.id).toContain("지역 응원 원정");
-      expect(route?.title.en, territory.id).toContain("regional support expedition");
+      expect(route?.title.ko, territory.id).toContain("지역 원정");
+      expect(route?.title.en, territory.id).toContain("regional expedition");
       expect(validateRecommendedRoute(route!, previewContent.places, "bts", previewContent.connections), territory.id).toBe(true);
       expect(route?.stopIds, territory.id).toHaveLength(2);
       for (const stopId of route?.stopIds ?? []) {

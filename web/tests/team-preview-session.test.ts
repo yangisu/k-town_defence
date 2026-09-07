@@ -65,16 +65,29 @@ describe("demo preview session", () => {
     });
   });
 
-  it("resolves an eligible expedition atomically from a confirmed national-view profile", () => {
+  it("opens the expedition tab empty until a route is started, then reopens that route", () => {
     const national = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
 
-    const opened = demoSessionReducer(national, { type: "changeTab", tab: "expedition" });
+    const empty = demoSessionReducer(national, { type: "changeTab", tab: "expedition" });
 
     expect(national.selectedTerritoryId).toBeNull();
-    expect(opened).toMatchObject({
+    expect(empty).toMatchObject({ activeTab: "expedition", selectedExpeditionId: null, activeExpeditionId: null });
+
+    const started = demoSessionReducer(empty, {
+      type: "openRecommendedExpedition",
+      expeditionId: "bts-busan-artist-linked-expedition",
+      territoryId: "busan",
+    });
+    const reopened = demoSessionReducer(
+      demoSessionReducer(started, { type: "changeTab", tab: "explore" }),
+      { type: "changeTab", tab: "expedition" },
+    );
+
+    expect(reopened).toMatchObject({
       selectedArtistId: "bts",
       selectedTerritoryId: "busan",
       selectedExpeditionId: "bts-busan-artist-linked-expedition",
+      activeExpeditionId: "bts-busan-artist-linked-expedition",
       activeTab: "expedition",
     });
   });

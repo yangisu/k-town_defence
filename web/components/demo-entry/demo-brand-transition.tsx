@@ -29,7 +29,6 @@ export function DemoBrandTransition({ onComplete, durationMs = 1_500 }: Props) {
       onClick={finish}
     >
       <DemoBrandLockup className="demo-brand-lockup--hero" />
-      <small>클릭하여 바로 시작</small>
     </button>
   );
 }

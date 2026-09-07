@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import Page from "@/app/page";
 
 async function loginToDemo(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(await screen.findByLabelText("이메일"), "fan@example.com");
-  await user.type(screen.getByLabelText("비밀번호"), "demo");
-  await user.click(screen.getByRole("button", { name: "로그인" }));
+  await user.type(await screen.findByLabelText("Email"), "fan@example.com");
+  await user.type(screen.getByLabelText("Password"), "demo");
+  await user.click(screen.getByRole("button", { name: "Log in" }));
   await user.click(screen.getByRole("button", { name: /K-TOWN DEFENCE 시작 화면/ }));
 }
 
@@ -43,7 +43,6 @@ describe("fan tourism journey", () => {
     expect(await screen.findByRole("heading", { name: "현장 체크인" })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "데모 인증 진행" }));
     await user.click(screen.getByRole("checkbox", { name: "로컬 소비 인증 포함" }));
-    await user.click(screen.getByRole("button", { name: "포인트 검토" }));
     await user.click(screen.getByRole("button", { name: "체크인 제출" }));
     expect(await screen.findByRole("heading", { name: "체크인 승인 완료" })).toBeVisible();
     expect(screen.getByText("유효 포인트 +270P")).toBeVisible();

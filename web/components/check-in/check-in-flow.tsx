@@ -3,11 +3,12 @@
 import { type ChangeEvent, useEffect, useReducer, useRef, useState } from "react";
 import type { CheckInImpact, CheckInResult, CheckInService, Place } from "@/lib/domain";
 import { BrowserEvidenceError, collectGpsSamples } from "@/lib/browser-evidence";
-import { calculateMissionAward, type MissionAward, type MissionAwardInput } from "@/features/team-preview/game-rules";
+import { calculateMissionAward, GAME_RULES, type MissionAward, type MissionAwardInput } from "@/features/team-preview/game-rules";
 import type { Locale } from "@/features/team-preview/types";
-import { Camera, Check, LocateFixed, Shield, X } from "@/components/ui/icons";
+import { Camera, Check, Footprints, LocateFixed, Shield, X } from "@/components/ui/icons";
 import { checkInReducer, createInitialCheckInState, deriveCheckInProgress } from "./check-in-reducer";
 import { StateMessage } from "@/components/ui/state-message";
+import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
 
 export type DemoAwardInput = Omit<MissionAwardInput, "dwellMinutes" | "localSpendVerified" | "accommodationVerified">;
@@ -35,7 +36,7 @@ const demoCopy = {
     photoTitle: "현장 사진", photoPrompt: "원본 사진을 비공개 검토용으로 업로드", photoDone: "현장 사진 확인 완료", dwellTitle: "체류 시간", dwellDone: "체류 45분 확인",
     pending: "대기", extra: "추가 지역 기여", includeSpend: "로컬 소비 인증 포함", includeStay: "숙박 인증 포함",
     saveFailed: "체크인 저장에 실패했어요", saveFailedBody: "네트워크 연결을 확인하고 다시 시도해 주세요.",
-    runDemo: "데모 인증 진행", review: "포인트 검토", submit: "체크인 제출", retry: "다시 제출",
+    runDemo: "데모 인증 진행", submit: "체크인 제출", retry: "다시 제출", required: "필수",
     privacy: "이 화면은 실제 위치나 사진을 전송하지 않는 데모입니다.", impactSummary: "미션 영향 요약",
   },
   en: {
@@ -47,7 +48,7 @@ const demoCopy = {
     photoTitle: "On-site photo", photoPrompt: "Upload the original photo for private review", photoDone: "On-site photo verified", dwellTitle: "Dwell time", dwellDone: "Dwell 45 minutes verified",
     pending: "Pending", extra: "Additional local contribution", includeSpend: "Include local spend verification", includeStay: "Include accommodation verification",
     saveFailed: "Could not save the check-in", saveFailedBody: "Check your network connection and try again.",
-    runDemo: "Run demo verification", review: "Review points", submit: "Submit check-in", retry: "Submit again",
+    runDemo: "Run demo verification", submit: "Submit check-in", retry: "Submit again", required: "Required",
     privacy: "This demo does not transmit a real location or photo.", impactSummary: "Mission impact summary",
   },
 } as const;
@@ -81,6 +82,7 @@ export function CheckInFlow({
     && state.demoEvidence.simulatedDwellMinutes > 0;
 
   useModalFocus(true, dialogRef, titleRef, onClose);
+  useBodyScrollLock(true);
 
   useEffect(() => {
     let active = true;
@@ -174,7 +176,7 @@ export function CheckInFlow({
         <header className="checkin-top">
           <div>
             <span className="demo-pill">{mode === "integrated" ? "실제 체크인" : demoLabels.pill}</span>
-            <h1 id="checkin-title" tabIndex={-1} ref={titleRef}>{mode === "integrated" ? "현장 체크인" : demoLabels.title}</h1>
+            <h1 className="sr-only" id="checkin-title" tabIndex={-1} ref={titleRef}>{mode === "integrated" ? "현장 체크인" : demoLabels.title}</h1>
           </div>
           <button className="icon-button" aria-label={mode === "integrated" ? "체크인 닫기" : demoLabels.close} onClick={onClose}><X /></button>
         </header>
@@ -198,7 +200,7 @@ export function CheckInFlow({
                     {award.strongholdBonus > 0 ? <div><small>{demoLabels.strongholdBonus}</small><strong>+{award.strongholdBonus}P</strong></div> : null}
                   </div>
                 ) : null}
-                {award ? <p><strong>{demoLabels.validPoints} +{award.cappedPoints}P</strong></p> : null}
+                {award ? <p className="result-total"><strong>{demoLabels.validPoints} +{award.cappedPoints}P</strong></p> : null}
                 {impact ? (
                   <div className="mission-impact" role="status" aria-live="polite" aria-label={demoLabels.impactSummary}>
                     <p>{impact.territoryName} {demoLabels.territoryShare} · {impact.territoryShareBefore.toFixed(1)}% → {impact.territoryShareAfter.toFixed(1)}%</p>
@@ -224,7 +226,6 @@ export function CheckInFlow({
             <div className="checkin-place">
               <span className="place-flag"><Shield /></span>
               <div>
-                <span>{place.categoryLabel}</span>
                 <h2>{place.nameKo}</h2>
                 <p>{mode === "integrated" ? "현재 위치 3회와 현장 사진으로 방문을 제출합니다." : demoLabels.intro}</p>
               </div>
@@ -233,16 +234,20 @@ export function CheckInFlow({
               <article>
                 <span className="step-icon"><LocateFixed /></span>
                 <div><h3>{mode === "integrated" ? "현재 위치 3회" : demoLabels.gpsTitle}</h3><p>{mode === "demo" && progress.gpsCount === 3 ? demoLabels.gpsDone : `${progress.gpsCount}/3 ${mode === "integrated" ? "수집" : "collected"}`}</p></div>
+                {mode === "demo" && demoAwardInput ? <span className="step-points">+{demoAwardInput.visitBase}P</span> : null}
                 <strong>{progress.gpsCount === 3 ? <Check /> : mode === "integrated" ? "대기" : demoLabels.pending}</strong>
               </article>
               <article>
                 <span className="step-icon"><Camera /></span>
                 <div><h3>{mode === "integrated" ? "현장 사진" : demoLabels.photoTitle}</h3><p>{mode === "demo" ? (state.photoAssetId ? demoLabels.photoDone : demoLabels.photoPrompt) : "원본 사진을 비공개 검토용으로 업로드"}</p></div>
+                {mode === "demo" && demoAwardInput ? <span className="step-points muted">{demoLabels.required}</span> : null}
                 <strong>{state.photoAssetId ? <Check /> : mode === "integrated" ? "대기" : demoLabels.pending}</strong>
               </article>
               {mode === "demo" ? (
                 <article>
+                  <span className="step-icon"><Footprints /></span>
                   <div><h3>{demoLabels.dwellTitle}</h3><p>{state.demoEvidence.simulatedDwellMinutes > 0 ? demoLabels.dwellDone : demoLabels.pending}</p></div>
+                  {demoAwardInput ? <span className="step-points">+{GAME_RULES.dwell60Minutes}P</span> : null}
                   <strong>{state.demoEvidence.simulatedDwellMinutes > 0 ? <Check /> : demoLabels.pending}</strong>
                 </article>
               ) : null}
@@ -254,18 +259,26 @@ export function CheckInFlow({
                 <label>
                   <input
                     type="checkbox"
+                    aria-label={demoLabels.includeSpend}
+                    aria-describedby="demo-evidence-spend-points"
                     checked={state.demoEvidence.localSpendVerified}
                     onChange={(event) => dispatch({ type: "setDemoEvidence", field: "localSpendVerified", value: event.target.checked })}
                   />
-                  {demoLabels.includeSpend}
+                  <span className="evidence-check" aria-hidden="true"><Check size={14} strokeWidth={3.2} /></span>
+                  <span className="evidence-copy">{demoLabels.includeSpend}</span>
+                  <span className="evidence-points" id="demo-evidence-spend-points">+{GAME_RULES.localSpend}P</span>
                 </label>
                 <label>
                   <input
                     type="checkbox"
+                    aria-label={demoLabels.includeStay}
+                    aria-describedby="demo-evidence-stay-points"
                     checked={state.demoEvidence.accommodationVerified}
                     onChange={(event) => dispatch({ type: "setDemoEvidence", field: "accommodationVerified", value: event.target.checked })}
                   />
-                  {demoLabels.includeStay}
+                  <span className="evidence-check" aria-hidden="true"><Check size={14} strokeWidth={3.2} /></span>
+                  <span className="evidence-copy">{demoLabels.includeStay}</span>
+                  <span className="evidence-points" id="demo-evidence-stay-points">+{GAME_RULES.accommodation}P</span>
                 </label>
               </fieldset>
             ) : null}
@@ -285,9 +298,6 @@ export function CheckInFlow({
             ) : null}
             {mode === "demo" && !demoEvidenceComplete ? (
               <button className="primary-button" disabled={state.sessionId.startsWith("pending-") || busy} onClick={runDemo}>{demoLabels.runDemo}</button>
-            ) : null}
-            {mode === "demo" && demoEvidenceComplete && !state.demoEvidence.reviewAccepted ? (
-              <button className="primary-button" onClick={() => dispatch({ type: "acceptDemoReview" })}>{demoLabels.review}</button>
             ) : null}
             {progress.canSubmit && state.issue !== "network_failed" ? (
               <button className="primary-button" disabled={busy} onClick={() => void submit()}>{mode === "integrated" ? "체크인 제출" : demoLabels.submit}</button>

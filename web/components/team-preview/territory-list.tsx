@@ -7,6 +7,8 @@ import type { ArtistId, Locale, PreviewTerritory, TerritoryId } from "@/features
 import { StrongholdMark } from "@/components/team-preview/stronghold-mark";
 
 interface TerritoryListProps {
+  id?: string;
+  collapsed?: boolean;
   territories: readonly PreviewTerritory[];
   locale: Locale;
   selectedArtistId?: ArtistId | null;
@@ -14,9 +16,13 @@ interface TerritoryListProps {
   onSelectTerritory: (territoryId: TerritoryId) => void;
 }
 
-export function TerritoryList({ territories, locale, selectedArtistId, selectedTerritoryId, onSelectTerritory }: TerritoryListProps) {
+export function TerritoryList({ id, collapsed = false, territories, locale, selectedArtistId, selectedTerritoryId, onSelectTerritory }: TerritoryListProps) {
   return (
-    <ul className="preview-territory-list" aria-label={locale === "ko" ? "지도와 같은 영토 목록" : "Map-equivalent territory list"}>
+    <ul
+      id={id}
+      className={collapsed ? "preview-territory-list collapsed" : "preview-territory-list"}
+      aria-label={locale === "ko" ? "지도와 같은 영토 목록" : "Map-equivalent territory list"}
+    >
       {territories.map((territory) => {
         const owner = territory.standings.find((standing) => standing.artistId === territory.ownerArtistId);
         const ownerColor = previewContent.artists.find((artist) => artist.id === territory.ownerArtistId)?.color ?? "#7559ff";

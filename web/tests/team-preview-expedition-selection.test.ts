@@ -110,7 +110,7 @@ function route(
     territoryId,
     connectionId,
     title: artistId === null
-      ? { ko: `${territoryId} 지역 응원 원정`, en: `${territoryId} regional support expedition` }
+      ? { ko: `${territoryId} 지역 원정`, en: `${territoryId} regional expedition` }
       : { ko: `BTS ${territoryId} 원정`, en: `BTS ${territoryId} expedition` },
     description: { ko: "원정", en: "Expedition" },
     stopIds,
@@ -155,7 +155,7 @@ describe("evidence-first expedition selection", () => {
     }));
 
     expect(result?.kind).toBe("regional_support");
-    expect(result?.expedition.title.ko).toContain("지역 응원 원정");
+    expect(result?.expedition.title.ko).toContain("지역 원정");
     expect(result?.expedition.title.ko).not.toContain("BTS");
   });
 

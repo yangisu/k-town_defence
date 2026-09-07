@@ -79,10 +79,7 @@ export function RankingView({ locale, fandoms, territories, selectedArtistId, on
 
   return (
     <div className="view ranking-view">
-      <header className="ranking-heading">
-        <p>{t(locale, "fandomRank")}</p>
-        <h1>{t(locale, "navRanking")}</h1>
-      </header>
+      <h1 className="preview-page-title">{t(locale, "navRanking")}</h1>
 
       <ol className="ranking-podium" aria-label={t(locale, "rankingPodium")}>
         {ranked.slice(0, 3).map((row) => {

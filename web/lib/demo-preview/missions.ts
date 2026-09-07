@@ -4,7 +4,7 @@ import { territories } from "./territories";
 type PlaceSeed = Omit<PreviewMissionPlace, "id" | "territoryId" | "relationship" | "artistConnectionId" | "evidenceClass" | "access" | "description" | "transport" | "dwellMinutes" | "visitBase" | "localBenefit" | "sources">;
 type TerritoryStops = { territoryId: TerritoryId; stops: readonly [PlaceSeed, PlaceSeed] };
 
-const nearbyDescription = { ko: "아티스트와의 직접 연관을 주장하지 않는, 지역의 공공 관광 추천지입니다.", en: "A public tourism recommendation in the region that makes no direct artist-connection claim." };
+const nearbyDescription = { ko: "", en: "" };
 const publicTransport = {
   summary: { ko: "대중교통으로 접근 가능한 공공 관광지", en: "A public attraction reachable by local transit" },
   nearestStation: { ko: "인근 버스·철도 정류장", en: "Nearby bus or rail stop" },
@@ -221,11 +221,8 @@ const publicTerritoryExpeditions: PreviewExpedition[] = territoryStops.map(({ te
     artistId: null,
     territoryId,
     connectionId: null,
-    title: { ko: `${territory.name.ko} 지역 응원 원정`, en: `${territory.name.en} regional support expedition` },
-    description: {
-      ko: "아티스트 직접 연관을 주장하지 않고, 공식 관광 출처로 확인한 지역 명소 두 곳을 방문하는 원정입니다.",
-      en: "A two-stop route using official tourism sources without claiming a direct artist connection.",
-    },
+    title: { ko: `${territory.name.ko} 지역 원정`, en: `${territory.name.en} regional expedition` },
+    description: { ko: "", en: "" },
     stopIds: [placeId(territoryId, 1), placeId(territoryId, 2)],
     transitSummary: { ko: "지역 대중교통 기준 약 90분", en: "About 90 minutes by local transit" },
     estimatedMinutes: 90,

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { TerritoryList } from "@/components/team-preview/territory-list";
+import { ChevronRight } from "@/components/ui/icons";
 import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
 import type { DemoSession } from "@/features/team-preview/demo-session";
 import { t } from "@/features/team-preview/i18n";
@@ -13,6 +14,7 @@ import { amazonLocationStyleUrl, type MapConfig } from "@/lib/map-config";
 import type { TerritoryFilter } from "./map-filters";
 
 interface TerritoryMapProps {
+  filters?: ReactNode;
   mapConfig: MapConfig | null;
   session: DemoSession;
   listedTerritories?: readonly PreviewTerritory[];
@@ -163,7 +165,7 @@ function ownerBoundaryCollection(collection: { type: string; features: unknown[]
   };
 }
 
-export function TerritoryMap({ mapConfig, session, listedTerritories: requestedTerritories, activeFilter = "all", selectedTerritoryId, onSelectTerritory }: TerritoryMapProps) {
+export function TerritoryMap({ filters, mapConfig, session, listedTerritories: requestedTerritories, activeFilter = "all", selectedTerritoryId, onSelectTerritory }: TerritoryMapProps) {
   const listedTerritories = requestedTerritories ?? session.territories;
   const usesListedTerritories = requestedTerritories !== undefined;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -174,6 +176,14 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
   const listedTerritoriesRef = useRef(listedTerritories);
   const cameraSelectionRef = useRef(selectedTerritoryId);
   const [mapError, setMapError] = useState(false);
+  const [listExpanded, setListExpanded] = useState(false);
+
+  const toggleList = () => {
+    const next = !listExpanded;
+    setListExpanded(next);
+    // Expanding reveals rows below the fold, so follow them by about two cards.
+    if (next) window.scrollBy?.({ top: 210, behavior: "smooth" });
+  };
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
@@ -471,8 +481,27 @@ export function TerritoryMap({ mapConfig, session, listedTerritories: requestedT
         Map © <a href="https://aws.amazon.com/location/" target="_blank" rel="noreferrer">Amazon Location Service</a>
         {" · "}Boundaries © <a href="https://www.geoboundaries.org/" target="_blank" rel="noreferrer">geoBoundaries</a>
       </p>
-      {selectedTerritoryId ? <div className="preview-map-actions"><button type="button" onClick={resetNationalView}>{t(session.locale, "nationalView")}</button></div> : null}
+      <div className="preview-map-actions">
+        {filters}
+        {mapConfig && !mapError && selectedTerritoryId ? (
+          <button type="button" onClick={resetNationalView}>{t(session.locale, "nationalView")}</button>
+        ) : null}
+      </div>
+      {listedTerritories.length > 3 ? (
+        <button
+          type="button"
+          className={listExpanded ? "territory-list-toggle expanded" : "territory-list-toggle"}
+          aria-expanded={listExpanded}
+          aria-controls="preview-territory-list"
+          aria-label={t(session.locale, listExpanded ? "territoryListCollapse" : "territoryListExpand")}
+          onClick={toggleList}
+        >
+          <ChevronRight size={17} strokeWidth={2.8} aria-hidden="true" />
+        </button>
+      ) : null}
       <TerritoryList
+        id="preview-territory-list"
+        collapsed={!listExpanded}
         territories={listedTerritories}
         locale={session.locale}
         selectedArtistId={session.artistConfirmed ? session.selectedArtistId : null}

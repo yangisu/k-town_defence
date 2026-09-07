@@ -165,10 +165,15 @@ it("keeps the expedition total and its stop actions readable at every width", ()
   expect(compactCss).toContain(".preview-expedition-view.stop-actionbutton,.preview-expedition-view.stop-done{width:100%");
 });
 
-it("gives the territory page one inset and puts the map above the summary cards", () => {
-  // The page title used to pad twice: the view's inset plus its own.
-  expect(compactCss).toContain(".territory-view{max-width:none;padding-inline:0}");
-  expect(compactCss).toContain(".territory-view>.preview-page-title,.ranking-view>.preview-page-title{max-width:none;padding-inline:0}");
+it("gives every page the same width and gutters as the record page", () => {
+  // One container width and one set of gutters; children add no inset of their own.
+  expect(compactCss).toContain(".record-view,.territory-view,.ranking-view,.preview-expedition-view,.profile-setup{max-width:1080px;margin-inline:auto}");
+  expect(compactCss).toContain(".preview-page-title{margin:8px00;padding:0;");
+  expect(compactCss).toContain(".preview-map-layout{margin:24px00;padding:0;gap:24px}");
+  expect(compactCss).not.toContain(".territory-view{max-width:none;padding-inline:0}");
+  // The profile screen is not a .view, so it joins the same gutter rules.
+  expect(compactCss).toContain(".view,.profile-setup{max-width:1480px;margin:0auto;padding:14px18px50px}");
+  expect(compactCss).toContain(".view,.profile-setup{padding:34px54px80px}");
   // One compact row per card on a phone, all four abreast once there is room.
   expect(compactCss).toContain(".territory-summary-grid{display:grid;grid-template-columns:minmax(0,1fr)");
   expect(compactCss).toContain("@media(min-width:768px){.territory-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}");

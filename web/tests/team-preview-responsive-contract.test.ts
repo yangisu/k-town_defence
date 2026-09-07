@@ -14,7 +14,7 @@ it("defines the stable desktop map and tactical-panel split", () => {
 
   expect(desktop).toMatch(/\.preview-map-layout\{[^}]*grid-template-columns:minmax\(0,1fr\)360px/);
   // The map stretches to whatever height the tactical panel beside it needs.
-  expect(desktop).toContain(".preview-territory-map{flex:11auto;min-height:26rem;height:auto}");
+  expect(desktop).toContain(".preview-territory-map{flex:21auto;min-height:26rem;height:auto}");
   // The fallback panel grows the same way, so the list never inherits the slack.
   expect(compactCss).toContain(".preview-map-configuration{flex:11auto");
   expect(desktop).toContain(".preview-map-layout{grid-template-columns:minmax(0,1fr)360px;align-items:stretch}");
@@ -37,12 +37,13 @@ it("renders territory filters as distinct wrapping controls aligned with the wor
   expect(compactCss).toMatch(/\.tactical-connection>div:has\(>p\)\{[^}]*display:block/);
 });
 
-it("keeps a 52dvh map and scrollable safe-area tactical sheet below 768px", () => {
+it("keeps a stable 52svh map and scrollable safe-area tactical sheet below 768px", () => {
   const mobileStart = compactCss.indexOf("@media(max-width:767px)");
   expect(mobileStart).toBeGreaterThanOrEqual(0);
   const mobile = compactCss.slice(mobileStart);
 
-  expect(mobile).toMatch(/\.preview-territory-map\{[^}]*min-height:52dvh/);
+  // svh, not dvh: dvh shifts as the browser chrome hides and resizes the map mid-drag.
+  expect(mobile).toContain(".preview-territory-map{min-height:52svh!important;height:52svh}");
   expect(mobile).toMatch(/\.tactical-panel\{[^}]*overflow-y:auto/);
   expect(mobile).toMatch(/\.tactical-panel>\.primary-button\{[^}]*position:sticky/);
   expect(mobile).toContain("env(safe-area-inset-bottom)");

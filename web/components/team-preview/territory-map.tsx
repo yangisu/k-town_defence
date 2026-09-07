@@ -177,6 +177,7 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
   const cameraSelectionRef = useRef(selectedTerritoryId);
   const [mapError, setMapError] = useState(false);
   const [listExpanded, setListExpanded] = useState(false);
+  const [mapFocused, setMapFocused] = useState(false);
 
   const toggleList = () => {
     const next = !listExpanded;
@@ -227,6 +228,8 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
       zoom: 6.2,
       // On a phone a single finger belongs to the page, not the map.
       cooperativeGestures: window.matchMedia?.("(max-width: 767px)").matches ?? false,
+      dragPan: false,
+      scrollZoom: false,
     });
     mapRef.current = map;
     map.addControl(new maplibregl.AttributionControl({
@@ -456,6 +459,29 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
     setRetryKey((current) => current + 1);
   };
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (mapFocused) {
+      map.dragPan?.enable();
+      map.scrollZoom?.enable();
+    } else {
+      map.dragPan?.disable();
+      map.scrollZoom?.disable();
+    }
+  }, [mapFocused, mapError, retryKey]);
+
+  // A click outside hands the pointer back to the page.
+  useEffect(() => {
+    if (!mapFocused) return;
+    const release = (event: MouseEvent) => {
+      if (event.target instanceof Node && containerRef.current?.contains(event.target)) return;
+      setMapFocused(false);
+    };
+    document.addEventListener("pointerdown", release);
+    return () => document.removeEventListener("pointerdown", release);
+  }, [mapFocused]);
+
   const resetNationalView = () => {
     const map = mapRef.current;
     if (!map) return;
@@ -468,7 +494,8 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
       {mapConfig && !mapError ? (
         <div
           ref={containerRef}
-          className="preview-territory-map"
+          className={mapFocused ? "preview-territory-map focused" : "preview-territory-map"}
+          onPointerDown={() => setMapFocused(true)}
           role="region"
           aria-label={session.locale === "ko" ? "대한민국 팬덤 영토 지도" : "Korea fandom territory map"}
         />

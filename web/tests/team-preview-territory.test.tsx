@@ -542,3 +542,42 @@ it("clears the tactical panel when the selected territory is picked again", asyn
   await user.click(busan);
   expect(screen.getByRole("complementary", { name: "부산 전술 패널" })).toBeVisible();
 });
+
+it("collapses the tactical card from its own chevron", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist();
+
+  const panel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
+  // The fandom line is gone; the territory name carries the header alone.
+  expect(within(panel).getByRole("heading", { name: "부산" }).parentElement)
+    .not.toHaveTextContent("ARMY");
+
+  const collapse = within(panel).getByRole("button", { name: "영토 카드 접기" });
+  expect(collapse).toHaveAttribute("aria-expanded", "true");
+  expect(within(panel).getByRole("button", { name: "원정 시작" })).toBeVisible();
+
+  await user.click(collapse);
+
+  expect(within(panel).queryByRole("button", { name: "원정 시작" })).not.toBeInTheDocument();
+  expect(document.getElementById("tactical-panel-body")).toBeNull();
+
+  await user.click(within(panel).getByRole("button", { name: "영토 카드 펼치기" }));
+  expect(within(panel).getByRole("button", { name: "원정 시작" })).toBeVisible();
+});
+
+it("slides the tactical card in from the side it was paged from", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist({ selectedArtistId: "blackpink", selectedTerritoryId: "gunpo" });
+
+  const panel = await screen.findByRole("complementary", { name: "군포 전술 패널" });
+  expect(document.getElementById("tactical-panel-body")).not.toHaveClass("slide-next");
+
+  await user.click(within(panel).getByRole("button", { name: "다음 영토" }));
+
+  expect(document.getElementById("tactical-panel-body")).toHaveClass("slide-next");
+
+  await user.click(within(screen.getByRole("complementary", { name: "성남 전술 패널" }))
+    .getByRole("button", { name: "이전 영토" }));
+
+  expect(document.getElementById("tactical-panel-body")).toHaveClass("slide-previous");
+});

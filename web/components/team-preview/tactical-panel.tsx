@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type TouchEvent } from "react";
-import { ArrowLeft, ArrowRight, CircleAlert, ExternalLink } from "@/components/ui/icons";
+import { ArrowLeft, ArrowRight, ChevronRight, CircleAlert, ExternalLink } from "@/components/ui/icons";
 import { calculateMissionAward, GAME_RULES, rankFandoms, stageForPoints } from "@/features/team-preview/game-rules";
 import { previewContent } from "@/features/team-preview/content";
 import { t } from "@/features/team-preview/i18n";
@@ -194,6 +194,8 @@ export function TacticalPanel({
   const swipeOrigin = useRef<{ x: number; y: number } | null>(null);
   const [awardHelpOpen, setAwardHelpOpen] = useState(false);
   const [impactHelpOpen, setImpactHelpOpen] = useState(false);
+  const [bodyOpen, setBodyOpen] = useState(true);
+  const [slide, setSlide] = useState<"next" | "previous" | null>(null);
   const locale: Locale = session.locale;
   const copy = panelCopy[locale];
   const standings = orderedStandings(territory);
@@ -249,7 +251,10 @@ export function TacticalPanel({
   ];
 
   const page = (next: number) => {
-    if (next >= 0 && next < pageCount) onPage(next);
+    if (next < 0 || next >= pageCount || next === pageIndex) return;
+    // The body re-keys on the territory, so the class picks the slide direction.
+    setSlide(next > pageIndex ? "next" : "previous");
+    onPage(next);
   };
 
   const beginSwipe = (event: TouchEvent<HTMLElement>) => {
@@ -315,9 +320,25 @@ export function TacticalPanel({
         </nav>
       ) : null}
       <header>
-        <span>{artist.artistName[locale]} · {artist.fandomName}</span>
         <h2>{territory.name[locale]}</h2>
+        <button
+          type="button"
+          className={bodyOpen ? "tactical-collapse open" : "tactical-collapse"}
+          aria-expanded={bodyOpen}
+          aria-controls="tactical-panel-body"
+          aria-label={t(locale, bodyOpen ? "panelCollapse" : "panelExpand")}
+          onClick={() => setBodyOpen((open) => !open)}
+        >
+          <ChevronRight size={17} strokeWidth={2.8} aria-hidden="true" />
+        </button>
       </header>
+
+      {bodyOpen ? (
+      <div
+        className={slide ? `tactical-panel-body slide-${slide}` : "tactical-panel-body"}
+        id="tactical-panel-body"
+        key={territory.id}
+      >
 
       <dl className="tactical-standings">
         <div><dt>{copy.owner} · {owner?.fandomName ?? "—"}</dt><dd>{standingName(owner)}</dd></div>
@@ -428,6 +449,8 @@ export function TacticalPanel({
         {actionLabel}
       </button>
       {blockedByOtherRoute ? <p className="tactical-blocked-note" role="note">{copy.blockedNote}</p> : null}
+      </div>
+      ) : null}
     </aside>
   );
 }

@@ -59,7 +59,6 @@ it("turns artist choice into a visible tactical recommendation", async () => {
   const panel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
   expect(within(panel).getByText("지역 연결 스토리 · 지민", { selector: "strong" })).toBeVisible();
   expect(within(panel).queryByText("팀 데이터 · 미검증 제안")).not.toBeInTheDocument();
-  expect(within(panel).getByText("추천 근거 보기")).toBeVisible();
   expect(within(panel).getByRole("heading", { name: "부산" })).toBeVisible();
   expect(within(panel).getByText(/^방어 우위$/)).toBeVisible();
   expect(within(panel).getByText(/지역균형 보너스/)).toBeVisible();
@@ -488,4 +487,58 @@ it("brings the map into view when a summary card is used", async () => {
     .getAllByRole("button")[0]);
 
   expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+});
+
+it("labels a public route without borrowing the artist connection story", async () => {
+  // BLINK has no artist-linked route, so every territory falls back to a public one.
+  renderPreviewWithArtist({ selectedArtistId: "blackpink", selectedTerritoryId: "gunpo" });
+
+  const panel = await screen.findByRole("complementary", { name: "군포 전술 패널" });
+  expect(within(panel).getByText("지역의 공공 관광 코스")).toBeVisible();
+  expect(within(panel).getByText("공식 관광 출처 기반 공공 원정 · 아티스트 직접 연관 없음")).toBeVisible();
+  expect(within(panel).queryByText(/지역 연결 스토리/)).not.toBeInTheDocument();
+
+  // The source is a corner link now, not a disclosure.
+  const source = within(panel).getByRole("link", { name: "출처 확인" });
+  expect(source).toHaveClass("tactical-source");
+  expect(within(panel).queryByText("추천 근거 보기")).not.toBeInTheDocument();
+
+  // The stronghold-growth note sits on its own line under the defence gap.
+  const gap = within(panel).getByText(/^방어 우위 \d+P$/);
+  expect(gap.nextElementSibling).toHaveTextContent(/거점 성장까지|최고 단계 방어 중/);
+});
+
+it("sets the balance multiplier beside the stronghold mark", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist();
+  await user.click(await screen.findByRole("button", { name: "전체" }));
+
+  const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
+  // Yeongwol is the one territory carrying a population-decline multiplier.
+  const yeongwol = within(list).getByRole("button", { name: /^영월/ });
+  const multiplier = within(yeongwol).getByText("1.8×");
+  expect(multiplier).toHaveClass("territory-multiplier");
+  // It shares the stronghold row instead of adding one of its own.
+  expect(multiplier.previousElementSibling).toHaveAttribute("role", "img");
+  expect(within(yeongwol).getByText(/방어 우위|탈환까지/)).toHaveClass("territory-gap");
+});
+
+it("clears the tactical panel when the selected territory is picked again", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist();
+
+  expect(await screen.findByRole("complementary", { name: "부산 전술 패널" })).toBeVisible();
+  const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
+  const busan = within(list).getByRole("button", { name: /^부산/ });
+  expect(busan).toHaveAttribute("aria-pressed", "true");
+
+  await user.click(busan);
+
+  // Deselecting puts the panel away and gives the map the whole row.
+  expect(busan).toHaveAttribute("aria-pressed", "false");
+  expect(screen.queryByRole("complementary", { name: /전술 패널$/ })).not.toBeInTheDocument();
+  expect(document.querySelector(".preview-map-layout")).toHaveClass("preview-map-layout--solo");
+
+  await user.click(busan);
+  expect(screen.getByRole("complementary", { name: "부산 전술 패널" })).toBeVisible();
 });

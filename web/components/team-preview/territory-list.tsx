@@ -42,9 +42,9 @@ export function TerritoryList({ id, collapsed = false, territories, locale, sele
             <strong>{territory.name[locale]}</strong>
             <span className="territory-owner"><i aria-hidden="true" />{t(locale, "currentOwner")} · {owner?.fandomName ?? "—"}</span>
             <StrongholdMark stage={territory.strongholdStage} locale={locale} ownerColor={ownerColor} />
-            {territory.populationDecline ? <small>{territory.balanceMultiplier}×</small> : null}
+            {territory.populationDecline ? <small className="territory-multiplier">{territory.balanceMultiplier}×</small> : null}
             {selectedArtistId ? (
-              <small>{territory.ownerArtistId === selectedArtistId
+              <small className="territory-gap">{territory.ownerArtistId === selectedArtistId
                 ? `${locale === "ko" ? "방어 우위" : "Defense lead"} ${gap}P`
                 : `${locale === "ko" ? "탈환까지" : "Points to capture"} ${gap}P`}</small>
             ) : null}

@@ -2,7 +2,6 @@
 
 import { useMemo, useRef, useState } from "react";
 import { MapFilters, filterAndOrderTerritories, type TerritoryFilter } from "@/components/team-preview/map-filters";
-import { StartPanel } from "@/components/team-preview/start-panel";
 import { TacticalPanel } from "@/components/team-preview/tactical-panel";
 import { TerritoryMap } from "@/components/team-preview/territory-map";
 import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
@@ -27,8 +26,12 @@ export function TerritoryView({ mapConfig }: {
     ? summarizeTerritories(session.state.territories, selectedArtist.id, previewContent.connections)
     : null, [selectedArtist, session.state.territories]);
 
+  // Picking the selected territory again clears it and puts the panel away.
   const selectTerritory = (territoryId: string) => {
-    session.dispatch({ type: "selectTerritory", territoryId });
+    session.dispatch({
+      type: "selectTerritory",
+      territoryId: session.state.selectedTerritoryId === territoryId ? null : territoryId,
+    });
   };
 
   const changeFilter = (nextFilter: TerritoryFilter) => {
@@ -121,7 +124,7 @@ export function TerritoryView({ mapConfig }: {
           </div>
         </section>
       ) : null}
-      <div className="preview-map-layout" ref={mapRef}>
+      <div className={tacticalPanel ? "preview-map-layout" : "preview-map-layout preview-map-layout--solo"} ref={mapRef}>
         <TerritoryMap
           filters={selectedArtist ? <MapFilters locale={session.state.locale} activeFilter={filter} onChange={changeFilter} /> : null}
           mapConfig={mapConfig}
@@ -131,14 +134,7 @@ export function TerritoryView({ mapConfig }: {
           selectedTerritoryId={selectedTerritory?.id ?? null}
           onSelectTerritory={selectTerritory}
         />
-        {tacticalPanel ?? (
-          <StartPanel
-            locale={session.state.locale}
-            artist={selectedArtist}
-            recommendedTerritory={selectedTerritory}
-            artistConfirmed={session.state.artistConfirmed}
-          />
-        )}
+        {tacticalPanel}
       </div>
     </div>
   );

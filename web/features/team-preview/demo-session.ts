@@ -37,7 +37,7 @@ export interface DemoSession {
 export type DemoSessionAction =
   | { type: "selectArtist"; artistId: ArtistId }
   | { type: "changeProfile"; artistId: ArtistId }
-  | { type: "selectTerritory"; territoryId: TerritoryId }
+  | { type: "selectTerritory"; territoryId: TerritoryId | null }
   | { type: "changeTab"; tab: AppTab }
   | { type: "openExpedition"; expeditionId: string }
   | { type: "openRecommendedExpedition"; expeditionId: string; territoryId: TerritoryId }

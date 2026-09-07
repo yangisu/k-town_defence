@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type TouchEvent } from "react";
-import { ArrowLeft, ArrowRight, CircleAlert } from "@/components/ui/icons";
+import { ArrowLeft, ArrowRight, CircleAlert, ExternalLink } from "@/components/ui/icons";
 import { calculateMissionAward, GAME_RULES, rankFandoms, stageForPoints } from "@/features/team-preview/game-rules";
 import { previewContent } from "@/features/team-preview/content";
 import { t } from "@/features/team-preview/i18n";
@@ -23,6 +23,7 @@ const panelCopy = {
     challenger: "도전자",
     regionalStory: "지역 연결 스토리",
     regionalSupport: "지역의 공공 관광 코스",
+    publicRoute: "공식 관광 출처 기반 공공 원정 · 아티스트 직접 연관 없음",
     noDirectPlace: "검증된 아티스트 직접 연관 장소가 없어 공공 관광지만 안내합니다.",
     stronghold: "거점 단계",
     seed: "씨앗",
@@ -73,6 +74,7 @@ const panelCopy = {
     challenger: "Challenger",
     regionalStory: "Regional connection story",
     regionalSupport: "Public tourism route in this region",
+    publicRoute: "Public route from official tourism sources · no direct artist link",
     noDirectPlace: "No verified direct artist destination is available, so this route includes public attractions only.",
     stronghold: "Stronghold stage",
     seed: "Seed",
@@ -324,14 +326,28 @@ export function TacticalPanel({
         <div>
           <dt>{selectedOwns ? copy.defense : copy.capture}</dt>
           <dd>
-            {selectedOwns ? `${copy.defense} ${defenseGap}P` : `${copy.capture} ${captureGap}P`}
-            {selectedOwns ? ` · ${buildGap === null ? copy.maxStage : `${copy.build} ${buildGap}P`}` : null}
+            <span>{selectedOwns ? `${copy.defense} ${defenseGap}P` : `${copy.capture} ${captureGap}P`}</span>
+            {selectedOwns ? <span>{buildGap === null ? copy.maxStage : `${copy.build} ${buildGap}P`}</span> : null}
           </dd>
         </div>
       </dl>
 
       <section className="tactical-connection">
-        {connection ? (
+        <a
+          className="tactical-source"
+          href={sourceUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={copy.evidenceSource}
+        >
+          <ExternalLink size={16} strokeWidth={2.2} aria-hidden="true" />
+        </a>
+        {expedition.artistId === null ? (
+          <>
+            <strong>{copy.regionalSupport}</strong>
+            <p>{copy.publicRoute}</p>
+          </>
+        ) : connection ? (
           <>
             <strong>{copy.regionalStory} · {connection.memberName[locale]}</strong>
             <p>{connection.story[locale]}</p>
@@ -342,16 +358,6 @@ export function TacticalPanel({
             <p>{noConnectionRecommendation}</p>
           </>
         )}
-        <details className="tactical-evidence">
-          <summary>{copy.evidenceDisclosure}</summary>
-          <a href={sourceUrl} target="_blank" rel="noreferrer">{copy.evidenceSource}</a>
-        </details>
-        {expedition.artistId === null ? (
-          <div>
-            <strong>{copy.regionalSupport}</strong>
-            <p>{copy.noDirectPlace}</p>
-          </div>
-        ) : null}
       </section>
 
       <section className="tactical-award" aria-label={copy.awardTitle}>

@@ -225,6 +225,8 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
       style: amazonLocationStyleUrl(mapConfig),
       center: [127.8, 36.3],
       zoom: 6.2,
+      // On a phone a single finger belongs to the page, not the map.
+      cooperativeGestures: window.matchMedia?.("(max-width: 767px)").matches ?? false,
     });
     mapRef.current = map;
     map.addControl(new maplibregl.AttributionControl({
@@ -487,7 +489,7 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
           <button type="button" onClick={resetNationalView}>{t(session.locale, "nationalView")}</button>
         ) : null}
       </div>
-      {listedTerritories.length > 3 ? (
+      {listedTerritories.length > 0 ? (
         <button
           type="button"
           className={listExpanded ? "territory-list-toggle expanded" : "territory-list-toggle"}

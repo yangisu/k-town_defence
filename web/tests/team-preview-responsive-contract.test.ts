@@ -13,7 +13,11 @@ it("defines the stable desktop map and tactical-panel split", () => {
   const desktop = compactCss.slice(compactCss.indexOf("@media(min-width:768px)"));
 
   expect(desktop).toMatch(/\.preview-map-layout\{[^}]*grid-template-columns:minmax\(0,1fr\)360px/);
-  expect(desktop).toMatch(/\.preview-territory-map\{[^}]*height:clamp\(26rem,52dvh,36rem\)/);
+  // The map stretches to whatever height the tactical panel beside it needs.
+  expect(desktop).toContain(".preview-territory-map{flex:11auto;min-height:26rem;height:auto}");
+  // The fallback panel grows the same way, so the list never inherits the slack.
+  expect(compactCss).toContain(".preview-map-configuration{flex:11auto");
+  expect(desktop).toContain(".preview-map-layout{grid-template-columns:minmax(0,1fr)360px;align-items:stretch}");
   expect(desktop).toMatch(/\.tactical-panel\{[^}]*position:static[^}]*max-height:none[^}]*overflow:visible/);
   expect(desktop).toMatch(/\.territory-view\{[^}]*padding-top:18px/);
   expect(compactCss).not.toContain(".territory-view{padding-top:0}");
@@ -164,8 +168,9 @@ it("gives the territory page one inset and puts the map above the summary cards"
   // The page title used to pad twice: the view's inset plus its own.
   expect(compactCss).toContain(".territory-view{max-width:none;padding-inline:0}");
   expect(compactCss).toContain(".territory-view>.preview-page-title,.ranking-view>.preview-page-title{max-width:none;padding-inline:0}");
-  // Four wide rows, not a four-column band that pushes the map off screen.
+  // One compact row per card on a phone, all four abreast once there is room.
   expect(compactCss).toContain(".territory-summary-grid{display:grid;grid-template-columns:minmax(0,1fr)");
+  expect(compactCss).toContain("@media(min-width:768px){.territory-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}");
   // Phones show no scrollbar tracks at all.
   expect(compactCss).toContain("*{scrollbar-width:none}*::-webkit-scrollbar{width:0;height:0;display:none}");
   // The timeline only splits into two columns once there is real room.
@@ -181,4 +186,21 @@ it("keeps the phone-only record chrome out of the desktop stylesheet path", () =
   expect(compactCss).not.toContain("@media(max-width:767px){@media(min-width:768px)");
   // A shallower header bar at every width.
   expect(compactCss).toContain(".shell-status{min-height:clamp(42px,11vw,52px)");
+});
+
+it("never lets the phone season chip share a row with the summary stats", () => {
+  // The chip shows below 768px; the two-column summary starts at 768px. If the
+  // split began earlier the chip would sit on top of the stat grid.
+  expect(compactCss).toContain("@media(min-width:768px){.record-season-summary{grid-template-columns:minmax(0,1.05fr)minmax(0,.95fr);align-items:end}}");
+  const desktop = compactCss.slice(compactCss.indexOf("@media(min-width:768px){.record-historyli"));
+  expect(desktop).toContain(".record-season-chip{display:none}");
+});
+
+it("keeps the collapsed rail narrow at every desktop width", () => {
+  // Each breakpoint that sets a rail width must also restate the collapsed one,
+  // otherwise a later rule of equal specificity re-expands the strip.
+  for (const query of ["@media(min-width:768px)", "@media(min-width:1200px)"]) {
+    const block = compactCss.slice(compactCss.indexOf(`${query}{.app-shell{`));
+    expect(block.slice(0, 160)).toContain(".app-shell--rail-collapsed{grid-template-columns:66px1fr}");
+  }
 });

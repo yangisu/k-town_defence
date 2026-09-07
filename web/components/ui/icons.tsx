@@ -19,6 +19,7 @@ export {
   MapPin,
   Navigation,
   Route,
+  RotateCcw,
   Shield,
   Sparkles,
   Trophy,

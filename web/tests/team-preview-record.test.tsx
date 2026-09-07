@@ -223,7 +223,9 @@ it("tucks the season into the summary card with an explanation toggle", async ()
   expect(within(summary).getByText("시즌 01")).toBeVisible();
   expect(within(summary).getByText("D-18")).toBeVisible();
 
+  // The whole chip is the control, so a tap anywhere on it toggles the note.
   const info = within(summary).getByRole("button", { name: "시즌 설명 보기" });
+  expect(info).toHaveTextContent("시즌 01");
   expect(info).toHaveAttribute("aria-expanded", "false");
   expect(document.getElementById("record-season-about")).toBeNull();
 
@@ -241,23 +243,14 @@ function fullyCompletedSession() {
   return demoSessionReducer(first, { type: "completeCheckIn", expeditionId: "busan-regional-support-expedition", placeId: "busan-2", award: missionAward });
 }
 
-it("lists the completed expeditions behind the summary count", async () => {
-  const user = userEvent.setup();
+it("lists the completed expeditions without waiting for a click", () => {
   render(<RecordView locale="ko" session={fullyCompletedSession()} />);
 
-  const count = screen.getByRole("button", { name: "1" });
-  expect(count).toHaveAttribute("aria-expanded", "false");
-  expect(screen.queryByRole("region", { name: "완료한 원정 목록" })).not.toBeInTheDocument();
-
-  await user.click(count);
-
+  // The list is part of the page now, not something hidden behind the count.
   const list = screen.getByRole("region", { name: "완료한 원정 목록" });
   expect(within(list).getByText("부산 지역 원정")).toBeVisible();
-  // Demo dates stand in for a season the preview does not actually run.
   expect(within(list).getByText("08. 24.", { exact: false })).toBeVisible();
-
-  await user.click(count);
-  expect(screen.queryByRole("region", { name: "완료한 원정 목록" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "1" })).not.toBeInTheDocument();
 });
 
 it("opens a check-in record from the activity timeline", async () => {
@@ -304,4 +297,19 @@ it("closes the check-in record from an X in its corner", async () => {
 
   await user.click(close);
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+it("explains the growth track from its own heading toggle", async () => {
+  const user = userEvent.setup();
+  render(<RecordView locale="ko" session={fullyCompletedSession()} />);
+
+  const info = screen.getByRole("button", { name: "성장 단계 설명 보기" });
+  expect(document.getElementById("record-growth-about")).toBeNull();
+
+  await user.click(info);
+
+  expect(screen.getByText(/1,000P에서 나무, 3,000P에서 랜드마크/)).toBeVisible();
+
+  await user.click(info);
+  expect(document.getElementById("record-growth-about")).toBeNull();
 });

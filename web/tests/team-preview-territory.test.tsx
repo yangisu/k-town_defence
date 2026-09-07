@@ -412,7 +412,9 @@ it("keeps the filters in the map action row and the camera reset out of it witho
   expect(actions).not.toBeNull();
   // The filter group sits with the map controls rather than above the map.
   expect(document.querySelector(".preview-page-title ~ .map-filters")).toBeNull();
+  // The camera reset lives on the map corner, never in the row above the cards.
   expect(within(actions!).queryByRole("button", { name: "전국 보기" })).not.toBeInTheDocument();
+  expect(document.querySelector(".preview-map-reset")).toBeNull();
 
   // Filtering still drives the list under it.
   await user.click(within(filters).getByRole("button", { name: "전체" }));

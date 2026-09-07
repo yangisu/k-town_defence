@@ -75,7 +75,7 @@ export function RecordView({
   onReset?: () => void;
 }) {
   const [seasonInfoOpen, setSeasonInfoOpen] = useState(false);
-  const [completedOpen, setCompletedOpen] = useState(false);
+  const [growthInfoOpen, setGrowthInfoOpen] = useState(false);
   const [openCheckIn, setOpenCheckIn] = useState<{ index: number } | null>(null);
   const detailRef = useRef<HTMLDivElement>(null);
   const detailTitleRef = useRef<HTMLHeadingElement>(null);
@@ -113,19 +113,16 @@ export function RecordView({
       <h1>{t(locale, "navRecord")}</h1>
 
       <section className="record-season-summary" aria-label={t(locale, "recordSeasonSummary")}>
-        <div className="record-season-chip">
-          <div>
-            <span>{t(locale, "seasonName")}</span>
-            <strong>{t(locale, "seasonRemaining")}</strong>
-          </div>
+        <div className={seasonInfoOpen ? "record-season-chip open" : "record-season-chip"}>
           <button
             type="button"
-            className="rail-season-info"
             aria-expanded={seasonInfoOpen}
             aria-controls="record-season-about"
             aria-label={t(locale, "seasonInfo")}
             onClick={() => setSeasonInfoOpen((open) => !open)}
           >
+            <span>{t(locale, "seasonName")}</span>
+            <strong>{t(locale, "seasonRemaining")}</strong>
             <CircleAlert size={14} aria-hidden="true" />
           </button>
           {seasonInfoOpen ? <p id="record-season-about">{t(locale, "seasonAbout")}</p> : null}
@@ -139,15 +136,7 @@ export function RecordView({
         <dl className="record-summary" aria-label={t(locale, "recordSeasonSummary")}>
           <div>
             <dt>{t(locale, "recordCompleted")}</dt>
-            <dd>
-              <button
-                type="button"
-                className="record-summary-toggle"
-                aria-expanded={completedOpen}
-                aria-controls="record-completed-list"
-                onClick={() => setCompletedOpen((open) => !open)}
-              >{session.completedExpeditionIds.length}</button>
-            </dd>
+            <dd>{session.completedExpeditionIds.length}</dd>
           </div>
           <div><dt>{t(locale, "recordCheckIns")}</dt><dd>{summary.approvedCheckIns.length}</dd></div>
           <div><dt>{t(locale, "recordTerritories")}</dt><dd>{summary.influencedTerritories}</dd></div>
@@ -155,8 +144,7 @@ export function RecordView({
         </dl>
       </section>
 
-      {completedOpen ? (
-        <section className="record-completed" id="record-completed-list" aria-label={t(locale, "recordCompletedList")}>
+      <section className="record-completed" aria-label={t(locale, "recordCompletedList")}>
           <h2>{t(locale, "recordCompletedList")}</h2>
           {session.completedExpeditionIds.length === 0 ? (
             <p>{t(locale, "recordCompletedEmpty")}</p>
@@ -175,8 +163,7 @@ export function RecordView({
               })}
             </ol>
           )}
-        </section>
-      ) : null}
+      </section>
 
       {summary.approvedCheckIns.length === 0 ? (
         <section className="record-empty">
@@ -187,7 +174,20 @@ export function RecordView({
       ) : null}
 
       <section className="record-growth">
-        <h2>{t(locale, "recordGrowth")}</h2>
+        <div className="record-section-heading">
+          <h2>{t(locale, "recordGrowth")}</h2>
+          <button
+            type="button"
+            className="tactical-help-toggle"
+            aria-expanded={growthInfoOpen}
+            aria-controls="record-growth-about"
+            aria-label={t(locale, "growthInfo")}
+            onClick={() => setGrowthInfoOpen((open) => !open)}
+          >
+            <CircleAlert size={17} aria-hidden="true" />
+          </button>
+        </div>
+        {growthInfoOpen ? <p className="record-growth-about" id="record-growth-about">{t(locale, "growthAbout")}</p> : null}
         <ol aria-label={t(locale, "recordGrowth")}>
           {stages.map((stage) => {
             const unlocked = stageOrder[stage] <= summary.highestStageOrder;

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type GeoJSONSourceSpecification, type Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { TerritoryList } from "@/components/team-preview/territory-list";
-import { ChevronRight } from "@/components/ui/icons";
+import { ChevronRight, RotateCcw } from "@/components/ui/icons";
 import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
 import type { DemoSession } from "@/features/team-preview/demo-session";
 import { t } from "@/features/team-preview/i18n";
@@ -498,7 +498,16 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
           onPointerDown={() => setMapFocused(true)}
           role="region"
           aria-label={session.locale === "ko" ? "대한민국 팬덤 영토 지도" : "Korea fandom territory map"}
-        />
+        >
+          <button
+            type="button"
+            className="preview-map-reset"
+            aria-label={t(session.locale, "nationalView")}
+            onClick={resetNationalView}
+          >
+            <RotateCcw size={16} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+        </div>
       ) : (
         <div className="preview-map-configuration" role="status">
           <strong>{t(session.locale, "mapUnavailable")}</strong>
@@ -510,12 +519,7 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
         Map © <a href="https://aws.amazon.com/location/" target="_blank" rel="noreferrer">Amazon Location Service</a>
         {" · "}Boundaries © <a href="https://www.geoboundaries.org/" target="_blank" rel="noreferrer">geoBoundaries</a>
       </p>
-      <div className="preview-map-actions">
-        {filters}
-        {mapConfig && !mapError && selectedTerritoryId ? (
-          <button type="button" onClick={resetNationalView}>{t(session.locale, "nationalView")}</button>
-        ) : null}
-      </div>
+      <div className="preview-map-actions">{filters}</div>
       {listedTerritories.length > 0 ? (
         <button
           type="button"

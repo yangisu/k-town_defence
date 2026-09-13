@@ -57,10 +57,14 @@ describe("self-hosted production build", () => {
 
   it("deploys the production server from main", () => {
     const bootstrap = readFileSync(join("..", "deploy", "bootstrap-ec2.sh"), "utf8");
+    const compose = readFileSync(join("..", "compose.production.yaml"), "utf8");
     expect(bootstrap).toContain('readonly DEPLOY_BRANCH="main"');
     expect(bootstrap).not.toContain('readonly DEPLOY_BRANCH="feat/');
     expect(bootstrap).toContain('checkout -B "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH"');
     expect(bootstrap).toContain("NEXT_PUBLIC_AWS_LOCATION_REGION=ap-northeast-1");
     expect(existsSync(join("..", "deploy", "configure-map.sh"))).toBe(true);
+    expect(compose).toMatch(/environment:[\s\S]*NEXT_PUBLIC_AWS_LOCATION_API_KEY:\s*\$\{NEXT_PUBLIC_AWS_LOCATION_API_KEY\}/);
+    expect(compose).toMatch(/environment:[\s\S]*NEXT_PUBLIC_AWS_LOCATION_REGION:\s*\$\{NEXT_PUBLIC_AWS_LOCATION_REGION:-ap-northeast-1\}/);
+    expect(compose).toMatch(/environment:[\s\S]*NEXT_PUBLIC_AWS_LOCATION_STYLE:\s*\$\{NEXT_PUBLIC_AWS_LOCATION_STYLE:-Standard\}/);
   });
 });

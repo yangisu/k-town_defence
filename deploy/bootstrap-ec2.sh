@@ -15,16 +15,20 @@ apt-get update
 apt-get install -y ca-certificates curl docker.io docker-compose-v2 git openssl
 systemctl enable --now docker
 
-# A t3.micro can run the stack, but the Node production build needs temporary
-# headroom. Keep a small persistent swap file rather than increasing public
-# services or moving the database outside the private Docker network.
-if ! swapon --show=NAME --noheadings | grep -q .; then
-  fallocate -l 2G /swapfile
+# A t3.micro needs temporary build headroom, but this instance has a small root
+# disk. Keep the swap deliberately small so Docker still has room for layers.
+if [[ -f /swapfile ]] && [[ "$(stat -c %s /swapfile)" -gt 536870912 ]]; then
+  swapoff /swapfile || true
+  rm -f /swapfile
+fi
+if ! swapon --show=NAME --noheadings | grep -Fxq /swapfile; then
+  fallocate -l 512M /swapfile
   chmod 600 /swapfile
   mkswap /swapfile
   swapon /swapfile
   grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
+apt-get clean
 
 if [[ ! -d "$APP_DIR/.git" ]]; then
   if [[ -e "$APP_DIR" ]]; then

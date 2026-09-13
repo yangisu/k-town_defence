@@ -95,7 +95,15 @@ Vercel 없이 Caddy, Node 웹 서버, FastAPI, PostgreSQL을 한 Compose 스택�
 독립 사이트의 사용자 인증에 사용한다. `web/.env.local`에
 `KTOWN_SESSION_SECRET`(최소 16자 임의 문자열)과 사용할 제공자의
 `{PROVIDER}_CLIENT_ID`/`{PROVIDER}_CLIENT_SECRET`을 설정한다. 제공자 개발자
-콘솔에 등록할 redirect URI는 `{배포 origin}/api/auth/{kakao|naver|google}/callback`이다.
+콘솔에 등록할 실제 production redirect URI는 다음 세 주소다.
+
+- `https://ktowndefense.site/api/auth/kakao/callback`
+- `https://ktowndefense.site/api/auth/naver/callback`
+- `https://ktowndefense.site/api/auth/google/callback`
+
+카카오도 client secret을 활성화하고 반드시 함께 설정한다. OAuth access/refresh token은
+콜백 처리 중에만 사용하고 저장하지 않는다. DB에는 제공자별 고유 사용자 ID, 표시 이름,
+프로필 이미지와 K-Town 내부 사용자 UUID만 저장한다.
 값이 비어 있는 제공자의 로그인 버튼은 503을 반환하며, 세션 쿠키가 바뀌면(서명 키 교체 포함)
 기존 로그인은 모두 무효화된다.
 

@@ -48,7 +48,10 @@ const PROVIDERS: Record<SocialProvider, ProviderConfig> = {
     userInfoUrl: "https://kapi.kakao.com/v2/user/me",
     scope: "",
     usesPkce: false,
-    env: () => readEnv("KAKAO_CLIENT_ID", "KAKAO_CLIENT_SECRET", false),
+    // Kakao enables the client secret for newly-created apps. Treat it as
+    // required so a partially configured production button cannot start a
+    // flow that is guaranteed to fail during the token exchange.
+    env: () => readEnv("KAKAO_CLIENT_ID", "KAKAO_CLIENT_SECRET", true),
     parseProfile: (_token, user) => {
       const body = user as { id?: number; kakao_account?: { profile?: { nickname?: string; profile_image_url?: string } } };
       if (typeof body.id !== "number") return null;

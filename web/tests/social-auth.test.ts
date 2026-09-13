@@ -15,11 +15,14 @@ describe("social auth provider configuration", () => {
     process.env = { ...ORIGINAL_ENV };
   });
 
-  it("reports a provider unconfigured until its client id is set", () => {
+  it("requires both the Kakao REST API key and client secret", () => {
     setProviderEnv({ KAKAO_CLIENT_ID: undefined, KAKAO_CLIENT_SECRET: undefined });
     expect(isProviderConfigured("kakao")).toBe(false);
 
     setProviderEnv({ KAKAO_CLIENT_ID: "kakao-id" });
+    expect(isProviderConfigured("kakao")).toBe(false);
+
+    setProviderEnv({ KAKAO_CLIENT_SECRET: "kakao-secret" });
     expect(isProviderConfigured("kakao")).toBe(true);
   });
 
@@ -56,6 +59,7 @@ describe("exchangeCodeForProfile", () => {
   beforeEach(() => {
     setProviderEnv({
       KAKAO_CLIENT_ID: "kakao-id",
+      KAKAO_CLIENT_SECRET: "kakao-secret",
       NAVER_CLIENT_ID: "naver-id",
       NAVER_CLIENT_SECRET: "naver-secret",
       GOOGLE_CLIENT_ID: "google-id",
@@ -85,6 +89,7 @@ describe("exchangeCodeForProfile", () => {
       displayName: "아미",
       avatarUrl: "https://img/kakao.png",
     });
+    expect(fetcher.mock.calls[0]?.[1]?.body?.toString()).toContain("client_secret=kakao-secret");
   });
 
   it("maps a Naver profile to the common shape", async () => {

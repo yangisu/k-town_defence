@@ -9,7 +9,9 @@
 
 ## 최초 배포
 
-1. 도메인의 `A` 레코드를 EC2 탄력적 IP `3.35.84.75`로 지정한다.
+1. 가비아 DNS에서 루트 도메인 `ktowndefense.site`의 `A` 레코드를 EC2 탄력적
+   IP `3.35.84.75`로 지정하고, `www`는 `ktowndefense.site`를 가리키는 CNAME으로
+   설정한다. Caddy가 `www` 요청을 루트 도메인으로 영구 리디렉션한다.
 2. EC2 보안 그룹에서 TCP 80/443을 공개하고, SSH 22는 관리자 IP로 제한한다.
    기존 TCP 3306 공개 규칙은 삭제한다. PostgreSQL 5432도 공개하지 않는다.
 3. Ubuntu에 Docker Engine과 Compose 플러그인을 설치하고 저장소를 복제한다.

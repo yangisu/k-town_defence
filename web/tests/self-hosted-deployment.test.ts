@@ -54,4 +54,10 @@ describe("self-hosted production build", () => {
     expect(existsSync("vercel.json")).toBe(false);
     expect(existsSync("vite.config.vercel.ts")).toBe(false);
   });
+
+  it("deploys the production server from main", () => {
+    const bootstrap = readFileSync(join("..", "deploy", "bootstrap-ec2.sh"), "utf8");
+    expect(bootstrap).toContain('readonly DEPLOY_BRANCH="main"');
+    expect(bootstrap).not.toContain('readonly DEPLOY_BRANCH="feat/');
+  });
 });

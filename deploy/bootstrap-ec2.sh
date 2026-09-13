@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 readonly APP_DIR="/opt/ktown-defense"
 readonly REPOSITORY="https://github.com/yangisu/k-town_defence.git"
-readonly DEPLOY_BRANCH="feat/self-hosted-production"
+readonly DEPLOY_BRANCH="main"
 
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "Run this script as root (Systems Manager Run Command runs as root)." >&2

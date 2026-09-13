@@ -30,7 +30,7 @@ curl -fsS https://${SITE_DOMAIN}/healthz
 Systems Manager Run Command에서 다음 명령으로 최초 구성을 자동화할 수 있다.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yangisu/k-town_defence/feat/self-hosted-production/deploy/bootstrap-ec2.sh \
+curl -fsSL https://raw.githubusercontent.com/yangisu/k-town_defence/main/deploy/bootstrap-ec2.sh \
   | bash
 ```
 

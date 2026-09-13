@@ -129,41 +129,34 @@ git commit -m "feat: add Kakao/Naver/Google social login alongside ChatGPT platf
 - Test: `web/tests/share-sheet.test.tsx`
 
 **Interfaces:**
-- Produces: `buildShareCard(kind: "checkin" | "territory", data) -> { title, description, imageUrl, shareUrl }`
-- Produces: `<ShareSheet card={...} />` — Web Share API (`navigator.share`) when available, else a KakaoTalk-share button (Kakao JS SDK, loaded only on click) plus a copy-link fallback.
+- Produces: `buildShareCard(kind: "checkin" | "territory", data, origin?) -> { title, description, imageUrl, shareUrl }`
+- Produces: `<ShareSheet card={...} label? />` — Web Share API (`navigator.share`) when available, else copies the link.
+- Produces: `GET /share/{kind}/{id}` (page, with `generateMetadata` OG tags) and `GET /share/{kind}/{id}/image` (dynamic `next/og` `ImageResponse`).
 
-- [ ] **Step 1: Write share-card content tests**
+> **Corrections found during implementation:**
+> - **No Kakao JS SDK.** That needs a separate "JavaScript 키" from the Kakao app (different from the REST API key Task 1 already uses for login) which isn't provisioned. Relying on `navigator.share` instead: on mobile it already lists KakaoTalk/Naver/X/etc. as targets with zero provider SDKs or keys. Desktop browsers without `navigator.share` fall back to `navigator.clipboard.writeText`.
+> - **No `GET /api/v1/seasons/current/strongholds`.** That route only exists in the legacy prototype's RBAC table (`src/ktown_defense/auth.py`), not the real deployed API (same finding as Task 1). Since the territory summary being shared is itself demo/preview client-side data (`web/features/team-preview/*`), not backend data, the territory share link instead carries `fandom`/`owned`/`strongest` as query params (`/share/territory/current?fandom=ARMY&owned=12&strongest=부산`) — no backend call needed. The checkin kind *does* have a real public backend route (`GET /api/v1/places/{placeId}`) and uses it.
+> - **`next/og`'s `ImageResponse` works under vinext** (confirmed via `node_modules/vinext/dist/check.js`: `"next/og": { status: "supported" }`) — verified live in the browser, a real 1200×630 PNG renders correctly.
 
-```ts
-test("checkin share card names the place and points, never raw GPS", () => {
-  const card = buildShareCard("checkin", { placeName: "감천문화마을", pointsAwarded: 100 });
-  expect(card.description).not.toMatch(/lat|lng|latitude/i);
-});
-```
+**Files (as built):**
+- `web/features/share/build-share-card.ts` (+ `web/tests/share-sheet.test.ts`)
+- `web/components/share/share-sheet.tsx`
+- `web/app/share/[kind]/[id]/subject.ts` (shared resolver for the page and the image, so a visitor who isn't the sharer sees the same generic public content)
+- `web/app/share/[kind]/[id]/page.tsx`, `web/app/share/[kind]/[id]/image/route.tsx`
+- Modified: `web/components/check-in/check-in-flow.tsx` (share button next to "계속하기"/"여행 계속하기", pointsAwarded omitted for a `pending` integrated check-in), `web/components/team-preview/territory-view.tsx` (share button rendered as a **sibling after** `<section className="territory-summary">`, not inside it — putting it inside shifted `within(summaryRegion).getAllByRole("button")` indices in `tests/team-preview-territory.test.tsx`, which two pre-existing tests scope specifically to that region)
+- Modified: `web/components/ui/icons.tsx` (added `Share2`)
 
-- [ ] **Step 2: Run and confirm the builder is absent**
+- [x] **Step 1: Write share-card content tests** — `web/tests/share-sheet.test.ts`, 5 cases (checkin with/without points, territory with/without a strongest territory, shareUrl shape).
+- [x] **Step 2: Run and confirm the builder is absent** — confirmed via import failure before the file existed.
+- [x] **Step 3: Implement the OG image route and share sheet** — see corrections above.
+- [x] **Step 4: Hook the trigger points** — done in both files listed above.
+- [x] **Step 5: Verify**
 
-Run: `cd web && npm test -- share-sheet` — expect FAIL.
+Ran: `cd web && npx vitest run` → **311/311 passed**. `npm run lint` → clean (after fixing a `no-html-link-for-pages` finding: the share page's "앱에서 열기" needed `next/link`'s `Link`, not a bare `<a>`). `npm run build` → succeeds and lists `/share/:kind/:id` and `/share/:kind/:id/image`.
+Manually verified in the browser against the running dev server: `/share/territory/current?fandom=ARMY&owned=12&strongest=부산` renders the card text and its `/image` sibling renders a real dark-green 1200×630 PNG; clicking "영토 현황 공유하기" in the actual team-preview UI (after selecting BTS/ARMY) shows the button positioned correctly outside the 4-stat grid.
+**Known cosmetic issue:** the share page's dev-mode console logs an "Invalid hook call" from vinext's `next/link` shim (`Cannot read properties of null (reading 'useState')`) on this route. The rendered `<a href="/">` still works — clicking it navigates correctly — and `npm run build`'s production output has no such error, so this looks like a vinext dev-server/HMR-only quirk rather than a real defect, but flag it if it recurs after a real deploy.
 
-- [ ] **Step 3: Implement the OG image route and share sheet**
-
-The OG image route reads only public fields (place name, points, territory name) already exposed by existing public APIs (`GET /api/v1/places/{placeId}`, `GET /api/v1/seasons/current/strongholds`) — it must not read raw GPS or private evidence.
-
-- [ ] **Step 4: Hook the trigger points**
-
-Add a "결과 공유하기" action after a successful `submit()` in `check-in-flow.tsx` and on the territory summary produced by `summarizeTerritories` in `territory-summary.ts`.
-
-- [ ] **Step 5: Verify**
-
-Run: `cd web && npm test && npm run lint && npm run build`  
-Expected: PASS.
-
-- [ ] **Step 6: Commit share flow**
-
-```bash
-git add web/components/share web/features/share web/app/share web/components/check-in/check-in-flow.tsx web/tests/share-sheet.test.tsx
-git commit -m "feat: share check-in and territory results to social platforms"
-```
+- [x] **Step 6: Commit share flow**
 
 ### Task 3: Friend Invite
 

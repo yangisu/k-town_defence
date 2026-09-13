@@ -21,6 +21,7 @@ export {
   Navigation,
   Route,
   RotateCcw,
+  Share2,
   Shield,
   Sparkles,
   Trophy,

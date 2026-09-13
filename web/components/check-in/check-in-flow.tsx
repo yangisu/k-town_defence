@@ -10,6 +10,8 @@ import { checkInReducer, createInitialCheckInState, deriveCheckInProgress } from
 import { StateMessage } from "@/components/ui/state-message";
 import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
+import { ShareSheet } from "@/components/share/share-sheet";
+import { buildShareCard } from "@/features/share/build-share-card";
 
 export type DemoAwardInput = Omit<MissionAwardInput, "dwellMinutes" | "localSpendVerified" | "accommodationVerified">;
 
@@ -169,6 +171,19 @@ export function CheckInFlow({
   };
 
   const approvedDemo = mode === "demo" && result?.decision === "approved";
+  const shareCard = result
+    ? buildShareCard(
+      "checkin",
+      {
+        placeId: place.id,
+        placeName: place.nameKo,
+        pointsAwarded: result.decision === "pending"
+          ? undefined
+          : approvedDemo ? award?.cappedPoints : result.awardedPoints,
+      },
+      typeof window === "undefined" ? undefined : window.location.origin,
+    )
+    : null;
 
   return (
     <div className="checkin-overlay" role="dialog" aria-modal="true" aria-labelledby="checkin-title" ref={dialogRef}>
@@ -219,6 +234,7 @@ export function CheckInFlow({
                 </div>
               </>
             )}
+            {shareCard ? <ShareSheet card={shareCard} /> : null}
             <button className="primary-button" onClick={onClose}>{mode === "integrated" ? "여행 계속하기" : demoLabels.continue}</button>
           </section>
         ) : (

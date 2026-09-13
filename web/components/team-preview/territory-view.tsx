@@ -9,6 +9,8 @@ import { useDemoSession } from "@/features/team-preview/demo-session-context";
 import { t } from "@/features/team-preview/i18n";
 import { summarizeTerritories } from "@/features/team-preview/territory-summary";
 import type { MapConfig } from "@/lib/map-config";
+import { ShareSheet } from "@/components/share/share-sheet";
+import { buildShareCard } from "@/features/share/build-share-card";
 
 export function TerritoryView({ mapConfig }: {
   mapConfig: MapConfig | null;
@@ -125,6 +127,20 @@ export function TerritoryView({ mapConfig }: {
             </button>
           </div>
         </section>
+      ) : null}
+      {selectedArtist && summary ? (
+        <ShareSheet
+          label={session.state.locale === "ko" ? "영토 현황 공유하기" : "Share territory status"}
+          card={buildShareCard(
+            "territory",
+            {
+              fandomName: selectedArtist.fandomName,
+              ownedCount: summary.ownedCount,
+              strongestTerritoryName: summary.strongestOwnedTerritoryId ? territoryName(summary.strongestOwnedTerritoryId) : null,
+            },
+            typeof window === "undefined" ? undefined : window.location.origin,
+          )}
+        />
       ) : null}
       <div className={tacticalPanel ? "preview-map-layout" : "preview-map-layout preview-map-layout--solo"} ref={mapRef}>
         <TerritoryMap

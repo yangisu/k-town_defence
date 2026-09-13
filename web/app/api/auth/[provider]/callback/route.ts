@@ -40,6 +40,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
   const profile = await exchangeCodeForProfile(provider, {
     code,
     redirectUri: `${origin}/api/auth/${provider}/callback`,
+    codeVerifier: statePayload.codeVerifier,
   });
   if (!profile) return failureRedirect(origin, "profile_unavailable");
 

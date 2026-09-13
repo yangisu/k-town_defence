@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { buildAuthorizeUrl, isSocialProvider } from "@/lib/server/social-auth";
+import { buildAuthorizeUrl, generatePkcePair, isSocialProvider } from "@/lib/server/social-auth";
 import { createOAuthStateCookieValue, oauthStateCookieOptions, OAUTH_STATE_COOKIE_PREFIX } from "@/lib/server/session";
 import { safeRelativeReturnPath } from "@/lib/server/return-path";
 import { requestOrigin } from "@/lib/server/request-origin";
@@ -16,7 +16,8 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
   const returnTo = safeRelativeReturnPath(new URL(request.url).searchParams.get("return_to") ?? "/");
   const state = randomUUID();
   const redirectUri = `${requestOrigin(request)}/api/auth/${provider}/callback`;
-  const authorizeUrl = buildAuthorizeUrl(provider, { state, redirectUri });
+  const pkce = provider === "google" ? generatePkcePair() : null;
+  const authorizeUrl = buildAuthorizeUrl(provider, { state, redirectUri, codeChallenge: pkce?.codeChallenge });
   if (!authorizeUrl) {
     return NextResponse.json(
       { code: "PROVIDER_NOT_CONFIGURED", message: "로그인 제공자 설정이 없습니다." },
@@ -27,7 +28,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
   const response = NextResponse.redirect(authorizeUrl);
   response.cookies.set(
     `${OAUTH_STATE_COOKIE_PREFIX}${provider}`,
-    createOAuthStateCookieValue(state, returnTo),
+    createOAuthStateCookieValue(state, returnTo, pkce?.codeVerifier),
     oauthStateCookieOptions,
   );
   return response;

@@ -1,3 +1,5 @@
+import { createHash, randomBytes } from "node:crypto";
+
 export type SocialProvider = "kakao" | "naver" | "google";
 
 export type SocialProfile = {
@@ -13,9 +15,17 @@ type ProviderConfig = {
   scope: string;
   tokenUrl: string;
   userInfoUrl: string;
+  usesPkce: boolean;
   env: () => ProviderEnv | null;
   parseProfile: (tokenJson: unknown, userJson: unknown) => SocialProfile | null;
 };
+
+/** RFC 7636 PKCE pair. Only Google currently requires this to avoid `invalid_grant`. */
+export function generatePkcePair(): { codeVerifier: string; codeChallenge: string } {
+  const codeVerifier = randomBytes(32).toString("base64url");
+  const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
+  return { codeVerifier, codeChallenge };
+}
 
 export const SOCIAL_PROVIDERS: readonly SocialProvider[] = ["kakao", "naver", "google"];
 
@@ -37,6 +47,7 @@ const PROVIDERS: Record<SocialProvider, ProviderConfig> = {
     tokenUrl: "https://kauth.kakao.com/oauth/token",
     userInfoUrl: "https://kapi.kakao.com/v2/user/me",
     scope: "",
+    usesPkce: false,
     env: () => readEnv("KAKAO_CLIENT_ID", "KAKAO_CLIENT_SECRET", false),
     parseProfile: (_token, user) => {
       const body = user as { id?: number; kakao_account?: { profile?: { nickname?: string; profile_image_url?: string } } };
@@ -53,6 +64,7 @@ const PROVIDERS: Record<SocialProvider, ProviderConfig> = {
     tokenUrl: "https://nid.naver.com/oauth2.0/token",
     userInfoUrl: "https://openapi.naver.com/v1/nid/me",
     scope: "",
+    usesPkce: false,
     env: () => readEnv("NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET", true),
     parseProfile: (_token, user) => {
       const body = user as { response?: { id?: string; nickname?: string; profile_image?: string } };
@@ -70,6 +82,7 @@ const PROVIDERS: Record<SocialProvider, ProviderConfig> = {
     tokenUrl: "https://oauth2.googleapis.com/token",
     userInfoUrl: "https://openidconnect.googleapis.com/v1/userinfo",
     scope: "openid profile",
+    usesPkce: true,
     env: () => readEnv("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", true),
     parseProfile: (_token, user) => {
       const body = user as { sub?: string; name?: string; picture?: string };
@@ -89,7 +102,7 @@ export function isProviderConfigured(provider: SocialProvider): boolean {
 
 export function buildAuthorizeUrl(
   provider: SocialProvider,
-  { state, redirectUri }: { state: string; redirectUri: string },
+  { state, redirectUri, codeChallenge }: { state: string; redirectUri: string; codeChallenge?: string },
 ): string | null {
   const config = PROVIDERS[provider];
   const env = config.env();
@@ -100,6 +113,10 @@ export function buildAuthorizeUrl(
   url.searchParams.set("response_type", "code");
   url.searchParams.set("state", state);
   if (config.scope) url.searchParams.set("scope", config.scope);
+  if (config.usesPkce && codeChallenge) {
+    url.searchParams.set("code_challenge", codeChallenge);
+    url.searchParams.set("code_challenge_method", "S256");
+  }
   return url.toString();
 }
 
@@ -110,7 +127,7 @@ export function buildAuthorizeUrl(
  */
 export async function exchangeCodeForProfile(
   provider: SocialProvider,
-  { code, redirectUri }: { code: string; redirectUri: string },
+  { code, redirectUri, codeVerifier }: { code: string; redirectUri: string; codeVerifier?: string },
   fetcher: typeof fetch = fetch,
 ): Promise<SocialProfile | null> {
   const config = PROVIDERS[provider];
@@ -124,6 +141,7 @@ export async function exchangeCodeForProfile(
     code,
   });
   if (env.clientSecret) tokenBody.set("client_secret", env.clientSecret);
+  if (config.usesPkce && codeVerifier) tokenBody.set("code_verifier", codeVerifier);
 
   const tokenResponse = await fetcher(config.tokenUrl, {
     method: "POST",

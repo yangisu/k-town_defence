@@ -103,18 +103,22 @@ export const sessionCookieOptions = {
   maxAge: SESSION_MAX_AGE_SECONDS,
 };
 
-export function createOAuthStateCookieValue(state: string, returnTo: string): string {
-  return encode({ state, returnTo, issuedAt: Date.now() });
+export function createOAuthStateCookieValue(
+  state: string,
+  returnTo: string,
+  codeVerifier?: string,
+): string {
+  return encode({ state, returnTo, codeVerifier, issuedAt: Date.now() });
 }
 
 export function readOAuthStateCookiePayload(
   token: string | undefined | null,
-): { state: string; returnTo: string } | null {
-  const payload = decode<{ state: string; returnTo: string; issuedAt: number }>(token);
+): { state: string; returnTo: string; codeVerifier?: string } | null {
+  const payload = decode<{ state: string; returnTo: string; codeVerifier?: string; issuedAt: number }>(token);
   if (!payload) return null;
   const ageSeconds = (Date.now() - payload.issuedAt) / 1000;
   if (ageSeconds < 0 || ageSeconds > STATE_MAX_AGE_SECONDS) return null;
-  return { state: payload.state, returnTo: payload.returnTo };
+  return { state: payload.state, returnTo: payload.returnTo, codeVerifier: payload.codeVerifier };
 }
 
 export const oauthStateCookieOptions = {

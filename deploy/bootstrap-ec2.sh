@@ -67,6 +67,13 @@ EOF
   chmod 600 .env.production
 fi
 
+# This host previously served Ubuntu's default nginx page. Caddy owns the public
+# HTTP/HTTPS ports in this stack, so prevent nginx from reclaiming port 80 after
+# a reboot. Do not uninstall it; its configuration remains recoverable.
+if systemctl is-active --quiet nginx; then
+  systemctl disable --now nginx
+fi
+
 docker compose --env-file .env.production -f compose.production.yaml up -d --build --remove-orphans
 docker compose --env-file .env.production -f compose.production.yaml ps
 

@@ -80,16 +80,19 @@ npm run dev -- --port 3000
 ```
 
 필요하면 `.env.local`의 API 주소와 개발 사용자 ID를 수정한다. 이 파일은
-Git에서 제외된다. `KTOWN_DEV_USER_ID`는 로컬 개발 서버에서만 사용된다. production에서는
-Sites가 전달한 `oai-authenticated-user-id`를 최우선으로 신뢰하고, 그 헤더가 없는
-standalone 배포(예: Vercel)에서는 SNS 로그인 세션 쿠키를 그다음 우선순위로 신뢰한다.
-따라서 `npm run start`로 production 모드를 로컬 실행하면 플랫폼 인증 헤더가
-없어 `/signin`으로 이동하는 것이 정상이다. 로컬 통합 시연은 `npm run dev`,
-실배포는 Sites 인증 연결을 사용한다.
+Git에서 제외된다. `KTOWN_DEV_USER_ID`는 로컬 개발 서버에서만 사용된다.
+독립 production 배포에서는 서명된 SNS 로그인 세션만 신뢰한다.
+
+## EC2 독립 배포
+
+Vercel 없이 Caddy, Node 웹 서버, FastAPI, PostgreSQL을 한 Compose 스택으로
+운영한다. 외부에는 80/443만 노출하고 DB·API 포트는 내부 네트워크에 둔다.
+도메인 DNS, TLS, 보안 그룹, 환경변수와 실행 순서는
+[EC2 독립 운영 배포 문서](docs/deployment-self-hosted.md)를 따른다.
 
 ## SNS 로그인 (Kakao/Naver/Google)
 
-ChatGPT 플랫폼 헤더가 없는 standalone 접속에서만 쓰인다. `web/.env.local`에
+독립 사이트의 사용자 인증에 사용한다. `web/.env.local`에
 `KTOWN_SESSION_SECRET`(최소 16자 임의 문자열)과 사용할 제공자의
 `{PROVIDER}_CLIENT_ID`/`{PROVIDER}_CLIENT_SECRET`을 설정한다. 제공자 개발자
 콘솔에 등록할 redirect URI는 `{배포 origin}/api/auth/{kakao|naver|google}/callback`이다.

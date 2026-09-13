@@ -86,7 +86,8 @@ vi.mock("maplibre-gl", () => {
 
   class MockAttributionControl {}
 
-  return { default: { Map: MockMap, AttributionControl: MockAttributionControl } };
+  const maplibre = { Map: MockMap, AttributionControl: MockAttributionControl };
+  return { ...maplibre, default: maplibre };
 });
 
 const config: MapConfig = {

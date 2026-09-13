@@ -1,6 +1,6 @@
 /**
  * Resolves the public origin a request arrived on, honoring the reverse-proxy
- * headers Vercel/ChatGPT Sites set. Used to build an OAuth `redirect_uri`
+ * headers the Caddy gateway sets. Used to build an OAuth `redirect_uri`
  * that matches whatever origin the provider was authorized against.
  */
 export function requestOrigin(request: Request): string {

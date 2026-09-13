@@ -1,0 +1,7 @@
+node_modules
+.next
+.output
+.vercel
+.wrangler
+.env*
+npm-debug.log*

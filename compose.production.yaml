@@ -1,0 +1,99 @@
+name: ktown-defense
+
+services:
+  database:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [private]
+
+  api:
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      KTOWN_ENVIRONMENT: production
+      KTOWN_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
+      KTOWN_UPLOAD_DIR: /data/private-uploads
+      KTOUR_SERVICE_KEY: ${KTOUR_SERVICE_KEY}
+      KTOUR_MOBILE_OS: ETC
+      KTOUR_MOBILE_APP: KTownDefense
+    command: >-
+      sh -c "python -m alembic -c alembic.ini upgrade head &&
+      exec uvicorn ktown_defense.api.main:app --host 0.0.0.0 --port 8000
+      --proxy-headers --forwarded-allow-ips=*"
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    volumes:
+      - private_uploads:/data/private-uploads
+    networks: [private]
+
+  web:
+    build:
+      context: ./web
+      args:
+        NEXT_PUBLIC_AWS_LOCATION_API_KEY: ${NEXT_PUBLIC_AWS_LOCATION_API_KEY}
+        NEXT_PUBLIC_AWS_LOCATION_REGION: ${NEXT_PUBLIC_AWS_LOCATION_REGION:-ap-northeast-2}
+        NEXT_PUBLIC_AWS_LOCATION_STYLE: ${NEXT_PUBLIC_AWS_LOCATION_STYLE:-Standard}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      KTOWN_SERVICE_MODE: integrated
+      KTOWN_API_BASE_URL: http://api:8000
+      KTOWN_SESSION_SECRET: ${KTOWN_SESSION_SECRET}
+      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
+      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID:-}
+      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [private]
+
+  gateway:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    networks: [private]
+
+networks:
+  private:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  private_uploads:
+  caddy_data:
+  caddy_config:

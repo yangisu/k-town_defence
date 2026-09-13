@@ -1,0 +1,21 @@
+{$SITE_DOMAIN} {
+    encode zstd gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(self), geolocation=(self)"
+        -Server
+    }
+
+    handle /healthz {
+        rewrite * /health/ready
+        reverse_proxy api:8000
+    }
+
+    reverse_proxy web:3000 {
+        header_up X-Forwarded-Host {host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}

@@ -49,8 +49,8 @@ if [[ ! -d "$APP_DIR/.git" ]]; then
   fi
   git clone --branch "$DEPLOY_BRANCH" --single-branch "$REPOSITORY" "$APP_DIR"
 else
-  git -C "$APP_DIR" fetch origin "$DEPLOY_BRANCH"
-  git -C "$APP_DIR" checkout "$DEPLOY_BRANCH"
+  git -C "$APP_DIR" fetch origin "+refs/heads/$DEPLOY_BRANCH:refs/remotes/origin/$DEPLOY_BRANCH"
+  git -C "$APP_DIR" checkout -B "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH"
   git -C "$APP_DIR" reset --hard "origin/$DEPLOY_BRANCH"
 fi
 

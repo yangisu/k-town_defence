@@ -59,5 +59,6 @@ describe("self-hosted production build", () => {
     const bootstrap = readFileSync(join("..", "deploy", "bootstrap-ec2.sh"), "utf8");
     expect(bootstrap).toContain('readonly DEPLOY_BRANCH="main"');
     expect(bootstrap).not.toContain('readonly DEPLOY_BRANCH="feat/');
+    expect(bootstrap).toContain('checkout -B "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH"');
   });
 });

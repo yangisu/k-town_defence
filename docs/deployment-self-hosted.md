@@ -33,7 +33,7 @@ curl -fsSL https://raw.githubusercontent.com/yangisu/k-town_defence/feat/self-ho
   | bash
 ```
 
-스크립트는 작은 루트 디스크를 고려한 512MB 빌드용 스왑, Docker, 비공개 운영 비밀값,
+스크립트는 확장된 EBS 루트 파일시스템 반영, 512MB 빌드용 스왑, Docker, 비공개 운영 비밀값,
 기본 nginx 중지, 컨테이너 기동과 공개 HTTPS 헬스체크를 구성한다. 실제 관광·지도·SNS 키는 이후
 `/opt/ktown-defense/.env.production`에 넣고 스택을 다시 기동한다.
 

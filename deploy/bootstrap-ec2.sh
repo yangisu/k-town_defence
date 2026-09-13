@@ -10,6 +10,18 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
+# Grow the mounted root partition after an online EBS volume expansion. Ubuntu
+# cloud images include growpart and resize2fs; keep the step harmless on reruns.
+root_partition="$(readlink -f "$(findmnt -no SOURCE /)")"
+root_disk_name="$(lsblk -no PKNAME "$root_partition" | tr -d '[:space:]')"
+root_partition_number="$(lsblk -no PARTN "$root_partition" | tr -d '[:space:]')"
+if [[ -n "$root_disk_name" ]] && [[ -n "$root_partition_number" ]] && command -v growpart >/dev/null; then
+  growpart "/dev/$root_disk_name" "$root_partition_number" || true
+  if command -v resize2fs >/dev/null; then
+    resize2fs "$root_partition"
+  fi
+fi
+
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y ca-certificates curl docker.io docker-compose-v2 git openssl

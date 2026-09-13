@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from ..infrastructure.database import create_engine_and_session_factory
 from ..photo_storage import PrivatePhotoStorage
 from ..settings import Settings
+from .auth_routes import router as auth_router
 from .checkin_routes import router as checkin_router
 from .errors import install_error_handlers
 from .expedition_routes import router as expedition_router
@@ -27,6 +28,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def health() -> dict[str, str]:
         return {"service": "ktown-defense", "status": "ok"}
 
+    app.include_router(auth_router)
     app.include_router(place_router)
     app.include_router(expedition_router)
     app.include_router(membership_router)

@@ -39,6 +39,8 @@ class UserModel(Base):
         PostgreSQLUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     platform_subject: Mapped[str] = mapped_column(String(200), unique=True)
+    display_name: Mapped[str | None] = mapped_column(String(120))
+    avatar_url: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

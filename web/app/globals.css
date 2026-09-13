@@ -99,3 +99,5 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px soli
 .record-account-row+.record-account-row{padding-top:14px;border-top:1px solid var(--line)}
 .record-account-row>div{min-width:0}
 @media(max-width:767px){.record-account-row{align-items:stretch;flex-direction:column;gap:10px}}
+
+.social-login-list{display:grid;gap:10px;margin-top:22px}.social-login-button{text-decoration:none;background:var(--paper-2);color:var(--ink)}.social-login-button--kakao{background:#fee500;color:#191600}.social-login-button--naver{background:#03c75a;color:white}.social-login-button--google{background:var(--white);color:var(--ink);border:1px solid var(--line)}

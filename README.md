@@ -81,10 +81,20 @@ npm run dev -- --port 3000
 
 필요하면 `.env.local`의 API 주소와 개발 사용자 ID를 수정한다. 이 파일은
 Git에서 제외된다. `KTOWN_DEV_USER_ID`는 로컬 개발 서버에서만 사용된다. production에서는
-Sites가 전달한 `oai-authenticated-user-id`만 신뢰한다.
+Sites가 전달한 `oai-authenticated-user-id`를 최우선으로 신뢰하고, 그 헤더가 없는
+standalone 배포(예: Vercel)에서는 SNS 로그인 세션 쿠키를 그다음 우선순위로 신뢰한다.
 따라서 `npm run start`로 production 모드를 로컬 실행하면 플랫폼 인증 헤더가
-없어 로그인 안내가 표시되는 것이 정상이다. 로컬 통합 시연은 `npm run dev`,
+없어 `/signin`으로 이동하는 것이 정상이다. 로컬 통합 시연은 `npm run dev`,
 실배포는 Sites 인증 연결을 사용한다.
+
+## SNS 로그인 (Kakao/Naver/Google)
+
+ChatGPT 플랫폼 헤더가 없는 standalone 접속에서만 쓰인다. `web/.env.local`에
+`KTOWN_SESSION_SECRET`(최소 16자 임의 문자열)과 사용할 제공자의
+`{PROVIDER}_CLIENT_ID`/`{PROVIDER}_CLIENT_SECRET`을 설정한다. 제공자 개발자
+콘솔에 등록할 redirect URI는 `{배포 origin}/api/auth/{kakao|naver|google}/callback`이다.
+값이 비어 있는 제공자의 로그인 버튼은 503을 반환하며, 세션 쿠키가 바뀌면(서명 키 교체 포함)
+기존 로그인은 모두 무효화된다.
 
 동기화 명령은 `KTOUR_SERVICE_KEY`를 사용해 KorService2의 부산 지역
 관광지를 PostgreSQL에 원자적으로 갱신한다. 실패하거나 결과가 비어 있으면

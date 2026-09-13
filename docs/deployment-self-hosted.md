@@ -38,6 +38,14 @@ curl -fsSL https://raw.githubusercontent.com/yangisu/k-town_defence/feat/self-ho
 기본 nginx 중지, 컨테이너 기동과 공개 HTTPS 헬스체크를 구성한다. 실제 관광·지도·SNS 키는 이후
 `/opt/ktown-defense/.env.production`에 넣고 스택을 다시 기동한다.
 
+SNS 키는 채팅이나 셸 명령 기록에 직접 적지 않는다. 세 제공자 콘솔에서 값을 복사한 뒤
+다음 대화형 스크립트의 프롬프트에 붙여 넣으면 비밀값 입력을 화면에 표시하지 않고 환경 파일을
+갱신하고 웹·게이트웨이를 다시 배포한다.
+
+```bash
+sudo bash /opt/ktown-defense/deploy/configure-social-oauth.sh
+```
+
 API 컨테이너는 시작 전에 Alembic 마이그레이션을 실행한다. DB와 업로드 사진은
 각각 `postgres_data`, `private_uploads` 볼륨에 남기 때문에 컨테이너 교체 후에도
 유지된다.

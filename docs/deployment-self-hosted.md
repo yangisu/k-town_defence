@@ -25,6 +25,18 @@ docker compose --env-file .env.production -f compose.production.yaml ps
 curl -fsS https://${SITE_DOMAIN}/healthz
 ```
 
+새 인스턴스는 `AmazonSSMManagedInstanceCore` 정책만 가진 EC2 역할을 연결한 뒤
+Systems Manager Run Command에서 다음 명령으로 최초 구성을 자동화할 수 있다.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yangisu/k-town_defence/feat/self-hosted-production/deploy/bootstrap-ec2.sh \
+  | bash
+```
+
+스크립트는 t3.micro 빌드용 스왑, Docker, 비공개 운영 비밀값, 컨테이너 기동과
+공개 HTTPS 헬스체크를 구성한다. 실제 관광·지도·SNS 키는 이후
+`/opt/ktown-defense/.env.production`에 넣고 스택을 다시 기동한다.
+
 API 컨테이너는 시작 전에 Alembic 마이그레이션을 실행한다. DB와 업로드 사진은
 각각 `postgres_data`, `private_uploads` 볼륨에 남기 때문에 컨테이너 교체 후에도
 유지된다.

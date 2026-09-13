@@ -95,6 +95,30 @@ const config: MapConfig = {
   styleName: "Standard",
 };
 
+type GeolocationSuccess = (position: GeolocationPosition) => void;
+type GeolocationFailure = (error: GeolocationPositionError) => void;
+
+function mockGeolocation({ deny = false }: { deny?: boolean } = {}) {
+  let success: GeolocationSuccess | null = null;
+  let failure: GeolocationFailure | null = null;
+  const geolocation: Geolocation = {
+    getCurrentPosition: vi.fn(),
+    watchPosition: vi.fn((onSuccess: GeolocationSuccess, onFailure?: GeolocationFailure) => {
+      success = onSuccess;
+      failure = onFailure ?? null;
+      if (deny) failure?.({ code: 1, message: "denied", PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 } as GeolocationPositionError);
+      return 1;
+    }),
+    clearWatch: vi.fn(),
+  };
+  vi.stubGlobal("navigator", { ...globalThis.navigator, geolocation });
+  return {
+    emitPosition: (latitude: number, longitude: number, accuracy = 20) => {
+      success?.({ coords: { latitude, longitude, accuracy } as GeolocationCoordinates, timestamp: Date.now() });
+    },
+  };
+}
+
 beforeEach(() => {
   mapHarness.instances.length = 0;
 });
@@ -688,4 +712,48 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
   expect(resets).toHaveLength(2);
   await userEvent.setup().click(resets[1]);
   expect(map.fitBounds).toHaveBeenLastCalledWith([[124.5, 32.8], [131.9, 38.9]], { duration: 0 });
+});
+
+it("locate-me button requests permission and feeds a real position into the my-location source", async () => {
+  const user = userEvent.setup();
+  const { emitPosition } = mockGeolocation();
+  render(
+    <TerritoryMap
+      mapConfig={config}
+      session={createInitialDemoSession()}
+      selectedTerritoryId="busan"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+  const map = mapHarness.instances[0];
+  map.emit("load");
+  expect(map.sources.get("my-location")).toBeDefined();
+
+  await user.click(screen.getByLabelText("내 위치로 이동"));
+  emitPosition(37.5665, 126.978);
+
+  await waitFor(() => expect(map.sources.get("my-location")?.setData).toHaveBeenCalledWith(
+    expect.objectContaining({ features: [expect.objectContaining({
+      geometry: { type: "Point", coordinates: [126.978, 37.5665] },
+    })] }),
+  ));
+  expect(map.flyTo).toHaveBeenCalledWith({ center: [126.978, 37.5665], zoom: 14 });
+});
+
+it("denied location permission shows an inline hint instead of throwing", async () => {
+  const user = userEvent.setup();
+  mockGeolocation({ deny: true });
+  render(
+    <TerritoryMap
+      mapConfig={config}
+      session={createInitialDemoSession()}
+      selectedTerritoryId="busan"
+      onSelectTerritory={() => undefined}
+    />,
+  );
+  mapHarness.instances[0].emit("load");
+
+  await user.click(screen.getByLabelText("내 위치로 이동"));
+
+  expect(await screen.findByText("위치 권한이 필요해요. 브라우저 설정에서 허용해 주세요.")).toBeVisible();
 });

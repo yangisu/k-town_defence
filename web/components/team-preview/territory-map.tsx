@@ -5,10 +5,11 @@ import maplibregl, { type ExpressionSpecification, type GeoJSONSource, type GeoJ
 import "maplibre-gl/dist/maplibre-gl.css";
 import { TerritoryList } from "@/components/team-preview/territory-list";
 import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
-import { ChevronRight, Maximize, RotateCcw, X } from "@/components/ui/icons";
+import { ChevronRight, LocateFixed, Maximize, RotateCcw, X } from "@/components/ui/icons";
 import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
 import type { DemoSession } from "@/features/team-preview/demo-session";
 import { t } from "@/features/team-preview/i18n";
+import { useLiveLocation, type LiveLocationPosition } from "@/features/map/use-live-location";
 import { ownerColor, strongholdColor, territoryBounds } from "@/features/team-preview/map-presentation";
 import type { PreviewTerritory, TerritoryId } from "@/features/team-preview/types";
 import { amazonLocationStyleUrl, type MapConfig } from "@/lib/map-config";
@@ -29,6 +30,8 @@ const strongholdSourceId = "preview-strongholds";
 const missionSourceId = "preview-missions";
 const expeditionSourceId = "preview-selected-expedition";
 const connectionSourceId = "preview-artist-connections";
+const myLocationSourceId = "my-location";
+const myLocationLayerId = "my-location-dot";
 const territoryLayerId = "preview-territory-fill";
 const selectedLayerId = "preview-territory-selected";
 const selectedOutlineLayerId = "preview-territory-selected-outline";
@@ -125,6 +128,17 @@ function expeditionCollection(session: DemoSession, selectedTerritoryId: Territo
   };
 }
 
+function myLocationCollection(position: LiveLocationPosition | null) {
+  return {
+    type: "FeatureCollection" as const,
+    features: position ? [{
+      type: "Feature" as const,
+      properties: {},
+      geometry: { type: "Point" as const, coordinates: [position.longitude, position.latitude] },
+    }] : [],
+  };
+}
+
 function updateGeoJsonSource(map: MapLibreMap, sourceId: string, data: GeoJSONSourceSpecification["data"]) {
   (map.getSource(sourceId) as GeoJSONSource | undefined)?.setData(data);
 }
@@ -180,6 +194,9 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
   const [listExpanded, setListExpanded] = useState(false);
   const [mapFocused, setMapFocused] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const { position: myPosition, status: myLocationStatus, requestPermission: requestMyLocation } = useLiveLocation();
+  const myPositionRef = useRef(myPosition);
+  const hasCenteredOnMyLocationRef = useRef(false);
 
   const toggleList = () => {
     const next = !listExpanded;
@@ -195,6 +212,10 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
     onSelectTerritoryRef.current = onSelectTerritory;
     listedTerritoriesRef.current = listedTerritories;
   }, [listedTerritories, onSelectTerritory, selectedTerritoryId, session]);
+
+  useEffect(() => {
+    myPositionRef.current = myPosition;
+  }, [myPosition]);
 
   const [boundsByTerritoryId, setBoundsByTerritoryId] = useState<Map<string, [[number, number], [number, number]]>>(new Map());
   const boundaryCollectionRef = useRef<{ type: string; features: unknown[] } | null>(null);
@@ -268,6 +289,10 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
       map.addSource(connectionSourceId, {
         type: "geojson",
         data: connectionCollection(sessionRef.current),
+      });
+      map.addSource(myLocationSourceId, {
+        type: "geojson",
+        data: myLocationCollection(myPositionRef.current),
       });
 
       map.addLayer({
@@ -368,6 +393,18 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
         },
       });
 
+      map.addLayer({
+        id: myLocationLayerId,
+        type: "circle",
+        source: myLocationSourceId,
+        paint: {
+          "circle-color": "#3fa9ff",
+          "circle-radius": 7,
+          "circle-stroke-color": "#fffef9",
+          "circle-stroke-width": 2,
+        },
+      });
+
       for (const artist of previewContent.artists.filter((candidate) => candidate.logoPath)) {
         const logoId = `artist-logo-${artist.id}`;
         map.loadImage(artist.logoPath!).then((image) => {
@@ -457,6 +494,31 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
     updateGeoJsonSource(map, expeditionSourceId, expeditionCollection(session, selectedTerritoryId));
   }, [boundsByTerritoryId, selectedTerritoryId, session]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !myPosition) return;
+    updateGeoJsonSource(map, myLocationSourceId, myLocationCollection(myPosition));
+    if (!hasCenteredOnMyLocationRef.current) {
+      hasCenteredOnMyLocationRef.current = true;
+      const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+      const camera = { center: [myPosition.longitude, myPosition.latitude] as [number, number], zoom: 14 };
+      if (reducedMotion) map.jumpTo(camera);
+      else map.flyTo(camera);
+    }
+  }, [myPosition]);
+
+  const locateMe = () => {
+    const map = mapRef.current;
+    if (myLocationStatus === "active" && myPosition && map) {
+      const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+      const camera = { center: [myPosition.longitude, myPosition.latitude] as [number, number], zoom: 14 };
+      if (reducedMotion) map.jumpTo(camera);
+      else map.flyTo(camera);
+      return;
+    }
+    requestMyLocation();
+  };
+
   const retry = () => {
     setMapError(false);
     setRetryKey((current) => current + 1);
@@ -513,6 +575,14 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
           aria-label={session.locale === "ko" ? "대한민국 팬덤 영토 지도" : "Korea fandom territory map"}
         >
           <div className="preview-map-tools">
+            <button
+              type="button"
+              aria-label={t(session.locale, myLocationStatus === "locating" ? "locating" : "locateMe")}
+              aria-pressed={myLocationStatus === "active"}
+              onClick={locateMe}
+            >
+              <LocateFixed size={16} strokeWidth={2.4} aria-hidden="true" />
+            </button>
             <button type="button" aria-label={t(session.locale, "nationalView")} onClick={resetNationalView}>
               <RotateCcw size={16} strokeWidth={2.4} aria-hidden="true" />
             </button>
@@ -527,6 +597,11 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
                 : <Maximize size={16} strokeWidth={2.4} aria-hidden="true" />}
             </button>
           </div>
+          {myLocationStatus === "denied" || myLocationStatus === "unavailable" ? (
+            <p className="preview-map-location-hint" role="status">
+              {t(session.locale, myLocationStatus === "denied" ? "locationDenied" : "locationUnavailable")}
+            </p>
+          ) : null}
         </div>
       ) : (
         <div className="preview-map-configuration" role="status">

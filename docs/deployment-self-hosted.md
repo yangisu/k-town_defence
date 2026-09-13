@@ -5,7 +5,8 @@
 인터넷 트래픽은 Caddy의 80/443 포트만 받는다. Caddy는 자동으로 TLS 인증서를
 발급·갱신하고 모든 애플리케이션 요청을 Node 웹 서버로 보낸다. 웹 서버의
 서버 측 API 라우트가 FastAPI를 호출하며 PostgreSQL과 FastAPI 포트는 Docker
-내부 네트워크에만 존재한다.
+내부 네트워크에만 존재한다. 외부 이름 조회가 필요한 컨테이너는 EC2 VPC의
+AmazonProvidedDNS(`169.254.169.253`)를 사용한다.
 
 ## 최초 배포
 

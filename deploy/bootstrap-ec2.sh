@@ -87,6 +87,9 @@ if systemctl is-active --quiet nginx; then
 fi
 
 docker compose --env-file .env.production -f compose.production.yaml up -d --build --remove-orphans
+# Recreate the public edge explicitly. A container that previously failed while
+# binding port 80 can otherwise restart without publishing its configured ports.
+docker compose --env-file .env.production -f compose.production.yaml up -d --force-recreate gateway
 docker compose --env-file .env.production -f compose.production.yaml ps
 
 for attempt in {1..30}; do

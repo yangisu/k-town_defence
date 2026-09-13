@@ -43,6 +43,8 @@
 | 5 | [Territory, leagues, seasons, and operations](./2026-08-14-05-territory-leagues-seasons.md) | Plan 4 approval event contract is stable | Projections replay and all governance, DLQ, point-adjustment, and season-finalization contracts pass |
 | 6 | [Mobile map and admin web](./2026-08-14-06-mobile-map-admin-web.md) | Plans 2-5 HTTP contracts pass, including operations APIs | Browser E2E completes fandom→map→mission→capture and admin approval |
 | 7 | [Analytics and pilot operations](./2026-08-14-07-analytics-pilot.md) | Plan 6 E2E passes | KPI, privacy, SLO, fault, and eight-week pilot gates are executable |
+| 8 | [SNS integration](./2026-09-13-sns-integration.md) | Plan 6 map/check-in UI is live | Social login, result sharing, and attribution-only friend invites pass without weakening the platform-trust identity model |
+| 9 | [GPS live location](./2026-09-13-gps-live-location.md) | Plan 6 territory map is live | Live user-location marker renders on the territory map without touching check-in evidence GPS |
 
 ## Execution Rules
 
@@ -76,6 +78,9 @@
 | `POST /api/v1/admin/point-adjustments` | 5 |
 | `POST /api/v1/admin/dlq/{id}/retry` | 5 |
 | `POST /api/v1/admin/seasons/{id}/finalize` | 5 |
+| `POST /api/v1/auth/social/upsert` | 8 |
+| `POST /api/v1/me/invites` | 8 |
+| `POST /api/v1/invites/{code}/claim` | 8 |
 
 The contract test fails if a declared route has no validation schema, if an implemented method/path differs from this table, or if a later plan attempts to consume a route before its owner completion gate passes.
 

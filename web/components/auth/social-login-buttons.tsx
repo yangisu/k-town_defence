@@ -1,4 +1,4 @@
-import { SOCIAL_PROVIDERS, type SocialProvider } from "@/lib/server/social-auth";
+import { isProviderConfigured, SOCIAL_PROVIDERS, type SocialProvider } from "@/lib/server/social-auth";
 
 const PROVIDER_LABEL_KO: Record<SocialProvider, string> = {
   kakao: "카카오로 시작하기",
@@ -7,9 +7,10 @@ const PROVIDER_LABEL_KO: Record<SocialProvider, string> = {
 };
 
 export function SocialLoginButtons({ returnTo = "/" }: { returnTo?: string }) {
+  const providers = SOCIAL_PROVIDERS.filter(isProviderConfigured);
   return (
     <div className="social-login-list">
-      {SOCIAL_PROVIDERS.map((provider) => (
+      {providers.map((provider) => (
         <a
           key={provider}
           className={`primary-button social-login-button social-login-button--${provider}`}

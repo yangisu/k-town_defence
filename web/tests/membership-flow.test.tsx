@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { MembershipGate } from "@/components/membership/membership-gate";
 import { MembershipProvider } from "@/features/membership/membership-context";
+import { ApiError } from "@/lib/api/api-error";
 import type { MembershipService } from "@/lib/domain";
 
 
@@ -33,4 +34,24 @@ it("requires a fandom selection before revealing the live application", async ()
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시즌 시작" }));
   expect(await screen.findByText("실시간 부산 관광지")).toBeVisible();
   expect(service.selectFandom).toHaveBeenCalledWith("fandom-1");
+});
+
+it("sends unauthenticated visitors to the sign-in page", async () => {
+  const service: MembershipService = {
+    listFandoms: vi.fn().mockRejectedValue(new ApiError(401, "AUTHENTICATION_REQUIRED")),
+    getCurrent: vi.fn().mockRejectedValue(new ApiError(401, "AUTHENTICATION_REQUIRED")),
+    selectFandom: vi.fn(),
+  };
+
+  render(
+    <MembershipProvider service={service}>
+      <MembershipGate><div>실시간 부산 관광지</div></MembershipGate>
+    </MembershipProvider>,
+  );
+
+  expect(await screen.findByRole("link", { name: "로그인하기" })).toHaveAttribute(
+    "href",
+    "/signin?return_to=%2F",
+  );
+  expect(screen.queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
 });

@@ -12,7 +12,7 @@ const styleNamePattern = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 /**
  * Reads only browser-safe Amazon Location settings. The resulting API key is
  * intentionally visible to the browser and must be restricted to map actions
- * plus the deployed Vercel origins/referrers in Amazon Location.
+ * plus the deployed production origins/referrers in Amazon Location.
  */
 export function readMapConfig(env: MapEnvironment): MapConfig | null {
   const apiKey = env.NEXT_PUBLIC_AWS_LOCATION_API_KEY?.trim();

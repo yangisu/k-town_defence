@@ -46,6 +46,20 @@ class UserModel(Base):
     )
 
 
+class UserGameStateModel(Base):
+    __tablename__ = "user_game_states"
+
+    user_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
 class FandomModel(Base):
     __tablename__ = "fandoms"
 

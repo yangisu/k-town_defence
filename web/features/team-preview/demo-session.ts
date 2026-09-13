@@ -402,7 +402,7 @@ function rebuildTerritories(records: ApprovedCheckInRecord[]) {
   return territories;
 }
 
-function isValidDemoSession(value: unknown): value is DemoSession {
+export function isValidDemoSession(value: unknown): value is DemoSession {
   if (!isRecord(value)
     || value.version !== DEMO_SESSION_VERSION
     || (value.locale !== "ko" && value.locale !== "en")
@@ -456,13 +456,17 @@ function isValidDemoSession(value: unknown): value is DemoSession {
     && exactJson(value.fandoms, recomputeFandoms(rebuiltTerritories));
 }
 
+export function parseDemoSession(value: unknown): DemoSession | null {
+  return isValidDemoSession(value) ? value : null;
+}
+
 export function loadDemoSession(storage: Pick<Storage, "getItem">): DemoSession {
   try {
     const raw = storage.getItem(DEMO_SESSION_KEY);
     if (!raw) return createInitialDemoSession();
     if (raw.length > MAX_DEMO_SESSION_CHARS) return createInitialDemoSession();
     const parsed: unknown = JSON.parse(raw);
-    return isValidDemoSession(parsed) ? parsed : createInitialDemoSession();
+    return parseDemoSession(parsed) ?? createInitialDemoSession();
   } catch {
     return createInitialDemoSession();
   }

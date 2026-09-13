@@ -117,8 +117,10 @@ Vercel 없이 Caddy, Node 웹 서버, FastAPI, PostgreSQL을 한 Compose 스택�
 
 통합 모드에서는 사용자가 먼저 현재 시즌 팬덤을 선택한다. 선택은 PostgreSQL의
 `users`, `fandoms`, `seasons`, `season_memberships`에 저장되고 같은 사용자가
-새로고침해도 복원된다. 이번 MVP는 선택 즉시 팬덤을 잠그며, 이후 부산 실관광지
-조회와 GPS·사진 체크인을 사용할 수 있다. 운영자 승인, 포인트 원장 반영,
+새로고침해도 복원된다. 최신 영토·원정 UI의 진행 상태도 `user_game_states`에
+SNS 계정별로 저장한다. 이번 MVP는 선택 즉시 팬덤을 잠그며, 미션 장소와
+PostgreSQL 관광지 이름이 일치할 때 실제 장소 UUID로 GPS·사진 체크인을 제출한다.
+DB에 없는 장소는 데모 승인으로 대체하지 않는다. 운영자 승인, 포인트 원장 반영,
 사진 EXIF 제거는 아직 후속 범위다.
 현재 로컬 MVP는 사진 EXIF를 제거하지 않으므로 공개 운영 전 EXIF 제거,
 보존기간 삭제 작업과 영속 객체 저장소가 필요하다.

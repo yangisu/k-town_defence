@@ -48,6 +48,9 @@ LONGITUDE = FieldRule("number", minimum=-180, maximum=180)
 
 WRITE_CONTRACTS: dict[tuple[str, str], dict[str, object]] = {
     ("PUT", "/api/v1/me/season-membership"): {"body": {"fandom_id": UUID_RULE}},
+    ("PUT", "/api/v1/me/game-state"): {
+        "body": {"state": FieldRule("object", max_length=1_000_000)}
+    },
     ("POST", "/api/v1/checkin-sessions"): {
         "idempotency": True,
         "body": {"place_id": UUID_RULE, "season_id": UUID_RULE},
@@ -171,11 +174,17 @@ def _validate_field(name: str, value: object, rule: FieldRule) -> ValidationErro
         return _error(400, "MALFORMED_REQUEST", name)
     if kind == "boolean" and not isinstance(value, bool):
         return _error(400, "MALFORMED_REQUEST", name)
+    if kind == "object" and not isinstance(value, dict):
+        return _error(400, "MALFORMED_REQUEST", name)
 
     if isinstance(value, float) and not math.isfinite(value):
         return _error(422, "VALIDATION_FAILED", name)
     if rule.max_length is not None and isinstance(value, str) and len(value) > rule.max_length:
         return _error(413, "PAYLOAD_TOO_LARGE", name)
+    if kind == "object" and rule.max_length is not None:
+        encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode()
+        if len(encoded) > rule.max_length:
+            return _error(413, "PAYLOAD_TOO_LARGE", name)
     if rule.min_length is not None and isinstance(value, str) and len(value) < rule.min_length:
         return _error(422, "VALIDATION_FAILED", name)
     if rule.minimum is not None and isinstance(value, (int, float)) and value < rule.minimum:

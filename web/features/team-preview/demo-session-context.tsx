@@ -8,6 +8,7 @@ import {
   LEGACY_DEMO_SESSION_KEY,
   demoSessionReducer,
   loadDemoSession,
+  parseDemoSession,
   saveDemoSession,
   type DemoSession,
   type DemoSessionAction,
@@ -24,7 +25,12 @@ interface DemoSessionContextValue {
 
 const DemoSessionContext = createContext<DemoSessionContextValue | null>(null);
 
-export function DemoSessionProvider({ children, storage }: { children: ReactNode; storage?: Storage }) {
+export interface RemoteDemoSessionStore {
+  load(): Promise<unknown | null>;
+  save(state: DemoSession): Promise<void>;
+}
+
+export function DemoSessionProvider({ children, storage, remote }: { children: ReactNode; storage?: Storage; remote?: RemoteDemoSessionStore }) {
   const [state, dispatch] = useReducer(demoSessionReducer, undefined, createInitialDemoSession);
   const [hydrated, setHydrated] = useState(false);
   const loaded = useRef(false);
@@ -35,16 +41,26 @@ export function DemoSessionProvider({ children, storage }: { children: ReactNode
     if (!sessionStorage) return;
     let active = true;
     loaded.current = false;
-    const savedState = loadDemoSession(sessionStorage);
+    const localState = loadDemoSession(sessionStorage);
     sessionStorage.removeItem(LEGACY_DEMO_SESSION_KEY);
-    queueMicrotask(() => {
+    void (async () => {
+      let savedState = localState;
+      let persistenceReady = true;
+      if (remote) {
+        try {
+          savedState = parseDemoSession(await remote.load()) ?? createInitialDemoSession();
+        } catch {
+          savedState = createInitialDemoSession();
+          persistenceReady = false;
+        }
+      }
       if (!active) return;
       dispatch({ type: "hydrate", state: savedState });
-      loaded.current = true;
+      loaded.current = persistenceReady;
       setHydrated(true);
-    });
+    })();
     return () => { active = false; };
-  }, [sessionStorage]);
+  }, [remote, sessionStorage]);
 
   useEffect(() => {
     if (!sessionStorage || !loaded.current) return;
@@ -53,7 +69,12 @@ export function DemoSessionProvider({ children, storage }: { children: ReactNode
       return;
     }
     saveDemoSession(sessionStorage, state);
-  }, [sessionStorage, state]);
+    if (!remote) return;
+    const timeout = window.setTimeout(() => {
+      void remote.save(state).catch(() => undefined);
+    }, 350);
+    return () => window.clearTimeout(timeout);
+  }, [remote, sessionStorage, state]);
 
   const value = useMemo(() => {
     const selectedArtist = previewContent.artists.find((artist) => artist.id === state.selectedArtistId) ?? null;

@@ -14,6 +14,7 @@ from .errors import install_error_handlers
 from .expedition_routes import router as expedition_router
 from .membership_routes import router as membership_router
 from .place_routes import router as place_router
+from .user_state_routes import router as user_state_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -51,6 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(place_router)
     app.include_router(expedition_router)
     app.include_router(membership_router)
+    app.include_router(user_state_router)
     app.include_router(checkin_router)
     return app
 

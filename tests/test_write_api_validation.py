@@ -50,6 +50,7 @@ class WriteApiContractTests(unittest.TestCase):
     def valid_cases(self):
         return (
             ("PUT", "/api/v1/me/season-membership", {"fandom_id": UUID}, None, None),
+            ("PUT", "/api/v1/me/game-state", {"state": {"version": 3, "activeTab": "explore"}}, None, None),
             ("POST", "/api/v1/checkin-sessions", {"place_id": UUID, "season_id": UUID}, {"Idempotency-Key": KEY}, None),
             ("POST", f"/api/v1/checkin-sessions/{UUID}/gps-samples", {"sample_sequence": 1, "sample_kind": "start", "latitude": -90, "longitude": 180, "accuracy_m": 0, "captured_at": "2026-08-12T00:00:00Z"}, None, None),
             ("POST", f"/api/v1/checkin-sessions/{UUID}/submit", {}, {"idempotency-key": KEY}, "ready_to_submit"),

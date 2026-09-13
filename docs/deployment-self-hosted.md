@@ -48,7 +48,9 @@ sudo bash /opt/ktown-defense/deploy/configure-social-oauth.sh
 
 API 컨테이너는 시작 전에 Alembic 마이그레이션을 실행한다. DB와 업로드 사진은
 각각 `postgres_data`, `private_uploads` 볼륨에 남기 때문에 컨테이너 교체 후에도
-유지된다.
+유지된다. SNS 로그인 사용자의 최신 UI 상태는 `user_game_states`에 계정별로
+저장되며, `GET/PUT /api/v1/me/game-state`는 외부에 직접 노출된 API가 아니라
+서명된 세션을 확인하는 같은 출처 웹 게이트웨이를 통해서만 호출한다.
 
 ## DataGrip 연결
 

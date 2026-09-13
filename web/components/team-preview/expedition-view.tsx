@@ -162,11 +162,13 @@ function missionImpact(before: DemoSession, after: DemoSession, place: PreviewMi
 export function PreviewExpeditionView({
   expeditionId,
   checkInService,
+  checkInMode = "demo",
   onBack,
   onStartCheckIn,
 }: {
   expeditionId: string | null;
   checkInService: CheckInService;
+  checkInMode?: "demo" | "integrated";
   onBack: () => void;
   onStartCheckIn?: (place: PreviewMissionPlace) => void;
 }) {
@@ -363,7 +365,7 @@ export function PreviewExpeditionView({
         <CheckInFlow
           place={asPlace(checkInPlace, locale)}
           service={checkInService}
-          mode="demo"
+          mode={checkInMode}
           locale={locale}
           demoAwardInput={{
             visitBase: checkInPlace.visitBase,

@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { ObjectiveStrip } from "@/components/team-preview/objective-strip";
 import { KTownApp } from "@/features/ktown-app";
 import { getArtistHomeTerritories, previewContent } from "@/features/team-preview/content";
-import { DEMO_SESSION_KEY, createInitialDemoSession } from "@/features/team-preview/demo-session";
+import { DEMO_SESSION_KEY, createInitialDemoSession, demoSessionReducer } from "@/features/team-preview/demo-session";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -350,7 +350,7 @@ it("synchronizes the root document language for persisted and runtime locale cha
   view.unmount();
 });
 
-it("keeps integrated mode on the existing membership entry without personalized demo UI", async () => {
+it("keeps the modern product behind durable membership selection", async () => {
   const fetcher = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/api/v1/fandoms")) {
@@ -379,6 +379,47 @@ it("keeps integrated mode on the existing membership entry without personalized 
     "/api/ktown/api/v1/fandoms",
     "/api/ktown/api/v1/me/season-membership",
   ]);
+});
+
+it("renders the modern UI and restores account state after durable membership is ready", async () => {
+  const fandomId = "10000000-0000-4000-8000-000000000001";
+  const remoteState = demoSessionReducer(createInitialDemoSession(), {
+    type: "selectArtist",
+    artistId: "bts",
+  });
+  const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/v1/fandoms")) {
+      return new Response(JSON.stringify({
+        items: [{ id: fandomId, name: "ARMY", artistName: "방탄소년단" }],
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.endsWith("/api/v1/me/season-membership")) {
+      return new Response(JSON.stringify({
+        userId: "user-1", seasonId: "season-1", fandomId, lockedAt: "2026-09-14T00:00:00Z",
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.endsWith("/api/v1/me/game-state")) {
+      return new Response(JSON.stringify({ state: remoteState }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error(`Unexpected integrated request: ${url}`);
+  });
+  vi.stubGlobal("fetch", fetcher);
+
+  render(<KTownApp mode="integrated" mapConfig={null} />);
+
+  await waitFor(() => {
+    expect(screen.getByRole("region", { name: "현재 목표" })).toHaveTextContent("ARMY");
+  });
+  expect(screen.getAllByRole("button", { name: "영토 지도" }).some(
+    (button) => button.getAttribute("aria-current") === "page",
+  )).toBe(true);
+  expect(fetcher.mock.calls.map(([input]) => String(input))).toContain(
+    "/api/ktown/api/v1/me/game-state",
+  );
 });
 
 it("paints the header fandom pill with the fandom's own colour", async () => {

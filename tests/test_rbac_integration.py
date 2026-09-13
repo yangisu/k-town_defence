@@ -21,6 +21,8 @@ PUBLIC_ROUTES = (
 MEMBER_ROUTES = (
     ("GET", "/api/v1/me/season-membership"),
     ("PUT", "/api/v1/me/season-membership"),
+    ("GET", "/api/v1/me/game-state"),
+    ("PUT", "/api/v1/me/game-state"),
     ("POST", "/api/v1/checkin-sessions"),
     ("POST", "/api/v1/checkin-sessions/resource-id/gps-samples"),
     ("POST", "/api/v1/checkin-sessions/resource-id/photo"),

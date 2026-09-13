@@ -48,6 +48,29 @@ describe("membership gateway contracts", () => {
     expect(new TextDecoder().decode(init.body as ArrayBuffer)).toContain("fandomId");
   });
 
+  it("forwards account game state through the trusted identity boundary", async () => {
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ state: { version: 3 } }));
+    const read = await proxyKtownRequest(
+      new Request("http://site/api/ktown/api/v1/me/game-state"),
+      ["api", "v1", "me", "game-state"],
+      { baseUrl: "http://backend", platformUserId: "google:user-1", fetcher },
+    );
+    const write = await proxyKtownRequest(
+      new Request("http://site/api/ktown/api/v1/me/game-state", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ state: { version: 3 } }),
+      }),
+      ["api", "v1", "me", "game-state"],
+      { baseUrl: "http://backend", platformUserId: "google:user-1", fetcher },
+    );
+
+    expect(read.status).toBe(200);
+    expect(write.status).toBe(200);
+    const writeInit = fetcher.mock.calls[1][1] as RequestInit;
+    expect(new Headers(writeInit.headers).get("x-ktown-user-id")).toBe("google:user-1");
+  });
+
   it("rejects non-JSON and oversized membership selection bodies", async () => {
     const fetcher = vi.fn();
     const path = ["api", "v1", "me", "season-membership"];

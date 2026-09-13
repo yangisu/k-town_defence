@@ -10,6 +10,8 @@ const allowedRoutes = [
   { method: "GET", pattern: /^api\/v1\/fandoms$/ },
   { method: "GET", pattern: /^api\/v1\/me\/season-membership$/ },
   { method: "PUT", pattern: /^api\/v1\/me\/season-membership$/ },
+  { method: "GET", pattern: /^api\/v1\/me\/game-state$/ },
+  { method: "PUT", pattern: /^api\/v1\/me\/game-state$/ },
   { method: "GET", pattern: /^api\/v1\/places$/ },
   { method: "GET", pattern: new RegExp(`^api/v1/places/${UUID}$`) },
   { method: "GET", pattern: /^api\/v1\/expeditions\/recommended$/ },
@@ -48,7 +50,8 @@ export async function proxyKtownRequest(
   const contentType = request.headers.get("content-type");
   const isMembershipSelection =
     request.method === "PUT" && path === "api/v1/me/season-membership";
-  if (isMembershipSelection && !contentType?.toLowerCase().startsWith("application/json")) {
+  const isGameStateWrite = request.method === "PUT" && path === "api/v1/me/game-state";
+  if ((isMembershipSelection || isGameStateWrite) && !contentType?.toLowerCase().startsWith("application/json")) {
     return jsonError(415, "UNSUPPORTED_MEDIA_TYPE", "JSON 요청만 사용할 수 있습니다.");
   }
   const idempotencyKey = request.headers.get("idempotency-key");

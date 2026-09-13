@@ -109,9 +109,10 @@ Added `web/components/auth/social-login-buttons.tsx` and a minimal `web/app/sign
 
 Ran: `cd web && npx vitest run` → **306/306 passed**. `cd web && npm run lint` → clean. `cd web && npm run build` → succeeds and lists the new `/api/auth/:provider`, `/api/auth/:provider/callback`, `/signin` routes.
 Ran: `python -m unittest discover -s tests -v` → **102/102 passed** (pure-domain suite, unaffected).
-Ran: `python -m pytest tests/api/test_auth_routes.py -v` → all 3 tests **error with `ConnectionRefusedError` to `127.0.0.1:55432`**, identically to every other test in `tests/api/` (34 of 37 total) in this sandbox, which has no Docker/Postgres available. This is an environment gap, not a code defect — **run `docker compose up -d postgres && alembic upgrade head` locally and re-run `pytest tests/api/test_auth_routes.py -v` before trusting this task done.**
 
-- [ ] **Step 8: Commit social login**
+**Verified against a live Postgres** (user started `docker compose up -d postgres`; migrations applied to both the `ktown` and `ktown_test` databases — the latter needs its own `alembic upgrade head` since `tests/conftest.py`'s `KTOWN_TEST_DATABASE_URL` defaults to a separate `ktown_test` database that the compose init script only creates empty): `python -m pytest tests/api tests/integration tests/e2e -q` → **52/52 passed**, including all 3 `tests/api/test_auth_routes.py` cases.
+
+- [x] **Step 8: Commit social login**
 
 ```bash
 git add web/lib/server/session.ts web/lib/server/social-auth.ts web/lib/server/return-path.ts web/lib/server/request-origin.ts web/app/api/auth web/app/api/ktown/[...path]/route.ts web/app/chatgpt-auth.ts web/app/signin web/components/auth/social-login-buttons.tsx web/app/globals.css web/.env.example .env.example src/ktown_defense/api/auth_routes.py src/ktown_defense/social_profile.py src/ktown_defense/infrastructure/models.py alembic tests/api/test_auth_routes.py web/tests/social-auth.test.ts web/tests/session.test.ts docs/superpowers/plans/2026-09-13-sns-integration.md

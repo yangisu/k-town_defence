@@ -38,6 +38,16 @@ curl -fsSL https://raw.githubusercontent.com/yangisu/k-town_defence/main/deploy/
 기본 nginx 중지, 컨테이너 기동과 공개 HTTPS 헬스체크를 구성한다. 실제 관광·지도·SNS 키는 이후
 `/opt/ktown-defense/.env.production`에 넣고 스택을 다시 기동한다.
 
+Amazon Location Service는 서울 리전을 지원하지 않으므로 도쿄 리전
+`ap-northeast-1`의 Maps API 키를 사용한다. 키 권한은 `GetTile`과
+`GetStaticMap`으로 제한하고 참조자는 `https://ktowndefense.site/*`와
+`https://www.ktowndefense.site/*`만 허용한다. AWS 콘솔에서 키 값을 복사한 뒤
+다음 스크립트에 붙여 넣으면 키 유효성을 검사하고 웹 이미지를 다시 빌드한다.
+
+```bash
+sudo bash /opt/ktown-defense/deploy/configure-map.sh
+```
+
 SNS 키는 채팅이나 셸 명령 기록에 직접 적지 않는다. 세 제공자 콘솔에서 값을 복사한 뒤
 다음 대화형 스크립트의 프롬프트에 붙여 넣으면 비밀값 입력을 화면에 표시하지 않고 환경 파일을
 갱신하고 웹·게이트웨이를 다시 배포한다.

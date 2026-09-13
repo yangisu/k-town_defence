@@ -26,7 +26,7 @@ describe("self-hosted production build", () => {
       env: {
         ...process.env,
         NEXT_PUBLIC_AWS_LOCATION_API_KEY: "public-map-key",
-        NEXT_PUBLIC_AWS_LOCATION_REGION: "ap-northeast-2",
+        NEXT_PUBLIC_AWS_LOCATION_REGION: "ap-northeast-1",
         NEXT_PUBLIC_AWS_LOCATION_STYLE: "Standard",
         KTOWN_API_BASE_URL: "http://api:8000",
         KTOWN_SESSION_SECRET: "server-only-session-secret-sentinel",
@@ -60,5 +60,7 @@ describe("self-hosted production build", () => {
     expect(bootstrap).toContain('readonly DEPLOY_BRANCH="main"');
     expect(bootstrap).not.toContain('readonly DEPLOY_BRANCH="feat/');
     expect(bootstrap).toContain('checkout -B "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH"');
+    expect(bootstrap).toContain("NEXT_PUBLIC_AWS_LOCATION_REGION=ap-northeast-1");
+    expect(existsSync(join("..", "deploy", "configure-map.sh"))).toBe(true);
   });
 });

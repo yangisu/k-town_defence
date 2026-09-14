@@ -86,7 +86,7 @@ vi.mock("maplibre-gl", () => {
 
   class MockAttributionControl {}
 
-  const maplibre = { Map: MockMap, AttributionControl: MockAttributionControl };
+  const maplibre = { Map: MockMap, AttributionControl: MockAttributionControl, setWorkerUrl: vi.fn() };
   return { ...maplibre, default: maplibre };
 });
 

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import * as maplibregl from "maplibre-gl";
 import type { ExpressionSpecification, GeoJSONSource, GeoJSONSourceSpecification, Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { TerritoryList } from "@/components/team-preview/territory-list";
 import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
 import { ChevronRight, LocateFixed, Maximize, RotateCcw, X } from "@/components/ui/icons";
@@ -37,6 +38,14 @@ const territoryLayerId = "preview-territory-fill";
 const selectedLayerId = "preview-territory-selected";
 const selectedOutlineLayerId = "preview-territory-selected-outline";
 const nationalBounds = [[124.5, 32.8], [131.9, 38.9]] as [[number, number], [number, number]];
+
+// maplibre-gl v6 locates its worker via `new URL(..., import.meta.url)`, a
+// form Vite doesn't statically detect, so the worker 404s in a production
+// build and every vector layer silently fails to render (the style and
+// sprites still load fine over plain fetches, so nothing looks wrong until
+// you check for actual map content). Pointing it at Vite's own bundled
+// worker asset fixes that.
+maplibregl.setWorkerUrl(maplibreWorkerUrl);
 const ownerColors = Object.fromEntries(previewContent.artists.map((artist) => [artist.id, artist.color]));
 const strongholdRadiusExpression: ExpressionSpecification = ["match", ["get", "stage"], "seed", 7, "tree", 11, "landmark", 16, 7];
 const markerLabels = Object.fromEntries(previewContent.artists.map((artist) => [artist.id, artist.markerLabel]));

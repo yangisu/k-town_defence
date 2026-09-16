@@ -86,6 +86,29 @@ describe("HTTP services", () => {
     }));
   });
 
+  it("restores the active submitted session after a browser refresh", async () => {
+    localStorage.setItem("ktown-active-checkin-v1", JSON.stringify({ sessionId: "session-1", placeId: "place-1" }));
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({
+      id: "session-1", placeId: "place-1", status: "submitted", expiresAt: "2026-08-21T10:30:00Z",
+    }));
+
+    await expect(createHttpServices(fetcher).checkIn.restore()).resolves.toEqual({
+      id: "session-1", placeId: "place-1", status: "submitted", expiresAt: "2026-08-21T10:30:00Z",
+    });
+    expect(fetcher).toHaveBeenCalledWith("/api/ktown/api/v1/checkins/session-1", expect.any(Object));
+  });
+
+  it("maps the backend's minimal place response for refresh recovery", async () => {
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({
+      id: "place-1", contentId: "101", nameKo: "감천문화마을", addressKo: "부산",
+      latitude: 35.1, longitude: 129, regionCode: "6", descriptionKo: "공식 설명",
+    }));
+
+    await expect(createHttpServices(fetcher).tourism.getPlace("place-1")).resolves.toEqual(expect.objectContaining({
+      id: "place-1", nameKo: "감천문화마을", regionId: "busan",
+    }));
+  });
+
 const strictExpedition = {
   id: "expedition-1", title: "부산 로컬 원정", regionCode: "6", keyword: null,
   travelDate: "2026-08-22", dataUpdatedAt: "2026-08-22T03:00:00Z",

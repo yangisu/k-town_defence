@@ -23,6 +23,7 @@ export interface CheckInUiState {
 
 export type CheckInAction =
   | { type: "sessionCreated"; sessionId: string }
+  | { type: "sessionRestored"; sessionId: string; submitted: boolean }
   | { type: "gpsSample"; kind: GpsKind; accuracyMeters: number }
   | { type: "gpsAccuracy"; meters: number }
   | { type: "photoCaptured"; assetId: string }
@@ -77,6 +78,7 @@ export function checkInReducer(state: CheckInUiState, action: CheckInAction): Ch
   if (["submitted_pending", "approved", "review_required", "rejected", "expired", "cancelled"].includes(state.status)) return state;
   switch (action.type) {
     case "sessionCreated": return { ...state, sessionId: action.sessionId };
+    case "sessionRestored": return { ...state, sessionId: action.sessionId, status: action.submitted ? "submitted_pending" : state.status };
     case "gpsSample":
       if (state.status !== "collecting") return state;
       return withReadiness({ ...state, samples: [...state.samples.filter((sample) => sample.kind !== action.kind), { kind: action.kind, accuracyMeters: action.accuracyMeters }], issue: action.accuracyMeters > 100 ? "low_accuracy" : null });

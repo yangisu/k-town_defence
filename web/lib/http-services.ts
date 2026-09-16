@@ -55,6 +55,24 @@ const regionIds: Record<string, string> = {
   "37": "jeonju",
 };
 
+const ACTIVE_CHECKIN_KEY = "ktown-active-checkin-v1";
+
+type StoredCheckIn = { sessionId: string; placeId: string };
+
+function readStoredCheckIn(): StoredCheckIn | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = JSON.parse(window.localStorage.getItem(ACTIVE_CHECKIN_KEY) ?? "null") as Partial<StoredCheckIn>;
+    return typeof value.sessionId === "string" && typeof value.placeId === "string" ? value as StoredCheckIn : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredCheckIn(value: StoredCheckIn): void {
+  if (typeof window !== "undefined") window.localStorage.setItem(ACTIVE_CHECKIN_KEY, JSON.stringify(value));
+}
+
 export class KTownApiError extends ApiError {
   constructor(
     public readonly code: string,
@@ -267,12 +285,13 @@ function mapOpenDataStatus(value: unknown): OpenDataStatus {
 }
 
 export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
-  let restoredSession: CheckInSession | null = null;
-
   return {
     tourism: {
       listRegions: () => demoServices.tourism.listRegions(),
       getRegion: (regionId) => demoServices.tourism.getRegion(regionId),
+      async getPlace(placeId) {
+        return mapPlace(await requestJson<PlaceDto>(fetcher, `/api/v1/places/${placeId}`));
+      },
       async listPlaces(filter: PlaceFilter) {
         const params = new URLSearchParams();
         const backendRegionCodes: Record<string, string> = { busan: "6" };
@@ -312,11 +331,22 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
           method: "POST",
           body: JSON.stringify({ placeId }),
         });
-        restoredSession = dto;
+        writeStoredCheckIn({ sessionId: dto.id, placeId: dto.placeId });
         return dto;
       },
       async restore() {
-        return restoredSession ? structuredClone(restoredSession) : null;
+        const stored = readStoredCheckIn();
+        if (!stored) return null;
+        try {
+          const session = await requestJson<CheckInDto>(fetcher, `/api/v1/checkins/${stored.sessionId}`);
+          return structuredClone(session);
+        } catch (error) {
+          if (error instanceof KTownApiError && [404, 409].includes(error.status)) {
+            window.localStorage.removeItem(ACTIVE_CHECKIN_KEY);
+            return null;
+          }
+          throw error;
+        }
       },
       async recordGps(sessionId: string, evidence: GpsEvidence) {
         await requestJson(fetcher, `/api/v1/checkins/${sessionId}/gps`, {

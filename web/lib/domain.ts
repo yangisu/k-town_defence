@@ -187,6 +187,7 @@ export interface MembershipService {
 
 export interface TourismService {
   listRegions(): Promise<Region[]>;
+  getPlace(placeId: string): Promise<Place>;
   getRegion(regionId: string): Promise<Region>;
   listPlaces(filter: PlaceFilter): Promise<Place[]>;
   getRecommendedExpedition(filter: ExpeditionRecommendationFilter): Promise<LiveExpedition>;

@@ -31,6 +31,11 @@ export const services: AppServices = {
     async listPlaces(filter) {
       return clone(places.filter((place) => (!filter.regionId || place.regionId === filter.regionId) && (!filter.category || place.category === filter.category)));
     },
+    async getPlace(placeId) {
+      const place = places.find((item) => item.id === placeId);
+      if (!place) throw new Error("PLACE_NOT_FOUND");
+      return clone(place);
+    },
     async getRecommendedExpedition(filter) {
       const stops = places.filter((place) => place.regionId === "busan").slice(0, filter.limit);
       return clone({

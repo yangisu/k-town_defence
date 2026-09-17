@@ -27,11 +27,11 @@ describe("social auth provider configuration", () => {
   });
 
   it("requires a client secret for providers that need one", () => {
-    setProviderEnv({ NAVER_CLIENT_ID: "naver-id", NAVER_CLIENT_SECRET: undefined });
-    expect(isProviderConfigured("naver")).toBe(false);
+    setProviderEnv({ GOOGLE_CLIENT_ID: "google-id", GOOGLE_CLIENT_SECRET: undefined });
+    expect(isProviderConfigured("google")).toBe(false);
 
-    setProviderEnv({ NAVER_CLIENT_SECRET: "naver-secret" });
-    expect(isProviderConfigured("naver")).toBe(true);
+    setProviderEnv({ GOOGLE_CLIENT_SECRET: "google-secret" });
+    expect(isProviderConfigured("google")).toBe(true);
   });
 
   it("builds an authorize URL carrying the state and redirect URI", () => {
@@ -60,8 +60,6 @@ describe("exchangeCodeForProfile", () => {
     setProviderEnv({
       KAKAO_CLIENT_ID: "kakao-id",
       KAKAO_CLIENT_SECRET: "kakao-secret",
-      NAVER_CLIENT_ID: "naver-id",
-      NAVER_CLIENT_SECRET: "naver-secret",
       GOOGLE_CLIENT_ID: "google-id",
       GOOGLE_CLIENT_SECRET: "google-secret",
     });
@@ -90,22 +88,6 @@ describe("exchangeCodeForProfile", () => {
       avatarUrl: "https://img/kakao.png",
     });
     expect(fetcher.mock.calls[0]?.[1]?.body?.toString()).toContain("client_secret=kakao-secret");
-  });
-
-  it("maps a Naver profile to the common shape", async () => {
-    const fetcher = vi.fn()
-      .mockResolvedValueOnce(Response.json({ access_token: "token-2" }))
-      .mockResolvedValueOnce(Response.json({
-        response: { id: "n-1", nickname: "블링크", profile_image: "https://img/naver.png" },
-      }));
-
-    const profile = await exchangeCodeForProfile(
-      "naver",
-      { code: "code-2", redirectUri: "https://app.example/callback" },
-      fetcher,
-    );
-
-    expect(profile?.platformSubject).toBe("naver:n-1");
   });
 
   it("returns null when the token exchange fails", async () => {

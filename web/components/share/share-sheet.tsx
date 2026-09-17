@@ -6,7 +6,7 @@ import { Check, Share2 } from "@/components/ui/icons";
 
 /**
  * Prefers the OS share sheet (`navigator.share`), which already lists
- * KakaoTalk/Naver/X/etc. as targets on mobile with zero provider SDKs or
+ * KakaoTalk/X/etc. as targets on mobile with zero provider SDKs or
  * keys. Desktop browsers without `navigator.share` fall back to copying the
  * link.
  */

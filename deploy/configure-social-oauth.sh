@@ -58,20 +58,16 @@ replace_env_value() {
 echo "Paste each value directly from its provider console. Secret input is hidden."
 read_required kakao_client_id "Kakao REST API key"
 read_required kakao_client_secret "Kakao Login client secret" true
-read_required naver_client_id "NAVER Client ID"
-read_required naver_client_secret "NAVER Client Secret" true
 read_required google_client_id "Google OAuth Client ID"
 read_required google_client_secret "Google OAuth Client Secret" true
 
 replace_env_value KAKAO_CLIENT_ID "$kakao_client_id"
 replace_env_value KAKAO_CLIENT_SECRET "$kakao_client_secret"
-replace_env_value NAVER_CLIENT_ID "$naver_client_id"
-replace_env_value NAVER_CLIENT_SECRET "$naver_client_secret"
 replace_env_value GOOGLE_CLIENT_ID "$google_client_id"
 replace_env_value GOOGLE_CLIENT_SECRET "$google_client_secret"
 chmod 600 "$ENV_FILE"
 
-unset kakao_client_id kakao_client_secret naver_client_id naver_client_secret
+unset kakao_client_id kakao_client_secret
 unset google_client_id google_client_secret
 
 cd "$APP_DIR"

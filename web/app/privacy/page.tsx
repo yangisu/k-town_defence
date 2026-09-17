@@ -18,7 +18,7 @@ export default function PrivacyPage() {
 
         <h2>1. 처리하는 정보</h2>
         <ul>
-          <li>카카오·네이버·Google이 제공하는 계정 식별자, 닉네임, 프로필 이미지</li>
+          <li>카카오·Google이 제공하는 계정 식별자, 닉네임, 프로필 이미지</li>
           <li>서비스 내부 사용자 식별자와 선택한 팬덤·시즌 멤버십</li>
           <li>체크인 시 사용자가 제출한 위치, 사진, 방문 장소와 처리 상태</li>
           <li>로그인 세션 유지를 위한 보안 쿠키</li>
@@ -41,7 +41,7 @@ export default function PrivacyPage() {
 
         <h2>4. 외부 서비스와 처리 위치</h2>
         <p>
-          로그인 인증에는 Kakao, NAVER, Google의 OAuth 서비스를 사용합니다. 서비스 데이터는 대한민국 서울 리전의
+          로그인 인증에는 Kakao, Google의 OAuth 서비스를 사용합니다. 서비스 데이터는 대한민국 서울 리전의
           AWS EC2 및 서비스 전용 PostgreSQL에 저장되며, 데이터베이스는 인터넷에 직접 공개하지 않습니다.
         </p>
 

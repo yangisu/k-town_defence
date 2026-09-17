@@ -2,7 +2,6 @@ import { isProviderConfigured, SOCIAL_PROVIDERS, type SocialProvider } from "@/l
 
 const PROVIDER_LABEL_KO: Record<SocialProvider, string> = {
   kakao: "카카오로 시작하기",
-  naver: "네이버로 시작하기",
   google: "구글로 시작하기",
 };
 

@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
-export type SocialProvider = "kakao" | "naver" | "google";
+export type SocialProvider = "kakao" | "google";
 
 export type SocialProfile = {
   platformSubject: string;
@@ -27,7 +27,7 @@ export function generatePkcePair(): { codeVerifier: string; codeChallenge: strin
   return { codeVerifier, codeChallenge };
 }
 
-export const SOCIAL_PROVIDERS: readonly SocialProvider[] = ["kakao", "naver", "google"];
+export const SOCIAL_PROVIDERS: readonly SocialProvider[] = ["kakao", "google"];
 
 export function isSocialProvider(value: string): value is SocialProvider {
   return (SOCIAL_PROVIDERS as readonly string[]).includes(value);
@@ -59,24 +59,6 @@ const PROVIDERS: Record<SocialProvider, ProviderConfig> = {
         platformSubject: `kakao:${body.id}`,
         displayName: body.kakao_account?.profile?.nickname ?? null,
         avatarUrl: body.kakao_account?.profile?.profile_image_url ?? null,
-      };
-    },
-  },
-  naver: {
-    authorizeUrl: "https://nid.naver.com/oauth2.0/authorize",
-    tokenUrl: "https://nid.naver.com/oauth2.0/token",
-    userInfoUrl: "https://openapi.naver.com/v1/nid/me",
-    scope: "",
-    usesPkce: false,
-    env: () => readEnv("NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET", true),
-    parseProfile: (_token, user) => {
-      const body = user as { response?: { id?: string; nickname?: string; profile_image?: string } };
-      const id = body.response?.id;
-      if (!id) return null;
-      return {
-        platformSubject: `naver:${id}`,
-        displayName: body.response?.nickname ?? null,
-        avatarUrl: body.response?.profile_image ?? null,
       };
     },
   },

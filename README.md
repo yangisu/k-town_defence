@@ -90,15 +90,14 @@ Vercel 없이 Caddy, Node 웹 서버, FastAPI, PostgreSQL을 한 Compose 스택�
 도메인 DNS, TLS, 보안 그룹, 환경변수와 실행 순서는
 [EC2 독립 운영 배포 문서](docs/deployment-self-hosted.md)를 따른다.
 
-## SNS 로그인 (Kakao/Naver/Google)
+## SNS 로그인 (Kakao/Google)
 
 독립 사이트의 사용자 인증에 사용한다. `web/.env.local`에
 `KTOWN_SESSION_SECRET`(최소 16자 임의 문자열)과 사용할 제공자의
 `{PROVIDER}_CLIENT_ID`/`{PROVIDER}_CLIENT_SECRET`을 설정한다. 제공자 개발자
-콘솔에 등록할 실제 production redirect URI는 다음 세 주소다.
+콘솔에 등록할 실제 production redirect URI는 다음 두 주소다.
 
 - `https://ktowndefense.site/api/auth/kakao/callback`
-- `https://ktowndefense.site/api/auth/naver/callback`
 - `https://ktowndefense.site/api/auth/google/callback`
 
 카카오도 client secret을 활성화하고 반드시 함께 설정한다. OAuth access/refresh token은

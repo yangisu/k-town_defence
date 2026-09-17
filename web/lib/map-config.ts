@@ -28,5 +28,9 @@ export function readMapConfig(env: MapEnvironment): MapConfig | null {
 }
 
 export function amazonLocationStyleUrl(config: MapConfig) {
-  return `https://maps.geo.${config.region}.amazonaws.com/v2/styles/${encodeURIComponent(config.styleName)}/descriptor?key=${encodeURIComponent(config.apiKey)}`;
+  const params = new URLSearchParams({
+    key: config.apiKey,
+    "color-scheme": "Light",
+  });
+  return `https://maps.geo.${config.region}.amazonaws.com/v2/styles/${encodeURIComponent(config.styleName)}/descriptor?${params}`;
 }

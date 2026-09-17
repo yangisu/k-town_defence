@@ -144,7 +144,7 @@ it("uses Amazon Location and keeps map selection equivalent to the territory lis
   const mapRegion = screen.getByRole("region", { name: "대한민국 팬덤 영토 지도" });
   expect((mapRegion as HTMLElement).style.minHeight).toBe("");
   expect(mapHarness.instances[0].options.style).toBe(
-    "https://maps.geo.ap-northeast-2.amazonaws.com/v2/styles/Standard/descriptor?key=test-map-key",
+    "https://maps.geo.ap-northeast-2.amazonaws.com/v2/styles/Standard/descriptor?key=test-map-key&color-scheme=Light",
   );
 
   mapHarness.instances[0].emit("load");

@@ -10,7 +10,7 @@ it("builds a restricted Amazon Location style descriptor URL", () => {
 
   expect(config).not.toBeNull();
   expect(amazonLocationStyleUrl(config!)).toBe(
-    "https://maps.geo.ap-northeast-1.amazonaws.com/v2/styles/Standard/descriptor?key=test-map-key",
+    "https://maps.geo.ap-northeast-1.amazonaws.com/v2/styles/Standard/descriptor?key=test-map-key&color-scheme=Light",
   );
 });
 

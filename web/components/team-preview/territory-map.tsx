@@ -271,7 +271,9 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
       customAttribution: '<a href="https://www.geoboundaries.org/" target="_blank" rel="noreferrer">geoBoundaries</a>',
     }), "bottom-right");
 
-    map.on("error", () => {
+    map.on("error", (event) => {
+      const error = event.error;
+      console.error("Amazon Location map error", error);
       if (active && !styleLoaded) setMapError(true);
     });
 

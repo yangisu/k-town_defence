@@ -105,7 +105,7 @@ export function ArtistSelector({
           ? (locale === "ko" ? "팬덤 변경 작업" : "Fandom change actions")
           : (locale === "ko" ? "팬덤 선택 작업" : "Fandom selection actions")}
       >
-        <button type="button" disabled={!selectionVisible || confirmationDisabled} onClick={onConfirm}>{confirmLabel}</button>
+        <button data-tutorial="choose-fandom" type="button" disabled={!selectionVisible || confirmationDisabled} onClick={onConfirm}>{confirmLabel}</button>
       </div>
     </div>
   );

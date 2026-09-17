@@ -16,6 +16,7 @@ import type {
   TerritoryStanding,
 } from "@/features/team-preview/types";
 import { StrongholdMark } from "@/components/team-preview/stronghold-mark";
+import { useOptionalTutorial } from "@/features/tutorial/tutorial-provider";
 
 const panelCopy = {
   ko: {
@@ -191,6 +192,7 @@ export function TacticalPanel({
   onStartExpedition(): void;
 }) {
   const demoSession = useDemoSession();
+  const tutorial = useOptionalTutorial();
   const swipeOrigin = useRef<{ x: number; y: number } | null>(null);
   const [awardHelpOpen, setAwardHelpOpen] = useState(false);
   const [impactHelpOpen, setImpactHelpOpen] = useState(false);
@@ -441,11 +443,11 @@ export function TacticalPanel({
         <p><strong>{copy.rankImpact}</strong>: #{rank.currentRank}{rank.currentRank === rank.projectedRank ? ` · ${copy.rankHold}` : ` → #${rank.projectedRank}`}</p>
       </section>
 
-      <button className="primary-button" type="button" disabled={blockedByOtherRoute} onClick={() => demoSession.dispatch({
+      <button data-tutorial="start-expedition" className="primary-button" type="button" disabled={blockedByOtherRoute} onClick={() => { tutorial?.completeStep("start-expedition"); demoSession.dispatch({
         type: "openRecommendedExpedition",
         expeditionId: expedition.id,
         territoryId: expedition.territoryId,
-      })}>
+      }); }}>
         {actionLabel}
       </button>
       {blockedByOtherRoute ? <p className="tactical-blocked-note" role="note">{copy.blockedNote}</p> : null}

@@ -50,8 +50,9 @@ describe("self-hosted production build", () => {
     expect(browserArtifact).not.toMatch(/KTOWN_SESSION_SECRET|KTOWN_API_BASE_URL/);
   });
 
-  it("has no Vercel deployment configuration", () => {
-    expect(existsSync("vercel.json")).toBe(false);
+  it("has Vercel deployment configuration for the web app", () => {
+    expect(existsSync("vercel.json")).toBe(true);
+    expect(readFileSync("vercel.json", "utf8")).toContain('"buildCommand": "npm run build:vercel"');
     expect(existsSync("vite.config.vercel.ts")).toBe(false);
   });
 

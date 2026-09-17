@@ -16,6 +16,8 @@ import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { MembershipProvider, useMembership } from "@/features/membership/membership-context";
 import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/demo-session-context";
+import { TutorialProvider, useTutorial } from "@/features/tutorial/tutorial-provider";
+import { TutorialOverlay } from "@/components/tutorial/tutorial-overlay";
 import { previewContent } from "@/features/team-preview/content";
 import { createRemoteDemoSessionStore } from "@/features/team-preview/remote-session-store";
 import { t } from "@/features/team-preview/i18n";
@@ -30,6 +32,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const resetDialogRef = useRef<HTMLDivElement>(null);
   const resetTitleRef = useRef<HTMLHeadingElement>(null);
   const session = useDemoSession();
+  const { state: tutorialState, startTutorial, completeStep, replayTutorial } = useTutorial();
   const signOut = useDemoSignOut();
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
 
@@ -39,6 +42,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   };
   const confirmArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
     session.dispatch({ type: "selectArtist", artistId });
+    completeStep("choose-fandom");
   };
 
   const resetDemo = () => {
@@ -49,6 +53,9 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [session.state.activeTab, session.state.artistConfirmed]);
+  useEffect(() => {
+    if (!session.state.artistConfirmed && tutorialState.status === "idle") startTutorial();
+  }, [session.state.artistConfirmed, startTutorial, tutorialState.status]);
   useModalFocus(resetOpen, resetDialogRef, resetTitleRef, () => setResetOpen(false));
   useBodyScrollLock(resetOpen);
 
@@ -108,6 +115,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
             onChangeArtist={profileLocked ? undefined : () => setDrawerOpen(true)}
             onSignOut={signOut ?? undefined}
             onReset={() => setResetOpen(true)}
+            onReplayTutorial={replayTutorial}
           />
         ) : null}
         {!profileLocked ? (
@@ -133,6 +141,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
         </div>,
         document.body,
       ) : null}
+      <TutorialOverlay locale={session.state.locale} />
     </>
   );
 }
@@ -182,16 +191,18 @@ export function KTownApp({ mode, mapConfig }: { mode: ServiceMode; mapConfig: Ma
   const remoteStore = useMemo(() => createRemoteDemoSessionStore(), []);
 
   if (mode === "demo") {
-    return <DemoSessionProvider><DemoProduct services={services} mapConfig={mapConfig} /></DemoSessionProvider>;
+    return <TutorialProvider><DemoSessionProvider><DemoProduct services={services} mapConfig={mapConfig} /></DemoSessionProvider></TutorialProvider>;
   }
 
   return (
-    <MembershipProvider service={services.membership}>
-      <MembershipGate>
-        <DemoSessionProvider remote={remoteStore}>
-          <IntegratedModernProduct services={services} mapConfig={mapConfig} />
-        </DemoSessionProvider>
-      </MembershipGate>
-    </MembershipProvider>
+    <TutorialProvider>
+      <MembershipProvider service={services.membership}>
+        <MembershipGate>
+          <DemoSessionProvider remote={remoteStore}>
+            <IntegratedModernProduct services={services} mapConfig={mapConfig} />
+          </DemoSessionProvider>
+        </MembershipGate>
+      </MembershipProvider>
+    </TutorialProvider>
   );
 }

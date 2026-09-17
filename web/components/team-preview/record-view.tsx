@@ -66,6 +66,7 @@ export function RecordView({
   onChangeArtist = () => undefined,
   onSignOut,
   onReset,
+  onReplayTutorial,
 }: {
   locale: Locale;
   session: DemoSession;
@@ -73,6 +74,7 @@ export function RecordView({
   onChangeArtist?: () => void;
   onSignOut?: () => void;
   onReset?: () => void;
+  onReplayTutorial?: () => void;
 }) {
   const [seasonInfoOpen, setSeasonInfoOpen] = useState(false);
   const [growthInfoOpen, setGrowthInfoOpen] = useState(false);
@@ -291,7 +293,7 @@ export function RecordView({
         <button type="button" onClick={onChangeArtist}>{t(locale, "recordChangeArtist")}</button>
       </section>
 
-      {onSignOut || onReset ? (
+      {onSignOut || onReset || onReplayTutorial ? (
         <section className="record-account" aria-label={t(locale, "recordAccount")}>
           <span>{t(locale, "recordAccount")}</span>
           {onSignOut ? (
@@ -310,6 +312,15 @@ export function RecordView({
                 <p>{t(locale, "resetConfirmBody")}</p>
               </div>
               <button type="button" onClick={onReset}>{t(locale, "resetDemo")}</button>
+            </div>
+          ) : null}
+          {onReplayTutorial ? (
+            <div className="record-account-row">
+              <div>
+                <strong>{locale === "ko" ? "튜토리얼 다시 보기" : "Replay tutorial"}</strong>
+                <p>{locale === "ko" ? "첫 원정 흐름을 다시 따라가 볼 수 있어요." : "Walk through the first expedition flow again."}</p>
+              </div>
+              <button type="button" onClick={onReplayTutorial}>{locale === "ko" ? "다시 보기" : "Replay"}</button>
             </div>
           ) : null}
         </section>

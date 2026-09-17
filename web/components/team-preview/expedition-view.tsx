@@ -13,6 +13,7 @@ import { calculateMissionAward, rankFandoms, type MissionAward } from "@/feature
 import { t } from "@/features/team-preview/i18n";
 import type { Locale, PreviewMissionPlace, StrongholdStage } from "@/features/team-preview/types";
 import type { CheckInImpact, CheckInResult, CheckInService, Place } from "@/lib/domain";
+import { useOptionalTutorial } from "@/features/tutorial/tutorial-provider";
 
 const copy = {
   ko: {
@@ -173,6 +174,7 @@ export function PreviewExpeditionView({
   onStartCheckIn?: (place: PreviewMissionPlace) => void;
 }) {
   const session = useDemoSession();
+  const tutorial = useOptionalTutorial();
   const locale = session.state.locale;
   const labels = copy[locale];
   const requestedExpeditionId = expeditionId ?? session.state.selectedExpeditionId;
@@ -229,6 +231,7 @@ export function PreviewExpeditionView({
   const orderedStandings = [...territory.standings].sort((a, b) => b.validPoints - a.validPoints);
 
   const startCheckIn = (place: PreviewMissionPlace) => {
+    tutorial?.completeStep("open-checkin");
     onStartCheckIn?.(place);
     setImpactBefore(null);
     setCheckInPlace(place);
@@ -324,7 +327,7 @@ export function PreviewExpeditionView({
                     <strong>{labels.maximum} {stopAward.cappedPoints}P</strong>
                     {checkedIn
                       ? <span className="stop-done">{labels.checkInDone}</span>
-                      : <button type="button" onClick={() => startCheckIn(place)} aria-label={`${place.name[locale]} ${labels.checkIn}`}>{labels.checkIn}</button>}
+                      : <button data-tutorial="first-checkin" type="button" onClick={() => startCheckIn(place)} aria-label={`${place.name[locale]} ${labels.checkIn}`}>{labels.checkIn}</button>}
                   </div>
                 </li>
               );

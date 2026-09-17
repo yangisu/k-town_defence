@@ -1,5 +1,43 @@
 @import "tailwindcss";
 
+.tutorial-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	pointer-events: none;
+}
+
+.tutorial-backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgb(12 18 27 / 0.58);
+	pointer-events: auto;
+}
+
+.tutorial-card {
+	position: fixed;
+	z-index: 2;
+	width: min(344px, calc(100vw - 32px));
+	padding: 20px;
+	border: 1px solid rgb(255 255 255 / 0.18);
+	border-radius: 8px;
+	background: #fffdf8;
+	color: #18232d;
+	box-shadow: 0 18px 50px rgb(0 0 0 / 0.24);
+	pointer-events: auto;
+}
+
+.tutorial-card h2 { margin: 4px 0 8px; font-size: 1.15rem; }
+.tutorial-card p { margin: 0; line-height: 1.55; }
+.tutorial-progress { color: #8b4d2f; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; }
+.tutorial-fallback { margin-top: 12px !important; color: #65717a; font-size: 0.9rem; }
+.tutorial-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 18px; }
+.tutorial-target-active { position: relative !important; z-index: 1001 !important; }
+
+@media (max-width: 640px) {
+	.tutorial-card { top: auto !important; right: 16px; bottom: 16px; left: 16px !important; width: auto; }
+}
+
 .file-button{position:relative}.file-button input{position:absolute;width:1px;height:1px;opacity:0}
 
 .live-places{margin-top:42px}.live-place-tools{display:grid;gap:10px;margin-bottom:15px}.live-place-tools input{width:100%;min-height:46px;border:1px solid var(--line);border-radius:14px;background:var(--white);padding:0 15px}.live-place-grid{display:grid;gap:12px}.live-place-card{overflow:hidden;background:var(--white);border:1px solid var(--line);border-radius:20px}.live-place-card>img,.live-place-image-fallback{width:100%;height:180px;object-fit:cover}.live-place-image-fallback{display:grid;place-items:center;background:#dfe8d6;font-weight:950;color:rgba(22,35,29,.35)}.live-place-card>div:last-child{padding:16px}.live-place-card span{font-size:10px;color:var(--purple);font-weight:850}.live-place-card h3{margin:4px 0;font-size:20px}.live-place-card p{color:var(--muted);font-size:12px;line-height:1.5}.live-place-card address{font-style:normal;font-size:11px;color:var(--muted)}.live-place-card button{margin-top:13px;border:0;border-radius:11px;background:var(--ink);color:white;padding:10px 14px;font-weight:800;cursor:pointer}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}

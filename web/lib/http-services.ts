@@ -1,5 +1,6 @@
 import type {
   AppServices,
+  CheckInDecision,
   CheckInResult,
   CheckInSession,
   GpsEvidence,
@@ -364,7 +365,7 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
         });
       },
       async submit(sessionId, idempotencyKey): Promise<CheckInResult> {
-        const result = await requestJson<{ decision: "pending" }>(
+        const result = await requestJson<{ decision: CheckInDecision; awardedPoints: number }>(
           fetcher,
           `/api/v1/checkins/${sessionId}/submit`,
           {
@@ -372,9 +373,16 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
             headers: { "Idempotency-Key": idempotencyKey },
           },
         );
+        const messages: Record<CheckInDecision, string> = {
+          pending: "체크인 제출이 접수되었습니다. 검토를 기다려 주세요.",
+          approved: "실제 위치 확인을 통해 체크인이 승인됐어요.",
+          review_required: "위치 확인이 명확하지 않아 운영자 검토가 필요해요.",
+          rejected: "GPS 위치가 현장과 일치하지 않아 체크인이 거절됐어요.",
+        };
         return {
           decision: result.decision,
-          message: "체크인 제출이 접수되었습니다. 검토를 기다려 주세요.",
+          awardedPoints: result.decision === "approved" ? result.awardedPoints : undefined,
+          message: messages[result.decision],
         };
       },
     },

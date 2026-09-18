@@ -144,6 +144,44 @@ class CheckInRepository:
         )
         return bool(count)
 
+    async def list_gps(self, session_id: UUID) -> list[GpsSampleModel]:
+        result = await self._session.scalars(
+            select(GpsSampleModel)
+            .where(GpsSampleModel.session_id == session_id)
+            .order_by(GpsSampleModel.sequence)
+        )
+        return list(result)
+
+    async def get_photo(self, session_id: UUID) -> PhotoModel | None:
+        return await self._session.scalar(
+            select(PhotoModel).where(PhotoModel.session_id == session_id)
+        )
+
+    async def find_duplicate_photo(
+        self, sha256: str, *, exclude_session_id: UUID
+    ) -> PhotoModel | None:
+        return await self._session.scalar(
+            select(PhotoModel).where(
+                PhotoModel.sha256 == sha256,
+                PhotoModel.session_id != exclude_session_id,
+            )
+        )
+
+    async def count_approved_visits(self, user_id: str, place_id: UUID) -> int:
+        count = await self._session.scalar(
+            select(func.count(SubmissionModel.id))
+            .join(
+                CheckInSessionModel,
+                CheckInSessionModel.id == SubmissionModel.session_id,
+            )
+            .where(
+                CheckInSessionModel.user_id == user_id,
+                CheckInSessionModel.place_id == place_id,
+                SubmissionModel.decision == "approved",
+            )
+        )
+        return int(count or 0)
+
     async def get_submission(self, session_id: UUID) -> SubmissionModel | None:
         return await self._session.scalar(
             select(SubmissionModel).where(SubmissionModel.session_id == session_id)

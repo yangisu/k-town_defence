@@ -57,7 +57,7 @@ export function MapFilters({ locale, activeFilter, onChange }: {
   onChange(filter: TerritoryFilter): void;
 }) {
   return (
-    <div className="map-filters" role="group" aria-label={locale === "ko" ? "영토 필터" : "Territory filters"}>
+    <div data-guide="map-filters" className="map-filters" role="group" aria-label={locale === "ko" ? "영토 필터" : "Territory filters"}>
       <label className="map-filters-select">
         <span className="sr-only">{locale === "ko" ? "영토 필터" : "Territory filters"}</span>
         <select value={activeFilter} onChange={(event) => onChange(event.target.value as TerritoryFilter)}>

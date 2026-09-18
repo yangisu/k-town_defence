@@ -20,6 +20,7 @@ export function TerritoryList({ id, collapsed = false, territories, locale, sele
   return (
     <ul
       id={id}
+      data-guide="territory-list"
       className={collapsed ? "preview-territory-list collapsed" : "preview-territory-list"}
       aria-label={locale === "ko" ? "지도와 같은 영토 목록" : "Map-equivalent territory list"}
     >

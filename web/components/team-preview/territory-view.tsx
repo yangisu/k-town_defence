@@ -97,7 +97,7 @@ export function TerritoryView({ mapConfig }: {
     <div className="view territory-view">
       <h1 className="preview-page-title">{t(session.state.locale, "navTerritory")}</h1>
       {selectedArtist && summary ? (
-        <section className="territory-summary" aria-label={t(session.state.locale, "territorySummary")}>
+        <section data-guide="territory-summary" className="territory-summary" aria-label={t(session.state.locale, "territorySummary")}>
           <div className="territory-summary-grid">
             <button type="button" onClick={() => openSummaryTerritory("my_fandom", summary.strongestOwnedTerritoryId)}>
               <span>{t(session.state.locale, "summaryOwned")}</span>

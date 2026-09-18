@@ -1,4 +1,4 @@
-export const TUTORIAL_SEEN_KEY = "ktown-tutorial-v1";
+export const TUTORIAL_SEEN_KEY = "ktown-tutorial-v2";
 const SEEN_VALUE = "seen";
 
 export type TutorialStorage = Pick<Storage, "getItem" | "setItem">;

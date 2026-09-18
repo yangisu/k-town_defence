@@ -9,8 +9,19 @@ import {
 import { DemoSessionProvider } from "@/features/team-preview/demo-session-context";
 import { KTownApp } from "@/features/ktown-app";
 import { services } from "@/lib/demo-services";
+import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
 
-beforeEach(() => window.localStorage.clear());
+
+/** These journeys are not about onboarding, so the visitor has seen the guide. */
+function skipGuide() {
+  window.sessionStorage.clear();
+  window.sessionStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
+}
+
+beforeEach(() => {
+  window.localStorage.clear();
+  skipGuide();
+});
 
 function storeReadyBtsSession() {
   window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({

@@ -1,106 +1,150 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it } from "vitest";
-import { ProfileSetup } from "@/components/team-preview/profile-setup";
 import { KTownApp } from "@/features/ktown-app";
+import { GUIDE_STEPS } from "@/features/team-preview/guide-steps";
+import { GAME_RULES } from "@/features/team-preview/game-rules";
+import { createInitialDemoSession, DEMO_SESSION_KEY } from "@/features/team-preview/demo-session";
 import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
 
 beforeEach(() => {
+  window.localStorage.clear();
   window.sessionStorage.clear();
   document.documentElement.lang = "ko";
 });
 
-it("greets a first-time visitor with the three-step guide over artist selection", async () => {
-  render(<ProfileSetup locale="ko" onConfirm={() => undefined} />);
+function storeConfirmedBtsSession(locale: "ko" | "en" = "ko") {
+  window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({
+    ...createInitialDemoSession(),
+    locale,
+    artistConfirmed: true,
+    selectedArtistId: "bts",
+    selectedTerritoryId: "busan",
+  }));
+}
 
-  const dialog = await screen.findByRole("dialog", { name: "K-TOWN DEFENSE 시작 가이드" });
-  expect(dialog).toBeVisible();
-  // The guide repeats the golden path the objective strip and tactical panel follow.
-  expect(within(dialog).getByText("1. 아티스트 선택")).toBeVisible();
-  expect(within(dialog).getByText("2. 추천 영토 확인")).toBeVisible();
-  expect(within(dialog).getByText("3. 첫 원정 시작")).toBeVisible();
-  // Artist selection stays on the page behind the guide.
-  expect(screen.getByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
+it("waits for a fandom before greeting a first-time visitor", async () => {
+  const user = userEvent.setup();
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  // Artist selection explains itself, so the guide stays out of its way.
+  expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("radio", { name: /BTS.*ARMY/ }));
+  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
+
+  expect(await screen.findByRole("dialog", { name: "영토 지도부터 볼게요" })).toBeVisible();
+  expect(screen.getByText(`1 / ${GUIDE_STEPS.length}`)).toBeVisible();
 });
 
-it("remembers a dismissed guide so it does not interrupt the next visit", async () => {
+it("walks every step of the territory, expedition and scoring tour", async () => {
   const user = userEvent.setup();
-  const { unmount } = render(<ProfileSetup locale="ko" onConfirm={() => undefined} />);
+  storeConfirmedBtsSession();
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
-  await user.click(await screen.findByRole("button", { name: "아티스트 고르러 가기" }));
+  const dialog = await screen.findByRole("dialog");
+  for (const [index, step] of GUIDE_STEPS.entries()) {
+    expect(within(dialog).getByRole("heading", { name: step.title.ko })).toBeVisible();
+    expect(within(dialog).getByText(`${index + 1} / ${GUIDE_STEPS.length}`)).toBeVisible();
+    if (index < GUIDE_STEPS.length - 1) await user.click(within(dialog).getByRole("button", { name: "다음" }));
+  }
 
+  // The last step finishes instead of walking off the end.
+  await user.click(within(dialog).getByRole("button", { name: "가이드 마치기" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+it("explains the real scoring numbers rather than placeholders", async () => {
+  storeConfirmedBtsSession();
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  const award = GUIDE_STEPS.find((step) => step.id === "award");
+  const impact = GUIDE_STEPS.find((step) => step.id === "impact");
+  expect(award?.body.ko).toContain(`${GAME_RULES.localSpend}P`);
+  expect(award?.body.ko).toContain(`${GAME_RULES.accommodation}P`);
+  expect(impact?.body.ko).toContain(GAME_RULES.dailyCap.toLocaleString());
+  expect(await screen.findByRole("dialog")).toBeVisible();
+});
+
+it("steps back and skips out of the tour", async () => {
+  const user = userEvent.setup();
+  storeConfirmedBtsSession();
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByRole("button", { name: "이전" })).toBeDisabled();
+
+  await user.click(within(dialog).getByRole("button", { name: "다음" }));
+  expect(within(dialog).getByText(`2 / ${GUIDE_STEPS.length}`)).toBeVisible();
+  await user.click(within(dialog).getByRole("button", { name: "이전" }));
+  expect(within(dialog).getByText(`1 / ${GUIDE_STEPS.length}`)).toBeVisible();
+
+  await user.click(within(dialog).getByRole("button", { name: "건너뛰기" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+it("remembers a finished guide so it does not interrupt the next visit", async () => {
+  const user = userEvent.setup();
+  storeConfirmedBtsSession();
+  const { unmount } = render(<KTownApp mode="demo" mapConfig={null} />);
+
+  await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "건너뛰기" }));
   expect(window.sessionStorage.getItem(TUTORIAL_SEEN_KEY)).toBe("seen");
 
   unmount();
-  render(<ProfileSetup locale="ko" onConfirm={() => undefined} />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
+  expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
-it("closes the guide with the close control and with Escape", async () => {
+it("closes the guide with Escape and with the close control", async () => {
   const user = userEvent.setup();
-  render(<ProfileSetup locale="ko" onConfirm={() => undefined} />);
+  storeConfirmedBtsSession();
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
-  await user.click(await screen.findByRole("button", { name: "가이드 닫기" }));
+  await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "가이드 닫기" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
   window.sessionStorage.clear();
-  const { unmount } = render(<ProfileSetup locale="ko" onConfirm={() => undefined} />);
+  const { unmount } = render(<KTownApp mode="demo" mapConfig={null} />);
   expect(await screen.findByRole("dialog")).toBeVisible();
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   unmount();
 });
 
-it("shows the English guide for an English visitor", async () => {
-  render(<ProfileSetup locale="en" onConfirm={() => undefined} />);
-
-  expect(await screen.findByRole("dialog", { name: "K-TOWN DEFENSE starter guide" })).toBeVisible();
-});
-
-it("keeps working when storage is unavailable", async () => {
-  const throwingStorage = {
-    getItem() { throw new Error("blocked"); },
-    setItem() { throw new Error("blocked"); },
-  };
-
-  render(<ProfileSetup locale="ko" onConfirm={() => undefined} tutorialStorage={throwingStorage} />);
-
-  expect(await screen.findByRole("dialog")).toBeVisible();
-});
-
-it("lets the visitor pick a fandom as soon as the guide is dismissed", async () => {
+it("reopens the guide from the record page", async () => {
   const user = userEvent.setup();
-  const confirmed: string[] = [];
-  render(<ProfileSetup locale="ko" onConfirm={(artistId) => confirmed.push(artistId)} />);
-
-  await user.click(await screen.findByRole("button", { name: "아티스트 고르러 가기" }));
-
-  // Search only reaches the input once the guide releases the focus trap.
-  await user.type(screen.getByRole("searchbox", { name: "아티스트 또는 팬덤 검색" }), "BTS");
-  await user.click(screen.getByRole("radio", { name: /BTS.*ARMY/ }));
-  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
-
-  expect(confirmed).toEqual(["bts"]);
-});
-
-it("reopens the guide from the record page after it was dismissed", async () => {
-  const user = userEvent.setup();
+  storeConfirmedBtsSession();
   window.sessionStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
-  window.localStorage.clear();
   render(<KTownApp mode="demo" mapConfig={null} />);
 
-  // A returning visitor is past onboarding, so nothing greets them.
-  await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
-  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
+  expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
   await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
   await user.click(screen.getByRole("button", { name: "다시 보기" }));
 
-  const dialog = await screen.findByRole("dialog", { name: "K-TOWN DEFENSE 시작 가이드" });
-  expect(within(dialog).getByText("1. 아티스트 선택")).toBeVisible();
+  expect(await screen.findByRole("dialog", { name: "영토 지도부터 볼게요" })).toBeVisible();
+});
 
-  await user.click(within(dialog).getByRole("button", { name: "아티스트 고르러 가기" }));
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+it("shows the English tour for an English visitor", async () => {
+  storeConfirmedBtsSession("en");
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  expect(await screen.findByRole("dialog", { name: GUIDE_STEPS[0].title.en })).toBeVisible();
+});
+
+it("says so when a step's control is not on screen", async () => {
+  const user = userEvent.setup();
+  storeConfirmedBtsSession();
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  // jsdom gives every element a zero-size box, so no target can be spotlighted
+  // and each anchored step falls back to explaining itself.
+  const dialog = await screen.findByRole("dialog");
+  await user.click(within(dialog).getByRole("button", { name: "다음" }));
+
+  expect(within(dialog).getByRole("note")).toHaveTextContent("지금 화면에 없어요");
 });

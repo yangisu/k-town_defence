@@ -582,6 +582,7 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
       {mapConfig && !mapError ? (
         <div
           ref={containerRef}
+          data-guide="territory-map"
           className={mapFocused ? "preview-territory-map focused" : "preview-territory-map"}
           onPointerDown={() => setMapFocused(true)}
           role="region"

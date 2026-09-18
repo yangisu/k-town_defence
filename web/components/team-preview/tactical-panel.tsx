@@ -288,7 +288,7 @@ export function TacticalPanel({
       onTouchEnd={pageCount > 1 ? endSwipe : undefined}
     >
       {pageCount > 1 ? (
-        <nav className="tactical-pager" aria-label={copy.pagerLabel}>
+        <nav data-guide="tactical-pager" className="tactical-pager" aria-label={copy.pagerLabel}>
           <button type="button" aria-label={copy.previousTerritory} disabled={pageIndex <= 0} onClick={() => page(pageIndex - 1)}>
             <ArrowLeft size={18} strokeWidth={2.4} aria-hidden="true" />
           </button>
@@ -340,7 +340,7 @@ export function TacticalPanel({
         key={territory.id}
       >
 
-      <dl className="tactical-standings">
+      <dl data-guide="tactical-standings" className="tactical-standings">
         <div><dt>{copy.owner} · {owner?.fandomName ?? "—"}</dt><dd>{standingName(owner)}</dd></div>
         <div><dt>{copy.challenger} · {challenger?.fandomName ?? "—"}</dt><dd>{standingName(challenger)}</dd></div>
         <div><dt>{copy.stronghold}</dt><dd><StrongholdMark stage={territory.strongholdStage} locale={locale} ownerColor={territoryOwnerColor} /></dd></div>
@@ -353,7 +353,7 @@ export function TacticalPanel({
         </div>
       </dl>
 
-      <section className="tactical-connection">
+      <section data-guide="tactical-connection" className="tactical-connection">
         <a
           className="tactical-source"
           href={sourceUrl}
@@ -381,7 +381,7 @@ export function TacticalPanel({
         )}
       </section>
 
-      <section className="tactical-award" aria-label={copy.awardTitle}>
+      <section data-guide="tactical-award" className="tactical-award" aria-label={copy.awardTitle}>
         <div className="tactical-section-heading">
           <h3>{copy.awardTitle}</h3>
           <button
@@ -412,6 +412,7 @@ export function TacticalPanel({
       </section>
 
       <section
+        data-guide="tactical-impact"
         className="tactical-impact"
         aria-label={`${expeditionTerritory.name[locale]} ${locale === "ko" ? "추천 원정 영향" : "recommended expedition impact"}`}
       >
@@ -441,7 +442,7 @@ export function TacticalPanel({
         <p><strong>{copy.rankImpact}</strong>: #{rank.currentRank}{rank.currentRank === rank.projectedRank ? ` · ${copy.rankHold}` : ` → #${rank.projectedRank}`}</p>
       </section>
 
-      <button className="primary-button" type="button" disabled={blockedByOtherRoute} onClick={() => demoSession.dispatch({
+      <button data-guide="start-expedition" className="primary-button" type="button" disabled={blockedByOtherRoute} onClick={() => demoSession.dispatch({
         type: "openRecommendedExpedition",
         expeditionId: expedition.id,
         territoryId: expedition.territoryId,

@@ -8,6 +8,7 @@ import { useDemoSignOut } from "@/features/demo-entry/demo-sign-out";
 import { ArtistDrawer } from "@/components/team-preview/artist-drawer";
 import { ProfileSetup } from "@/components/team-preview/profile-setup";
 import { TutorialOverlay } from "@/components/team-preview/tutorial-overlay";
+import { hasSeenTutorial, markTutorialSeen } from "@/features/team-preview/tutorial-seen";
 import { ObjectiveStrip } from "@/components/team-preview/objective-strip";
 import { TerritoryView } from "@/components/team-preview/territory-view";
 import { PreviewExpeditionView } from "@/components/team-preview/expedition-view";
@@ -29,6 +30,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [guideChecked, setGuideChecked] = useState(false);
   const resetDialogRef = useRef<HTMLDivElement>(null);
   const resetTitleRef = useRef<HTMLHeadingElement>(null);
   const session = useDemoSession();
@@ -43,11 +45,31 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     session.dispatch({ type: "selectArtist", artistId });
   };
 
+  const closeGuide = () => {
+    setGuideOpen(false);
+    try {
+      markTutorialSeen(window.sessionStorage);
+    } catch {
+      // Nothing to remember when storage is blocked.
+    }
+  };
+
   const resetDemo = () => {
     session.reset();
     setDrawerOpen(false);
     setResetOpen(false);
   };
+  // The guide explains the territory page, so it waits for a fandom instead
+  // of greeting a visitor who is still choosing one.
+  useEffect(() => {
+    if (guideChecked || !session.state.artistConfirmed) return;
+    setGuideChecked(true);
+    try {
+      if (!hasSeenTutorial(window.sessionStorage)) setGuideOpen(true);
+    } catch {
+      // Blocked storage only means the guide greets this visit too.
+    }
+  }, [guideChecked, session.state.artistConfirmed]);
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [session.state.activeTab, session.state.artistConfirmed]);
@@ -123,7 +145,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
           />
         ) : null}
       </AppShell>
-      {guideOpen ? <TutorialOverlay locale={session.state.locale} onClose={() => setGuideOpen(false)} /> : null}
+      {guideOpen ? <TutorialOverlay locale={session.state.locale} onClose={closeGuide} /> : null}
       {resetOpen && typeof document !== "undefined" ? createPortal(
         <div className="reset-dialog-overlay">
           <div className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title" ref={resetDialogRef}>

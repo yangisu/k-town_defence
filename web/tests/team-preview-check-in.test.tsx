@@ -9,6 +9,7 @@ import {
 } from "@/features/team-preview/demo-session";
 import { KTownApp } from "@/features/ktown-app";
 import type { CheckInService, Place } from "@/lib/domain";
+import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
 
 const place: Place = {
   id: "busan-1",
@@ -23,7 +24,17 @@ const place: Place = {
   points: 100,
 };
 
-beforeEach(() => window.localStorage.clear());
+
+/** These journeys are not about onboarding, so the visitor has seen the guide. */
+function skipGuide() {
+  window.sessionStorage.clear();
+  window.sessionStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
+}
+
+beforeEach(() => {
+  window.localStorage.clear();
+  skipGuide();
+});
 
 function storeReadyBtsSession(locale: "ko" | "en" = "ko") {
   window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({

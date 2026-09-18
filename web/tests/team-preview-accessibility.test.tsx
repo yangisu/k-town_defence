@@ -11,8 +11,18 @@ import { createInitialDemoSession, DEMO_SESSION_KEY } from "@/features/team-prev
 import { KTownApp } from "@/features/ktown-app";
 import type { ArtistId } from "@/features/team-preview/types";
 import type { CheckInService, Place } from "@/lib/domain";
+import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
 
-beforeEach(() => window.localStorage.clear());
+/** These journeys are not about first-run onboarding, so the visitor has already dismissed the guide. */
+function skipTutorial() {
+  window.sessionStorage.clear();
+  window.sessionStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
+}
+
+beforeEach(() => {
+  window.localStorage.clear();
+  skipTutorial();
+});
 
 function saveConfirmedBtsSession() {
   window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({

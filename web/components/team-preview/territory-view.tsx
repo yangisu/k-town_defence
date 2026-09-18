@@ -11,13 +11,11 @@ import { summarizeTerritories } from "@/features/team-preview/territory-summary"
 import type { MapConfig } from "@/lib/map-config";
 import { ShareSheet } from "@/components/share/share-sheet";
 import { buildShareCard } from "@/features/share/build-share-card";
-import { useOptionalTutorial } from "@/features/tutorial/tutorial-provider";
 
 export function TerritoryView({ mapConfig }: {
   mapConfig: MapConfig | null;
 }) {
   const session = useDemoSession();
-  const tutorial = useOptionalTutorial();
   const [filter, setFilter] = useState<TerritoryFilter>("my_fandom");
   const mapRef = useRef<HTMLDivElement>(null);
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
@@ -34,7 +32,6 @@ export function TerritoryView({ mapConfig }: {
   const selectTerritory = (territoryId: string) => {
     const cleared = session.state.selectedTerritoryId === territoryId;
     session.dispatch({ type: "selectTerritory", territoryId: cleared ? null : territoryId });
-    if (!cleared) tutorial?.completeStep("open-territory");
     // A new selection acts on the map, so follow it there.
     if (!cleared) mapRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   };
@@ -117,7 +114,7 @@ export function TerritoryView({ mapConfig }: {
                 ? `${territoryName(summary.nearestContestedAnchorTerritoryId)} ${session.state.locale === "ko" ? "거점 기준" : "base"} · ${session.state.locale === "ko" ? "약" : "about"} ${summary.nearestContestedDistanceKm ?? "—"}km`
                 : session.state.locale === "ko" ? "대표 연결 지역 기준" : "Based on the representative connected region"}</small>
             </button>
-            <button data-tutorial="recommended-territory" className="territory-summary-action" type="button" onClick={() => openSummaryTerritory("contested", summary.recommendation?.territoryId ?? null)} disabled={!summary.recommendation}>
+            <button className="territory-summary-action" type="button" onClick={() => openSummaryTerritory("contested", summary.recommendation?.territoryId ?? null)} disabled={!summary.recommendation}>
               <span>{t(session.state.locale, "summaryRecommendation")}</span>
               <strong>{summary.recommendation
                 ? `${t(session.state.locale, summary.recommendation.kind === "defend" ? "recommendDefend" : "recommendCapture")} · ${territoryName(summary.recommendation.territoryId)}`

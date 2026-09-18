@@ -10,7 +10,7 @@ export const artists: ArtistProfile[] = [
   { id: "cortis", artistName: { ko: "코르티스", en: "CORTIS" }, fandomName: "COER", color: "#4d7cfe", markerLabel: "CT", representativeTerritoryIds: ["daejeon", "suwon", "seoul"] },
   { id: "btob", artistName: { ko: "비투비", en: "BTOB" }, fandomName: "MELODY", color: "#2e9d78", markerLabel: "BTOB", representativeTerritoryIds: ["yongin", "suwon", "goyang"] },
   { id: "ive", artistName: { ko: "아이브", en: "IVE" }, fandomName: "DIVE", color: "#d2468d", markerLabel: "IVE", representativeTerritoryIds: ["daejeon", "incheon", "jeju"] },
-  { id: "kiiikiii", artistName: { ko: "키키", en: "KiiiKiii" }, fandomName: "TiiiKiii", color: "#8b5cf6", markerLabel: "K3", logoPath: "https://kiiikiii.kr/assets/home/0_Menu/Logo_1.png", representativeTerritoryIds: ["busan", "seoul"] },
+  { id: "kiiikiii", artistName: { ko: "키키", en: "KiiiKiii" }, fandomName: "TiiiKiii", color: "#8b5cf6", markerLabel: "K3", representativeTerritoryIds: ["busan", "seoul"] },
   { id: "riize", artistName: { ko: "라이즈", en: "RIIZE" }, fandomName: "BRIIZE", color: "#f28a45", markerLabel: "RZ", representativeTerritoryIds: ["ulsan", "siheung", "seoul"] },
   { id: "zerobaseone", artistName: { ko: "제로베이스원", en: "ZEROBASEONE" }, fandomName: "ZEROSE", color: "#3a9edb", markerLabel: "ZB1", representativeTerritoryIds: ["cheonan", "pohang", "wonju"] },
   { id: "boynextdoor", artistName: { ko: "보이넥스트도어", en: "BOYNEXTDOOR" }, fandomName: "ONEDOOR", color: "#59a85f", markerLabel: "BND", representativeTerritoryIds: ["wonju", "gwangju", "busan", "suwon"] },

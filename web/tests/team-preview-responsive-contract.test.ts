@@ -220,3 +220,11 @@ it("keeps the record section heading from banding twice", () => {
   // The primary action carries its lift at every width.
   expect(compactCss).toMatch(/\.primary-button\{[^}]*box-shadow:08px20pxrgba\(22,35,29,\.18\)/);
 });
+
+it("packs the territory cards from the top instead of spreading them down the map box", () => {
+  // The list fills the map boundary, so equal-height rows (1fr) would share the
+  // slack and push the second row far below the first.
+  expect(compactCss).not.toMatch(/\.preview-territory-list\{[^}]*grid-auto-rows:1fr/);
+  expect(compactCss).toMatch(/\.preview-territory-list\{[^}]*grid-auto-rows:min-content/);
+  expect(compactCss).toMatch(/\.preview-territory-list\{[^}]*align-content:start/);
+});

@@ -6,9 +6,17 @@ import { ObjectiveStrip } from "@/components/team-preview/objective-strip";
 import { KTownApp } from "@/features/ktown-app";
 import { getArtistHomeTerritories, previewContent } from "@/features/team-preview/content";
 import { DEMO_SESSION_KEY, createInitialDemoSession, demoSessionReducer } from "@/features/team-preview/demo-session";
+import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
+
+/** These journeys are not about first-run onboarding, so the visitor has already dismissed the guide. */
+function skipTutorial() {
+  window.sessionStorage.clear();
+  window.sessionStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
+}
 
 beforeEach(() => {
   window.localStorage.clear();
+  skipTutorial();
   document.documentElement.lang = "ko";
 });
 

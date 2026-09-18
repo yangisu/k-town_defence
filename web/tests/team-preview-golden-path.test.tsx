@@ -3,8 +3,18 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { KTownApp } from "@/features/ktown-app";
 import { createInitialDemoSession, DEMO_SESSION_KEY, type DemoSession } from "@/features/team-preview/demo-session";
+import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
 
-beforeEach(() => window.localStorage.clear());
+/** These journeys are not about first-run onboarding, so the visitor has already dismissed the guide. */
+function skipTutorial() {
+  window.sessionStorage.clear();
+  window.sessionStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
+}
+
+beforeEach(() => {
+  window.localStorage.clear();
+  skipTutorial();
+});
 
 it("completes the personalized BTS territory journey and persists its profile and progress", async () => {
   const user = userEvent.setup();

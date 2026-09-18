@@ -708,10 +708,10 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
     { padding: 32, maxZoom: 9, duration: 0 },
   ));
   Object.defineProperty(window, "innerWidth", { configurable: true, value: initialInnerWidth });
-  // The reset sits both on the map corner (phone) and beside the filters (web).
+  // One reset now sits on the map corner at every width.
   const resets = screen.getAllByRole("button", { name: "전국 보기" });
-  expect(resets).toHaveLength(2);
-  await userEvent.setup().click(resets[1]);
+  expect(resets).toHaveLength(1);
+  await userEvent.setup().click(resets[0]);
   expect(map.fitBounds).toHaveBeenLastCalledWith([[124.5, 32.8], [131.9, 38.9]], { duration: 0 });
 });
 

@@ -629,12 +629,6 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
       </p>
       <div className="preview-map-actions">
         {filters}
-        {mapConfig && !mapError ? (
-          <button type="button" className="preview-map-reset-inline" onClick={resetNationalView}>
-            <RotateCcw size={15} strokeWidth={2.4} aria-hidden="true" />
-            {t(session.locale, "nationalView")}
-          </button>
-        ) : null}
       </div>
       {listedTerritories.length > 0 ? (
         <button

@@ -228,3 +228,13 @@ it("packs the territory cards from the top instead of spreading them down the ma
   expect(compactCss).toMatch(/\.preview-territory-list\{[^}]*grid-auto-rows:min-content/);
   expect(compactCss).toMatch(/\.preview-territory-list\{[^}]*align-content:start/);
 });
+
+it("keeps the map's own controls on the map at every width", () => {
+  // Reset, locate and full screen used to hide above 767px, which left the
+  // desktop map with no full-screen control at all.
+  expect(compactCss).toMatch(/\.preview-map-tools\{[^}]*position:absolute[^}]*display:flex/);
+  expect(compactCss).not.toMatch(/\.preview-map-tools\{[^}]*display:none/);
+  expect(compactCss).not.toContain(".preview-map-reset-inline");
+  // Full screen still swaps the surrounding chrome for the map alone.
+  expect(compactCss).toContain(".preview-map-boundary.fullscreen.preview-map-tools{display:flex}");
+});

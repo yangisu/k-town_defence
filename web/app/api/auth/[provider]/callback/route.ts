@@ -47,9 +47,13 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
   const backendBaseUrl = process.env.KTOWN_API_BASE_URL;
   if (!backendBaseUrl) return failureRedirect(origin, "backend_not_configured");
 
+  const gatewaySecret = process.env.KTOWN_GATEWAY_SECRET;
   const upsertResponse = await fetch(`${backendBaseUrl.replace(/\/$/, "")}/api/v1/auth/social/upsert`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      ...(gatewaySecret ? { "x-ktown-gateway-secret": gatewaySecret } : {}),
+    },
     body: JSON.stringify({
       platformSubject: profile.platformSubject,
       displayName: profile.displayName,

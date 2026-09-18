@@ -17,6 +17,7 @@ async function proxy(request: Request, context: RouteContext): Promise<Response>
   return proxyKtownRequest(request, path, {
     baseUrl: process.env.KTOWN_API_BASE_URL ?? null,
     platformUserId: await resolvePlatformUserId(),
+    gatewaySecret: process.env.KTOWN_GATEWAY_SECRET ?? null,
   });
 }
 

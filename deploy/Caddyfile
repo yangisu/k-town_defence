@@ -18,6 +18,14 @@ www.{$SITE_DOMAIN} {
         reverse_proxy api:8000
     }
 
+    # Public entry point for trusted external gateways (e.g. a Vercel
+    # deployment of web/). FastAPI itself rejects any request that does not
+    # carry the matching X-KTown-Gateway-Secret header, so this route stays
+    # safe to expose even though it bypasses the Next.js server.
+    handle /api/v1/* {
+        reverse_proxy api:8000
+    }
+
     reverse_proxy web:3000 {
         header_up X-Forwarded-Host {host}
         header_up X-Forwarded-Proto {scheme}

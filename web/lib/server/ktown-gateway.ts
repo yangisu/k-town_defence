@@ -1,6 +1,7 @@
 type GatewayDependencies = {
   baseUrl: string | null;
   platformUserId: string | null;
+  gatewaySecret?: string | null;
   fetcher?: typeof fetch;
   timeoutMs?: number;
 };
@@ -59,6 +60,9 @@ export async function proxyKtownRequest(
   if (idempotencyKey) headers.set("idempotency-key", idempotencyKey);
   if (dependencies.platformUserId) {
     headers.set("x-ktown-user-id", dependencies.platformUserId);
+  }
+  if (dependencies.gatewaySecret) {
+    headers.set("x-ktown-gateway-secret", dependencies.gatewaySecret);
   }
 
   let body: ArrayBuffer | undefined;

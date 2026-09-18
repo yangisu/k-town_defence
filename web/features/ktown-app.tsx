@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AppShell } from "@/components/app-shell";
 import { BackToLoginButton } from "@/components/demo-entry/back-to-login-button";
-import { useDemoSignOut } from "@/features/demo-entry/demo-sign-out";
+import { DemoSignOutProvider, useDemoSignOut } from "@/features/demo-entry/demo-sign-out";
 import { ArtistDrawer } from "@/components/team-preview/artist-drawer";
 import { ProfileSetup } from "@/components/team-preview/profile-setup";
 import { TutorialOverlay } from "@/components/team-preview/tutorial-overlay";
@@ -193,6 +193,9 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
   const session = useDemoSession();
   const uiServices = useMemo(() => ({ ...services, checkIn: createPreviewCheckInService(services) }), [services]);
   const { dispatch, hydrated, state } = session;
+  const signOut = useCallback(() => {
+    window.location.href = "/api/auth/signout";
+  }, []);
 
   useEffect(() => {
     if (!hydrated || !membership.membership) return;
@@ -205,7 +208,11 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
     });
   }, [dispatch, hydrated, membership.fandoms, membership.membership, state.artistConfirmed, state.selectedArtistId]);
 
-  return <DemoProduct services={uiServices} mapConfig={mapConfig} profileLocked mode="integrated" />;
+  return (
+    <DemoSignOutProvider value={signOut}>
+      <DemoProduct services={uiServices} mapConfig={mapConfig} profileLocked mode="integrated" />
+    </DemoSignOutProvider>
+  );
 }
 
 export function KTownApp({ mode, mapConfig }: { mode: ServiceMode; mapConfig: MapConfig | null }) {

@@ -430,6 +430,52 @@ it("renders the modern UI and restores account state after durable membership is
   );
 });
 
+it("lets a signed-in integrated visitor sign out through the real session route", async () => {
+  const fandomId = "10000000-0000-4000-8000-000000000001";
+  const remoteState = demoSessionReducer(createInitialDemoSession(), {
+    type: "selectArtist",
+    artistId: "bts",
+  });
+  const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/v1/fandoms")) {
+      return new Response(JSON.stringify({
+        items: [{ id: fandomId, name: "ARMY", artistName: "방탄소년단" }],
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.endsWith("/api/v1/me/season-membership")) {
+      return new Response(JSON.stringify({
+        userId: "user-1", seasonId: "season-1", fandomId, lockedAt: "2026-09-14T00:00:00Z",
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.endsWith("/api/v1/me/game-state")) {
+      return new Response(JSON.stringify({ state: remoteState }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    throw new Error(`Unexpected integrated request: ${url}`);
+  });
+  vi.stubGlobal("fetch", fetcher);
+  const originalLocation = window.location;
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: { ...originalLocation, href: "" },
+  });
+
+  const user = userEvent.setup();
+  render(<KTownApp mode="integrated" mapConfig={null} />);
+  await waitFor(() => {
+    expect(screen.getByRole("region", { name: "현재 목표" })).toHaveTextContent("ARMY");
+  });
+
+  await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
+  await user.click(await screen.findByRole("button", { name: "로그아웃" }));
+
+  expect(window.location.href).toBe("/api/auth/signout");
+  Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+});
+
 it("paints the header fandom pill with the fandom's own colour", async () => {
   const user = userEvent.setup();
   render(<KTownApp mode="demo" mapConfig={null} />);

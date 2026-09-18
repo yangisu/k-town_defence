@@ -43,6 +43,11 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   };
   const confirmArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
     session.dispatch({ type: "selectArtist", artistId });
+    // Choosing a first fandom always opens the guide: it is the moment the
+    // territory page appears, and a dismissal earlier in the tab was about a
+    // page this visitor had not reached yet.
+    setGuideChecked(true);
+    setGuideOpen(true);
   };
 
   const closeGuide = () => {

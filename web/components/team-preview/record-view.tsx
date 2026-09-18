@@ -263,7 +263,7 @@ export function RecordView({
               aria-label={t(locale, "recordCheckInClose")}
               onClick={() => setOpenCheckIn(null)}
             >
-              <X size={17} strokeWidth={2.6} aria-hidden="true" />
+              <X size={16} strokeWidth={2.6} aria-hidden="true" />
             </button>
             <h2 id="record-detail-title" tabIndex={-1} ref={detailTitleRef}>
               {detailPlace?.name[locale] ?? detail.entry.placeId}

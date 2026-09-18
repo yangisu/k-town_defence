@@ -367,6 +367,9 @@ it("returns focus to the profile trigger after a keyboard-confirmed fandom chang
 
   await user.click(await screen.findByRole("radio", { name: /방탄소년단.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
+  // A first fandom always opens the starter guide; this journey is about what
+  // comes after it.
+  await user.click(await screen.findByRole("button", { name: "건너뛰기" }));
   const navigation = screen.getByRole("navigation", { name: "주요 메뉴" });
   await user.click(within(navigation).getByRole("button", { name: "내 기록" }));
   const trigger = screen.getByRole("button", { name: "아티스트 변경" });

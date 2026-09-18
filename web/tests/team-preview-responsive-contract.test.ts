@@ -246,3 +246,17 @@ it("fills the screen when the map goes full screen on a phone", () => {
   expect(compactCss).toMatch(/\.preview-map-boundary\.fullscreen\.preview-territory-map\{[^}]*height:100%!important/);
   expect(compactCss).toMatch(/\.preview-map-boundary\.fullscreen\.preview-territory-map\{[^}]*min-height:0!important/);
 });
+
+it("gives the share button the same phone gutter as the rest of the page", () => {
+  // The phone layout zeroes the view's own side padding and hands each child
+  // its own gutter, which left the share button flush against the edge.
+  const phone = compactCss.slice(compactCss.indexOf("@media(max-width:767px)"));
+  expect(phone).toContain(".territory-view>.share-sheet-trigger{margin-inline:22px}");
+});
+
+it("centres the record detail icons inside their boxes", () => {
+  // lucide renders an inline svg, so line-height nudged it off centre.
+  expect(compactCss).toMatch(/\.record-detail-close\{[^}]*align-items:center[^}]*justify-content:center[^}]*line-height:0/);
+  expect(compactCss).toContain(".record-detail-close>svg{display:block}");
+  expect(compactCss).toContain(".record-detail-photo>svg{display:block}");
+});

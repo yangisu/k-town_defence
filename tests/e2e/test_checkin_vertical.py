@@ -16,7 +16,14 @@ async def test_http_checkin_flow_survives_a_fresh_database_connection(
     session_id = created.json()["id"]
     assert created.status_code == 201
 
-    for sequence, accuracy in enumerate((24, 22, 20), start=1):
+    for sequence, (accuracy, captured_at) in enumerate(
+        zip((24, 22, 20), (
+            "2026-08-21T10:00:00Z",
+            "2026-08-21T10:00:01Z",
+            "2026-08-21T10:00:02Z",
+        )),
+        start=1,
+    ):
         response = await member_client.post(
             f"/api/v1/checkins/{session_id}/gps",
             json={
@@ -24,7 +31,7 @@ async def test_http_checkin_flow_survives_a_fresh_database_connection(
                 "latitude": 35.0975,
                 "longitude": 129.0106,
                 "accuracyMeters": accuracy,
-                "capturedAt": "2026-08-21T10:00:00Z",
+                "capturedAt": captured_at,
             },
         )
         assert response.status_code == 201
@@ -41,7 +48,7 @@ async def test_http_checkin_flow_survives_a_fresh_database_connection(
         headers={"Idempotency-Key": str(uuid4())},
     )
     assert submitted.status_code == 201
-    assert submitted.json()["decision"] == "pending"
+    assert submitted.json()["decision"] == "approved"
 
     engine, sessions = create_engine_and_session_factory(DATABASE_URL)
     try:
@@ -55,6 +62,6 @@ async def test_http_checkin_flow_survives_a_fresh_database_connection(
             assert checkin is not None
             assert checkin.status == "submitted"
             assert persisted_submission is not None
-            assert persisted_submission.decision == "pending"
+            assert persisted_submission.decision == "approved"
     finally:
         await engine.dispose()

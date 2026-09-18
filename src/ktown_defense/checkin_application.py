@@ -11,9 +11,19 @@ from .infrastructure.models import (
     CheckInSessionModel,
     GpsSampleModel,
     PhotoModel,
+    PlaceModel,
     SubmissionModel,
 )
 from .infrastructure.repositories import CheckInRepository, PlaceRepository
+from .verification import (
+    VerificationEvidence,
+    VerificationPolicy,
+    VerificationSample,
+    classify_verification,
+    distance_meters,
+)
+
+FIRST_VISIT_POINTS = 100
 
 
 def utc_now() -> datetime:
@@ -190,11 +200,21 @@ class CheckInApplication:
                 409, "CHECKIN_NOT_READY", "GPS와 사진 증거가 모두 필요합니다."
             )
 
+        decision, risk_codes = await self._classify(checkin)
+        awarded_points = 0
+        if decision == "approved":
+            prior_visits = await self._checkins.count_approved_visits(
+                user_id, checkin.place_id
+            )
+            awarded_points = FIRST_VISIT_POINTS if prior_visits == 0 else 0
+
         submission = SubmissionModel(
             id=uuid4(),
             session_id=session_id,
             idempotency_key=parsed_key,
-            decision="pending",
+            decision=decision,
+            risk_codes=list(risk_codes),
+            awarded_points=awarded_points,
             submitted_at=self._clock(),
         )
         self._checkins.add_submission(submission)
@@ -203,3 +223,111 @@ class CheckInApplication:
         await self._session.commit()
         await self._session.refresh(submission)
         return submission
+
+    async def _classify(
+        self, checkin: CheckInSessionModel
+    ) -> tuple[str, tuple[str, ...]]:
+        """Analyse the collected real GPS/photo evidence for this check-in.
+
+        Every geofence, accuracy, and duplicate-photo check runs against the
+        place's actual coordinates, so this is the "real" verification path
+        (as opposed to the client-only demo simulation).  Dwell time is not
+        yet enforced: the client does not track continuous foreground
+        presence, so requiring a minimum dwell would reject every real
+        check-in today.
+        """
+
+        place = await self._places.get_public(checkin.place_id)
+        if place is None:
+            raise ApiError(404, "PLACE_NOT_FOUND", "장소를 찾을 수 없습니다.")
+
+        gps_samples = await self._checkins.list_gps(checkin.id)
+        photo = await self._checkins.get_photo(checkin.id)
+
+        duplicate_media = False
+        if photo is not None:
+            duplicate = await self._checkins.find_duplicate_photo(
+                photo.sha256, exclude_session_id=checkin.id
+            )
+            duplicate_media = duplicate is not None
+
+        evidence = VerificationEvidence(
+            samples=_build_samples(gps_samples, place),
+            active_dwell_seconds=_dwell_seconds(gps_samples),
+            image_decoded=True,
+            captured_in_active_session=True,
+            duplicate_media=duplicate_media,
+            multi_account_suspected=False,
+        )
+        policy = VerificationPolicy(min_dwell_seconds=0.0)
+        result = classify_verification(policy, evidence)
+        if result.status.value == "rejected":
+            return "rejected", result.rejection_codes
+        if result.status.value == "review_required":
+            return "review_required", result.risk_codes
+        return "approved", result.risk_codes
+
+
+def _build_samples(
+    gps_samples: list[GpsSampleModel], place: PlaceModel
+) -> tuple[VerificationSample, ...]:
+    """Turn ordered raw GPS rows into distance-scored verification samples.
+
+    Sample "kind" is not sent by the client (only sequence order is), so the
+    first sample is treated as ``start``, the last as ``end``, and anything
+    between as ``middle`` -- matching the three-fix collection flow the
+    check-in UI already performs.
+    """
+
+    samples: list[VerificationSample] = []
+    previous: GpsSampleModel | None = None
+    for index, sample in enumerate(gps_samples):
+        if index == 0:
+            kind = "start"
+        elif index == len(gps_samples) - 1:
+            kind = "end"
+        else:
+            kind = "middle"
+        distance = distance_meters(
+            float(sample.latitude),
+            float(sample.longitude),
+            float(place.latitude),
+            float(place.longitude),
+        )
+        speed_kmh = None
+        if previous is not None:
+            elapsed_hours = (
+                sample.captured_at - previous.captured_at
+            ).total_seconds() / 3600
+            if elapsed_hours > 0:
+                hop_m = distance_meters(
+                    float(previous.latitude),
+                    float(previous.longitude),
+                    float(sample.latitude),
+                    float(sample.longitude),
+                )
+                speed_kmh = (hop_m / 1000) / elapsed_hours
+        samples.append(
+            VerificationSample(
+                sample_kind=kind,
+                accuracy_m=float(sample.accuracy_meters),
+                distance_m=distance,
+                speed_from_previous_kmh=speed_kmh,
+            )
+        )
+        previous = sample
+    return tuple(samples)
+
+
+def _dwell_seconds(gps_samples: list[GpsSampleModel]) -> float:
+    """Approximate dwell as the span between the first and last GPS fix.
+
+    This is a stand-in for true continuous foreground dwell tracking (see
+    ``checkin.py``'s in-memory session model), which the persisted API does
+    not yet collect.
+    """
+
+    if len(gps_samples) < 2:
+        return 0.0
+    span = gps_samples[-1].captured_at - gps_samples[0].captured_at
+    return max(span.total_seconds(), 0.0)

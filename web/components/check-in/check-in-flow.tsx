@@ -28,6 +28,12 @@ type Props = {
 };
 
 const gpsKinds = ["start", "middle", "end"] as const;
+const resultEyebrow: Record<CheckInResult["decision"], string> = {
+  pending: "CHECK-IN PENDING",
+  approved: "CHECK-IN APPROVED",
+  review_required: "CHECK-IN IN REVIEW",
+  rejected: "CHECK-IN REJECTED",
+};
 const demoCopy = {
   ko: {
     pill: "데모 체크인", title: "현장 체크인", close: "체크인 닫기", approved: "체크인 승인 완료",
@@ -213,10 +219,14 @@ export function CheckInFlow({
         {result ? (
           <section className="checkin-result">
             <div className="result-icon"><Check size={40} /></div>
-            <span className="eyebrow">{result.decision === "pending" ? "CHECK-IN PENDING" : "CHECK-IN APPROVED"}</span>
+            <span className="eyebrow">{resultEyebrow[result.decision]}</span>
             <h2>{approvedDemo ? demoLabels.approved : result.message}</h2>
             {result.decision === "pending" ? (
               <p>{place.nameKo} 체크인이 DB에 저장됐습니다. 운영 검토와 포인트 반영은 아직 완료되지 않았습니다.</p>
+            ) : result.decision === "review_required" ? (
+              <p>{place.nameKo} GPS 위치 확인이 명확하지 않아 운영자 검토가 필요합니다. 검토 결과는 여행 기록에서 확인할 수 있어요.</p>
+            ) : result.decision === "rejected" ? (
+              <p>{place.nameKo} GPS 위치가 현장과 일치하지 않아 체크인이 거절됐습니다. 현장에서 다시 시도해 주세요.</p>
             ) : approvedDemo ? (
               <>
                 <p>{place.nameKo} {demoLabels.visitApproved}</p>
@@ -243,8 +253,12 @@ export function CheckInFlow({
               <>
                 <p>{place.nameKo} 방문이 승인됐어요.</p>
                 <div className="result-stats">
-                  <div aria-label={`팬덤 기여 ${result.awardedPoints}P`}><small>팬덤 기여</small><strong>+{result.awardedPoints}P</strong></div>
-                  <div aria-label={`부산 탈환까지 ${result.pointsToCapture}P`}><small>부산 탈환까지</small><strong>{result.pointsToCapture}P</strong></div>
+                  {result.awardedPoints !== undefined ? (
+                    <div aria-label={`팬덤 기여 ${result.awardedPoints}P`}><small>팬덤 기여</small><strong>+{result.awardedPoints}P</strong></div>
+                  ) : null}
+                  {result.pointsToCapture !== undefined ? (
+                    <div aria-label={`부산 탈환까지 ${result.pointsToCapture}P`}><small>부산 탈환까지</small><strong>{result.pointsToCapture}P</strong></div>
+                  ) : null}
                 </div>
               </>
             )}

@@ -297,7 +297,10 @@ class PhotoModel(Base):
 class SubmissionModel(Base):
     __tablename__ = "checkin_submissions"
     __table_args__ = (
-        CheckConstraint("decision = 'pending'", name="ck_submissions_decision"),
+        CheckConstraint(
+            "decision IN ('pending', 'approved', 'review_required', 'rejected')",
+            name="ck_submissions_decision",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -312,6 +315,8 @@ class SubmissionModel(Base):
         PostgreSQLUUID(as_uuid=True), unique=True
     )
     decision: Mapped[str] = mapped_column(String(20), default="pending")
+    risk_codes: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    awarded_points: Mapped[int] = mapped_column(Integer, default=0)
     submitted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

@@ -4,11 +4,23 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from math import asin, cos, radians, sin, sqrt
 from typing import Final, Iterable
 
 
 POLICY_VERSION: Final = "verification-policy-v1"
 REQUIRED_SAMPLE_KINDS: Final = ("start", "middle", "end")
+EARTH_RADIUS_M: Final = 6_371_008.8
+
+
+def distance_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Great-circle distance between two WGS84 points, in meters."""
+
+    lat1_r, lon1_r, lat2_r, lon2_r = radians(lat1), radians(lon1), radians(lat2), radians(lon2)
+    delta_lat = lat2_r - lat1_r
+    delta_lon = lon2_r - lon1_r
+    chord = sin(delta_lat / 2) ** 2 + cos(lat1_r) * cos(lat2_r) * sin(delta_lon / 2) ** 2
+    return 2 * EARTH_RADIUS_M * asin(sqrt(chord))
 RISK_CODE_ORDER: Final = (
     "BOUNDARY_OVERLAP",
     "LOW_ACCURACY",

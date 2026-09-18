@@ -68,7 +68,9 @@ class SubmissionResponse(BaseModel):
 
     id: UUID
     session_id: UUID = Field(serialization_alias="sessionId")
-    decision: Literal["pending"]
+    decision: Literal["pending", "approved", "review_required", "rejected"]
+    risk_codes: list[str] = Field(serialization_alias="riskCodes")
+    awarded_points: int = Field(serialization_alias="awardedPoints")
     submitted_at: str = Field(serialization_alias="submittedAt")
 
     @classmethod
@@ -76,7 +78,9 @@ class SubmissionResponse(BaseModel):
         return cls(
             id=model.id,
             session_id=model.session_id,
-            decision="pending",
+            decision=model.decision,
+            risk_codes=list(model.risk_codes),
+            awarded_points=model.awarded_points,
             submitted_at=model.submitted_at.isoformat().replace("+00:00", "Z"),
         )
 

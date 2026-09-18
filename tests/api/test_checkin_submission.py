@@ -7,13 +7,8 @@ from ktown_defense.infrastructure.models import SubmissionModel
 from tests.conftest import DATABASE_URL
 
 
-GPS_PAYLOAD = {
-    "sequence": 1,
-    "latitude": 35.0975,
-    "longitude": 129.0106,
-    "accuracyMeters": 20,
-    "capturedAt": "2026-08-21T10:00:00Z",
-}
+PLACE_LATITUDE = 35.0975
+PLACE_LONGITUDE = 129.0106
 PHOTO_BYTES = b"\xff\xd8\xff\xe0submission-photo"
 
 
@@ -24,17 +19,48 @@ async def _create_session(member_client, public_place) -> str:
     return response.json()["id"]
 
 
-async def _make_ready(member_client, session_id: str) -> None:
-    assert (
-        await member_client.post(
-            f"/api/v1/checkins/{session_id}/gps", json=GPS_PAYLOAD
+async def _record_gps(
+    member_client,
+    session_id: str,
+    *,
+    latitude: float = PLACE_LATITUDE,
+    longitude: float = PLACE_LONGITUDE,
+    accuracy: float = 20,
+) -> None:
+    for sequence, captured_at in enumerate(
+        ("2026-08-21T10:00:00Z", "2026-08-21T10:00:01Z", "2026-08-21T10:00:02Z"),
+        start=1,
+    ):
+        response = await member_client.post(
+            f"/api/v1/checkins/{session_id}/gps",
+            json={
+                "sequence": sequence,
+                "latitude": latitude,
+                "longitude": longitude,
+                "accuracyMeters": accuracy,
+                "capturedAt": captured_at,
+            },
         )
-    ).status_code == 201
+        assert response.status_code == 201
+
+
+async def _make_ready(
+    member_client,
+    session_id: str,
+    *,
+    latitude: float = PLACE_LATITUDE,
+    longitude: float = PLACE_LONGITUDE,
+    accuracy: float = 20,
+    photo_bytes: bytes = PHOTO_BYTES,
+) -> None:
+    await _record_gps(
+        member_client, session_id, latitude=latitude, longitude=longitude, accuracy=accuracy
+    )
     assert (
         await member_client.post(
             f"/api/v1/checkins/{session_id}/photo",
-            files={"file": ("camera.jpg", PHOTO_BYTES, "image/jpeg")},
-            data={"capturedAt": "2026-08-21T10:00:01Z"},
+            files={"file": ("camera.jpg", photo_bytes, "image/jpeg")},
+            data={"capturedAt": "2026-08-21T10:00:03Z"},
         )
     ).status_code == 201
 
@@ -51,7 +77,9 @@ async def test_collecting_session_cannot_submit(member_client, public_place) -> 
     assert response.json()["code"] == "CHECKIN_NOT_READY"
 
 
-async def test_ready_session_submits_once_as_pending(member_client, public_place) -> None:
+async def test_gps_inside_geofence_auto_approves_and_awards_first_visit_points(
+    member_client, public_place
+) -> None:
     session_id = await _create_session(member_client, public_place)
     await _make_ready(member_client, session_id)
     key = str(uuid4())
@@ -67,8 +95,66 @@ async def test_ready_session_submits_once_as_pending(member_client, public_place
 
     assert first.status_code == second.status_code == 201
     assert first.json() == second.json()
-    assert first.json()["decision"] == "pending"
-    assert "awardedPoints" not in first.json()
+    assert first.json()["decision"] == "approved"
+    assert first.json()["awardedPoints"] == 100
+    assert first.json()["riskCodes"] == []
+
+
+async def test_gps_far_from_place_is_rejected(member_client, public_place) -> None:
+    session_id = await _create_session(member_client, public_place)
+    await _make_ready(member_client, session_id, latitude=37.5665, longitude=126.9780)
+
+    response = await member_client.post(
+        f"/api/v1/checkins/{session_id}/submit",
+        headers={"Idempotency-Key": str(uuid4())},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["decision"] == "rejected"
+    assert response.json()["awardedPoints"] == 0
+    assert "OUTSIDE_GEOFENCE" in response.json()["riskCodes"]
+
+
+async def test_low_accuracy_gps_requires_review(member_client, public_place) -> None:
+    session_id = await _create_session(member_client, public_place)
+    await _make_ready(member_client, session_id, accuracy=80)
+
+    response = await member_client.post(
+        f"/api/v1/checkins/{session_id}/submit",
+        headers={"Idempotency-Key": str(uuid4())},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["decision"] == "review_required"
+    assert response.json()["awardedPoints"] == 0
+    assert "LOW_ACCURACY" in response.json()["riskCodes"]
+
+
+async def test_repeat_visit_to_same_place_awards_zero_points(
+    member_client, public_place
+) -> None:
+    first_session = await _create_session(member_client, public_place)
+    await _make_ready(member_client, first_session)
+    first = await member_client.post(
+        f"/api/v1/checkins/{first_session}/submit",
+        headers={"Idempotency-Key": str(uuid4())},
+    )
+    assert first.json()["decision"] == "approved"
+    assert first.json()["awardedPoints"] == 100
+
+    second_session = await _create_session(member_client, public_place)
+    await _make_ready(
+        member_client,
+        second_session,
+        photo_bytes=b"\xff\xd8\xff\xe0submission-photo-2",
+    )
+    second = await member_client.post(
+        f"/api/v1/checkins/{second_session}/submit",
+        headers={"Idempotency-Key": str(uuid4())},
+    )
+
+    assert second.json()["decision"] == "approved"
+    assert second.json()["awardedPoints"] == 0
 
 
 async def test_different_key_cannot_resubmit(member_client, public_place) -> None:
@@ -105,6 +191,7 @@ async def test_submission_survives_a_fresh_engine(member_client, public_place) -
                 )
             )
             assert persisted is not None
-            assert persisted.decision == "pending"
+            assert persisted.decision == "approved"
+            assert persisted.awarded_points == 100
     finally:
         await engine.dispose()

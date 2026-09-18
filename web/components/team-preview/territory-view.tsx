@@ -29,11 +29,13 @@ export function TerritoryView({ mapConfig }: {
     : null, [selectedArtist, session.state.territories]);
 
   // Picking the selected territory again clears it and puts the panel away.
-  const selectTerritory = (territoryId: string) => {
+  // Paging passes follow: false: the card the reader is swiping stays put, so
+  // pulling the page to the map below would drag it out from under them.
+  const selectTerritory = (territoryId: string, { follow = true }: { follow?: boolean } = {}) => {
     const cleared = session.state.selectedTerritoryId === territoryId;
     session.dispatch({ type: "selectTerritory", territoryId: cleared ? null : territoryId });
     // A new selection acts on the map, so follow it there.
-    if (!cleared) mapRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    if (!cleared && follow) mapRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   };
 
   const changeFilter = (nextFilter: TerritoryFilter) => {
@@ -83,7 +85,7 @@ export function TerritoryView({ mapConfig }: {
           pageCount={visibleTerritories.length}
           onPage={(index) => {
             const next = visibleTerritories[index];
-            if (next) selectTerritory(next.id);
+            if (next) selectTerritory(next.id, { follow: false });
           }}
           onStartExpedition={() => session.dispatch({ type: "openExpedition", expeditionId: expedition.id })}
         />

@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it } from "vitest";
 import { ProfileSetup } from "@/components/team-preview/profile-setup";
+import { KTownApp } from "@/features/ktown-app";
 import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
 
 beforeEach(() => {
@@ -81,4 +82,25 @@ it("lets the visitor pick a fandom as soon as the guide is dismissed", async () 
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
 
   expect(confirmed).toEqual(["bts"]);
+});
+
+it("reopens the guide from the record page after it was dismissed", async () => {
+  const user = userEvent.setup();
+  window.sessionStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
+  window.localStorage.clear();
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  // A returning visitor is past onboarding, so nothing greets them.
+  await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
+  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+  await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
+  await user.click(screen.getByRole("button", { name: "다시 보기" }));
+
+  const dialog = await screen.findByRole("dialog", { name: "K-TOWN DEFENSE 시작 가이드" });
+  expect(within(dialog).getByText("1. 아티스트 선택")).toBeVisible();
+
+  await user.click(within(dialog).getByRole("button", { name: "아티스트 고르러 가기" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });

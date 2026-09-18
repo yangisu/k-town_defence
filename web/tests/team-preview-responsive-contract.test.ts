@@ -238,3 +238,11 @@ it("keeps the map's own controls on the map at every width", () => {
   // Full screen still swaps the surrounding chrome for the map alone.
   expect(compactCss).toContain(".preview-map-boundary.fullscreen.preview-map-tools{display:flex}");
 });
+
+it("fills the screen when the map goes full screen on a phone", () => {
+  // The phone rule pins the map to 52svh with !important, so full screen has
+  // to outrank it or the map keeps its letterbox inside a full-screen shell.
+  expect(compactCss).toContain(".preview-map-boundary.fullscreen{height:100dvh}");
+  expect(compactCss).toMatch(/\.preview-map-boundary\.fullscreen\.preview-territory-map\{[^}]*height:100%!important/);
+  expect(compactCss).toMatch(/\.preview-map-boundary\.fullscreen\.preview-territory-map\{[^}]*min-height:0!important/);
+});

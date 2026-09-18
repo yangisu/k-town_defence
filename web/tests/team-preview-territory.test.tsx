@@ -625,3 +625,22 @@ it("brings the map into view when a territory card is chosen", async () => {
     .getByRole("button", { name: /^대구/ }));
   expect(scrollIntoView).not.toHaveBeenCalled();
 });
+
+it("holds the page still while the tactical card pages to another territory", async () => {
+  const user = userEvent.setup();
+  const scrollIntoView = vi.fn();
+  Element.prototype.scrollIntoView = scrollIntoView;
+  renderPreviewWithArtist();
+
+  await user.click(within(await screen.findByRole("list", { name: "지도와 같은 영토 목록" }))
+    .getByRole("button", { name: /^대구/ }));
+  expect(scrollIntoView).toHaveBeenCalled();
+
+  // Paging keeps the card under the reader's thumb, so the page stays put
+  // even though the map still follows the new territory.
+  scrollIntoView.mockClear();
+  await user.click(screen.getByRole("button", { name: "다음 영토" }));
+
+  expect(scrollIntoView).not.toHaveBeenCalled();
+  expect(screen.getByRole("complementary", { name: /전술 패널$/ })).toBeVisible();
+});

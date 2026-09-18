@@ -66,6 +66,7 @@ export function RecordView({
   onChangeArtist = () => undefined,
   onSignOut,
   onReset,
+  onReplayGuide,
 }: {
   locale: Locale;
   session: DemoSession;
@@ -73,6 +74,7 @@ export function RecordView({
   onChangeArtist?: () => void;
   onSignOut?: () => void;
   onReset?: () => void;
+  onReplayGuide?: () => void;
 }) {
   const [seasonInfoOpen, setSeasonInfoOpen] = useState(false);
   const [growthInfoOpen, setGrowthInfoOpen] = useState(false);
@@ -291,7 +293,7 @@ export function RecordView({
         <button type="button" onClick={onChangeArtist}>{t(locale, "recordChangeArtist")}</button>
       </section>
 
-      {onSignOut || onReset ? (
+      {onSignOut || onReset || onReplayGuide ? (
         <section className="record-account" aria-label={t(locale, "recordAccount")}>
           <span>{t(locale, "recordAccount")}</span>
           {onSignOut ? (
@@ -301,6 +303,15 @@ export function RecordView({
                 <p>{t(locale, "recordSignOutDescription")}</p>
               </div>
               <button type="button" onClick={onSignOut}>{t(locale, "recordSignOut")}</button>
+            </div>
+          ) : null}
+          {onReplayGuide ? (
+            <div className="record-account-row">
+              <div>
+                <strong>{t(locale, "tutorialReplay")}</strong>
+                <p>{t(locale, "tutorialReplayDescription")}</p>
+              </div>
+              <button type="button" onClick={onReplayGuide}>{t(locale, "tutorialReplayAction")}</button>
             </div>
           ) : null}
           {onReset ? (

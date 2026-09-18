@@ -7,6 +7,7 @@ import { BackToLoginButton } from "@/components/demo-entry/back-to-login-button"
 import { useDemoSignOut } from "@/features/demo-entry/demo-sign-out";
 import { ArtistDrawer } from "@/components/team-preview/artist-drawer";
 import { ProfileSetup } from "@/components/team-preview/profile-setup";
+import { TutorialOverlay } from "@/components/team-preview/tutorial-overlay";
 import { ObjectiveStrip } from "@/components/team-preview/objective-strip";
 import { TerritoryView } from "@/components/team-preview/territory-view";
 import { PreviewExpeditionView } from "@/components/team-preview/expedition-view";
@@ -27,6 +28,7 @@ import { createServices, type ServiceMode } from "@/lib/service-factory";
 function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo" }: { services: AppServices; mapConfig: MapConfig | null; profileLocked?: boolean; mode?: ServiceMode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const resetDialogRef = useRef<HTMLDivElement>(null);
   const resetTitleRef = useRef<HTMLHeadingElement>(null);
   const session = useDemoSession();
@@ -108,6 +110,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
             onChangeArtist={profileLocked ? undefined : () => setDrawerOpen(true)}
             onSignOut={signOut ?? undefined}
             onReset={() => setResetOpen(true)}
+            onReplayGuide={() => setGuideOpen(true)}
           />
         ) : null}
         {!profileLocked ? (
@@ -120,6 +123,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
           />
         ) : null}
       </AppShell>
+      {guideOpen ? <TutorialOverlay locale={session.state.locale} onClose={() => setGuideOpen(false)} /> : null}
       {resetOpen && typeof document !== "undefined" ? createPortal(
         <div className="reset-dialog-overlay">
           <div className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title" ref={resetDialogRef}>

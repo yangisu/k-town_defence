@@ -21,6 +21,10 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="KTOUR_SERVICE_KEY",
     )
+    gateway_shared_secret: SecretStr | None = Field(
+        default=None,
+        validation_alias="KTOWN_GATEWAY_SECRET",
+    )
 
 
 @lru_cache

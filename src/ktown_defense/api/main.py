@@ -1,8 +1,10 @@
 """FastAPI application factory."""
 
 from contextlib import asynccontextmanager
+from hmac import compare_digest
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from ..infrastructure.database import create_engine_and_session_factory
@@ -34,6 +36,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.session_factory = session_factory
     app.state.photo_storage = PrivatePhotoStorage(app.state.settings.upload_dir)
     install_error_handlers(app)
+
+    secret = runtime_settings.gateway_shared_secret
+    if secret is not None:
+        expected = secret.get_secret_value()
+
+        @app.middleware("http")
+        async def require_gateway_secret(request: Request, call_next):
+            if request.url.path in {"/health", "/health/ready"}:
+                return await call_next(request)
+            provided = request.headers.get("x-ktown-gateway-secret", "")
+            if not compare_digest(provided, expected):
+                return JSONResponse(
+                    status_code=401,
+                    content={
+                        "code": "GATEWAY_AUTH_REQUIRED",
+                        "message": "신뢰할 수 있는 게이트웨이를 통한 요청만 허용됩니다.",
+                    },
+                )
+            return await call_next(request)
 
     @app.get("/health")
     async def health() -> dict[str, str]:

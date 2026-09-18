@@ -18,7 +18,10 @@ export async function fetchShareSubject(
   if (kind === "checkin") {
     const backendBaseUrl = process.env.KTOWN_API_BASE_URL;
     if (!backendBaseUrl) return null;
-    const response = await fetch(`${backendBaseUrl.replace(/\/$/, "")}/api/v1/places/${id}`);
+    const gatewaySecret = process.env.KTOWN_GATEWAY_SECRET;
+    const response = await fetch(`${backendBaseUrl.replace(/\/$/, "")}/api/v1/places/${id}`, {
+      headers: gatewaySecret ? { "x-ktown-gateway-secret": gatewaySecret } : undefined,
+    });
     if (!response.ok) return null;
     const place = (await response.json()) as PlaceResponse;
     const card = buildShareCard("checkin", { placeId: id, placeName: place.nameKo });

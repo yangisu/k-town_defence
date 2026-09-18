@@ -30,6 +30,7 @@ describe("self-hosted production build", () => {
         NEXT_PUBLIC_AWS_LOCATION_STYLE: "Standard",
         KTOWN_API_BASE_URL: "http://api:8000",
         KTOWN_SESSION_SECRET: "server-only-session-secret-sentinel",
+        KTOWN_GATEWAY_SECRET: "server-only-gateway-secret-sentinel",
       },
     });
     diagnostic = `${result.stdout}\n${result.stderr}`;
@@ -46,8 +47,9 @@ describe("self-hosted production build", () => {
 
   it("does not expose server-only configuration in browser assets", () => {
     expect(browserArtifact).not.toContain("server-only-session-secret-sentinel");
+    expect(browserArtifact).not.toContain("server-only-gateway-secret-sentinel");
     expect(browserArtifact).not.toContain("http://api:8000");
-    expect(browserArtifact).not.toMatch(/KTOWN_SESSION_SECRET|KTOWN_API_BASE_URL/);
+    expect(browserArtifact).not.toMatch(/KTOWN_SESSION_SECRET|KTOWN_API_BASE_URL|KTOWN_GATEWAY_SECRET/);
   });
 
   it("has Vercel deployment configuration for the web app", () => {

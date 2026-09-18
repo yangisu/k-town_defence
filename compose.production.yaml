@@ -28,6 +28,7 @@ services:
       KTOUR_SERVICE_KEY: ${KTOUR_SERVICE_KEY}
       KTOUR_MOBILE_OS: ETC
       KTOUR_MOBILE_APP: KTownDefense
+      KTOWN_GATEWAY_SECRET: ${KTOWN_GATEWAY_SECRET}
     command: >-
       sh -c "python -m alembic -c alembic.ini upgrade head &&
       exec uvicorn ktown_defense.api.main:app --host 0.0.0.0 --port 8000
@@ -61,6 +62,7 @@ services:
       KTOWN_SERVICE_MODE: integrated
       KTOWN_API_BASE_URL: http://api:8000
       KTOWN_SESSION_SECRET: ${KTOWN_SESSION_SECRET}
+      KTOWN_GATEWAY_SECRET: ${KTOWN_GATEWAY_SECRET}
       KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-}
       KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}

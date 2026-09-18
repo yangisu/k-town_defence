@@ -260,3 +260,13 @@ it("centres the record detail icons inside their boxes", () => {
   expect(compactCss).toContain(".record-detail-close>svg{display:block}");
   expect(compactCss).toContain(".record-detail-photo>svg{display:block}");
 });
+
+it("keeps the shared dialog rules off the record detail's own controls", () => {
+  // `.reset-dialog button` and `.reset-dialog>div` outrank the detail dialog's
+  // own class, which padded the close button and pushed the photo placeholder
+  // to the end of its box. They now address the action row alone.
+  expect(compactCss).not.toContain(".reset-dialogbutton{");
+  expect(compactCss).not.toContain(".reset-dialog>div{");
+  expect(compactCss).toContain(".reset-dialog>.reset-dialog-actions{");
+  expect(compactCss).toContain(".reset-dialog>.reset-dialog-actionsbutton{");
+});

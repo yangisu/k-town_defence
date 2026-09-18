@@ -349,7 +349,7 @@ export function PreviewExpeditionView({
             </h2>
             <p>{labels.endConfirmKept}</p>
             <p>{allStopsCheckedIn ? labels.endCompleteBody : labels.endConfirmLost}</p>
-            <div>
+            <div className="reset-dialog-actions">
               <button type="button" onClick={() => setEndOpen(false)}>{labels.endCancel}</button>
               <button type="button" className="danger" onClick={() => {
                 setEndOpen(false);

@@ -156,7 +156,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
           <div className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title" ref={resetDialogRef}>
             <h2 id="reset-dialog-title" tabIndex={-1} ref={resetTitleRef}>{t(session.state.locale, "resetConfirmTitle")}</h2>
             <p>{t(session.state.locale, "resetConfirmBody")}</p>
-            <div>
+            <div className="reset-dialog-actions">
               <button type="button" onClick={() => setResetOpen(false)}>{t(session.state.locale, "resetCancel")}</button>
               <button type="button" onClick={resetDemo}>{t(session.state.locale, "resetConfirmAction")}</button>
             </div>

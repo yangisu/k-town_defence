@@ -134,20 +134,19 @@ it("pairs the expedition hero with the territory standings once both columns fit
   expect(compactCss).not.toContain(".battle-cardul{padding-left");
 });
 
-it("fits the login card into a shortened viewport instead of scrolling it", () => {
+it("fits the demo entry card into a shortened viewport instead of scrolling it", () => {
   // Every vertical step of the card scales with the small viewport height, so
   // shrinking the window compacts the card rather than pushing it off-screen.
   expect(compactCss).toContain(".demo-login-screen{display:grid;place-items:center;padding:clamp(14px,3svh,24px)clamp(14px,4vw,24px)}");
   expect(compactCss).toContain(".demo-login-card{width:min(100%,420px);padding:clamp(20px,4.2svh,32px)clamp(20px,5vw,32px)");
   expect(compactCss).toContain(".demo-login-cardh1{margin:clamp(16px,4.4svh,34px)08px;font-size:clamp(24px,4svh,30px)}");
-  expect(compactCss).toContain(".demo-login-cardinput{width:100%;min-height:clamp(44px,6.8svh,52px);margin-top:clamp(5px,.9svh,7px)");
-  expect(compactCss).toContain(".demo-login-cardbutton{width:100%;min-height:clamp(46px,7.1svh,54px);margin-top:clamp(14px,3.2svh,24px)");
-  // The brand lockup shrinks with the card instead of keeping a fixed 56px tile.
-  expect(compactCss).toContain(".demo-login-card.demo-brand-lockup>span{width:clamp(44px,7.4svh,56px)");
+  expect(compactCss).toContain(".demo-login-start{width:100%;min-height:clamp(48px,7svh,56px);margin-top:clamp(16px,3.4svh,26px)");
+  // The brand mark shrinks with the card instead of keeping a fixed 56px tile.
+  expect(compactCss).toContain(".demo-login-card.demo-brand-lockup>.ktown-mark{width:clamp(44px,7.4svh,56px)");
   expect(compactCss).not.toContain(".demo-login-card{width:min(100%,420px);padding:32px");
-  // The in-field reveal toggle must not inherit the full-width submit button.
-  expect(compactCss).toContain(".demo-login-card.demo-login-reveal{position:absolute;top:50%;right:7px;width:38px;height:38px;min-height:0");
-  expect(compactCss).toContain(".demo-login-card.demo-login-field>input{margin-top:0;padding-right:52px}");
+  // The entry is a single button now, so no field styling survives it.
+  expect(compactCss).not.toContain(".demo-login-cardinput");
+  expect(compactCss).not.toContain(".demo-login-reveal");
 });
 
 it("keeps the expedition total and its stop actions readable at every width", () => {

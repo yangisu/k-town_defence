@@ -244,9 +244,9 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
 
   expect(await screen.findByRole("heading", { name: "Choose an artist to support" })).toBeVisible();
   expect(screen.queryByText("1. 아티스트 선택")).not.toBeInTheDocument();
-  // The header drops the fandom and falls back to the pick-an-artist prompt.
-  expect(screen.getByRole("region", { name: "Current objective" }))
-    .toHaveTextContent("Choose the artist you will support");
+  // With no fandom the strip has nothing to say but an instruction the screen
+  // behind it already gives, so the header drops it entirely.
+  expect(screen.queryByRole("region", { name: "Current objective" })).not.toBeInTheDocument();
   expect(window.localStorage.getItem("ktown-english-neighbor")).toBe("preserve-me");
   await waitFor(() => expect(window.localStorage.getItem(DEMO_SESSION_KEY)).toBeNull());
 }, 20_000);

@@ -111,14 +111,16 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
         backControl={!session.state.artistConfirmed ? <BackToLoginButton locale={session.state.locale} /> : null}
         onLocaleChange={(locale) => session.dispatch({ type: "setLocale", locale })}
         onTabChange={(tab) => session.dispatch({ type: "changeTab", tab })}
-        statusContent={(
+        statusContent={session.state.artistConfirmed ? (
+          // Before a fandom exists the strip had nothing to show but an
+          // instruction the screen behind it already gives.
           <ObjectiveStrip
             locale={session.state.locale}
             fandomName={selectedArtist?.fandomName ?? null}
             fandomColor={selectedArtist?.color ?? null}
             onChangeArtist={profileLocked ? undefined : () => setDrawerOpen(true)}
           />
-        )}
+        ) : null}
       >
         {!session.state.artistConfirmed ? (
           <ProfileSetup locale={session.state.locale} onConfirm={confirmArtist} />

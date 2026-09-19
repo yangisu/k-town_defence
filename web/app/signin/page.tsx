@@ -1,4 +1,4 @@
-import { DemoBrandLockup } from "@/components/demo-entry/demo-brand-lockup";
+import { KTownMark } from "@/components/brand/ktown-mark";
 import { SocialLoginButtons } from "@/components/auth/social-login-buttons";
 import { safeRelativeReturnPath } from "@/lib/server/return-path";
 import { isProviderConfigured, SOCIAL_PROVIDERS } from "@/lib/server/social-auth";
@@ -27,7 +27,8 @@ export default async function SignInPage({ searchParams }: PageProps) {
   return (
     <main className="signin-screen">
       <section className="signin-card" aria-labelledby="signin-title">
-        <DemoBrandLockup />
+        <KTownMark className="signin-mark" />
+        <span className="signin-wordmark">K-TOWN DEFENCE</span>
         <h1 id="signin-title">로그인</h1>
         <p>{hasConfiguredProvider
           ? "SNS 계정으로 바로 시작하고, 좋아하는 아티스트의 영토를 지켜 주세요."

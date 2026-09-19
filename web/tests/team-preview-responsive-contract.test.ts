@@ -270,3 +270,12 @@ it("keeps the shared dialog rules off the record detail's own controls", () => {
   expect(compactCss).toContain(".reset-dialog>.reset-dialog-actions{");
   expect(compactCss).toContain(".reset-dialog>.reset-dialog-actionsbutton{");
 });
+
+it("follows the Kakao and Google sign-in button guidelines", () => {
+  // developers.kakao.com/docs/ko/kakaologin/design-guide and
+  // developers.google.com/identity/branding-guidelines fix these values.
+  expect(compactCss).toContain(".social-login-button--kakao{background:#fee500;color:rgba(0,0,0,.85)}");
+  expect(compactCss).toMatch(/\.social-login-button--google\{[^}]*background:#fff[^}]*#747775/);
+  // Neither provider may be quieter than the other, so one rule sizes both.
+  expect(compactCss).toMatch(/\.social-login-button\{[^}]*min-height:48px/);
+});

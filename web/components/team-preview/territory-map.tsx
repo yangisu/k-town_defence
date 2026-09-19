@@ -430,14 +430,23 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
         }).catch(() => undefined);
       }
 
-      // A stronghold marker is the thing a reader actually aims at, so it picks
-      // its territory just like the area under it, and the cursor says so.
-      const pickableLayerIds = [territoryLayerId, "preview-stronghold-symbols", "preview-stronghold-identities"];
+      // Every marker a reader can aim at picks its territory, just like the area
+      // under it, and the cursor says so. Connection pins and mission points
+      // carry their territory in a property rather than as the feature id.
+      const pickableLayerIds = [
+        territoryLayerId,
+        "preview-stronghold-symbols",
+        "preview-stronghold-identities",
+        "preview-artist-connection-pins",
+        "preview-mission-points",
+      ];
       for (const layerId of pickableLayerIds) {
         if (!map.getLayer(layerId)) continue;
         map.on("click", layerId, (event) => {
           const feature = event.features?.[0];
-          const territoryId = String(feature?.id ?? feature?.properties?.id ?? "");
+          const territoryId = String(
+            feature?.properties?.territoryId ?? feature?.id ?? feature?.properties?.id ?? "",
+          );
           if (sessionRef.current.territories.some((territory) => territory.id === territoryId)) {
             onSelectTerritoryRef.current(territoryId, "map");
           }

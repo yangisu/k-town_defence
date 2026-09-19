@@ -430,13 +430,25 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
         }).catch(() => undefined);
       }
 
-      map.on("click", territoryLayerId, (event) => {
-        const feature = event.features?.[0];
-        const territoryId = String(feature?.id ?? feature?.properties?.id ?? "");
-        if (sessionRef.current.territories.some((territory) => territory.id === territoryId)) {
-          onSelectTerritoryRef.current(territoryId, "map");
-        }
-      });
+      // A stronghold marker is the thing a reader actually aims at, so it picks
+      // its territory just like the area under it, and the cursor says so.
+      const pickableLayerIds = [territoryLayerId, "preview-stronghold-symbols", "preview-stronghold-identities"];
+      for (const layerId of pickableLayerIds) {
+        if (!map.getLayer(layerId)) continue;
+        map.on("click", layerId, (event) => {
+          const feature = event.features?.[0];
+          const territoryId = String(feature?.id ?? feature?.properties?.id ?? "");
+          if (sessionRef.current.territories.some((territory) => territory.id === territoryId)) {
+            onSelectTerritoryRef.current(territoryId, "map");
+          }
+        });
+        map.on("mouseenter", layerId, () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", layerId, () => {
+          map.getCanvas().style.cursor = "";
+        });
+      }
     });
 
     return () => {

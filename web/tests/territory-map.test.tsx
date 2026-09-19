@@ -30,6 +30,7 @@ interface MapHarness {
   remove: ReturnType<typeof vi.fn>;
   emit: (event: string, value?: MapEvent) => void;
   emitLayer: (event: string, layer: string, value?: MapEvent) => void;
+  canvas: { style: { cursor: string } };
 }
 
 const mapHarness = vi.hoisted(() => ({ instances: [] as MapHarness[] }));
@@ -66,6 +67,8 @@ vi.mock("maplibre-gl", () => {
       return this;
     }
 
+    canvas = { style: { cursor: "" } };
+    getCanvas() { return this.canvas; }
     addControl() { return this; }
     addSource(id: string, specification?: { data?: unknown }) {
       this.sources.set(id, { setData: vi.fn(), initialData: specification?.data });
@@ -757,4 +760,29 @@ it("denied location permission shows an inline hint instead of throwing", async 
   await user.click(screen.getByLabelText("내 위치로 이동"));
 
   expect(await screen.findByText("위치 권한이 필요해요. 브라우저 설정에서 허용해 주세요.")).toBeVisible();
+});
+
+it("picks a territory from its stronghold marker and points the cursor at it", async () => {
+  const onSelectTerritory = vi.fn();
+  render(
+    <TerritoryMap
+      mapConfig={config}
+      session={createInitialDemoSession()}
+      selectedTerritoryId={null}
+      onSelectTerritory={onSelectTerritory}
+    />,
+  );
+
+  const map = mapHarness.instances[0];
+  map.emit("load");
+
+  // The marker is what a reader aims at, so it selects the same territory the
+  // area under it would, and reports the map as the source.
+  map.emitLayer("click", "preview-stronghold-symbols", { features: [{ id: "busan" }] });
+  expect(onSelectTerritory).toHaveBeenCalledWith("busan", "map");
+
+  map.emitLayer("mouseenter", "preview-stronghold-symbols");
+  expect(map.canvas.style.cursor).toBe("pointer");
+  map.emitLayer("mouseleave", "preview-stronghold-symbols");
+  expect(map.canvas.style.cursor).toBe("");
 });

@@ -5,7 +5,7 @@ import Page from "@/app/page";
 
 async function loginToDemo(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "데모 시작하기" }));
-  await user.click(screen.getByRole("button", { name: /K-TOWN DEFENCE 시작 화면/ }));
+  await user.click(screen.getByRole("button", { name: /K-TOWN DEFENSE 시작 화면/ }));
 }
 
 async function selectDemoMembership(user: ReturnType<typeof userEvent.setup>) {

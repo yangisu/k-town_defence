@@ -28,11 +28,11 @@ export default async function SignInPage({ searchParams }: PageProps) {
     <main className="signin-screen">
       <section className="signin-card" aria-labelledby="signin-title">
         <KTownMark className="signin-mark" />
-        <span className="signin-wordmark">K-TOWN DEFENCE</span>
+        <span className="signin-wordmark">K-TOWN DEFENSE</span>
         <h1 id="signin-title">로그인</h1>
-        <p>{hasConfiguredProvider
-          ? "SNS 계정으로 바로 시작하고, 좋아하는 아티스트의 영토를 지켜 주세요."
-          : "SNS 로그인을 준비하고 있어요. 지금은 체험 모드로 둘러볼 수 있습니다."}</p>
+        {hasConfiguredProvider ? null : (
+          <p>SNS 로그인을 준비하고 있어요. 지금은 체험 모드로 둘러볼 수 있습니다.</p>
+        )}
         {errorMessage ? (
           <p className="signin-error" role="alert">{errorMessage}</p>
         ) : null}

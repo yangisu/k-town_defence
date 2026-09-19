@@ -27,7 +27,7 @@ it("enters the demo from a single button, with no credentials to invent", async 
 
   await user.click(screen.getByRole("button", { name: "데모 시작하기" }));
 
-  expect(screen.getByRole("button", { name: "K-TOWN DEFENCE 시작 화면—클릭하여 바로 시작" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "K-TOWN DEFENSE 시작 화면—클릭하여 바로 시작" })).toBeVisible();
   expect(window.sessionStorage.getItem(DEMO_LOGIN_SESSION_KEY)).toBe("authenticated");
 });
 
@@ -60,7 +60,7 @@ it.each(["click", "Enter", " "])("skips the transition with %s", async (action) 
   const user = userEvent.setup();
   render(<DemoEntryGate><div>service workspace</div></DemoEntryGate>);
   await user.click(screen.getByRole("button", { name: "데모 시작하기" }));
-  const transition = screen.getByRole("button", { name: "K-TOWN DEFENCE 시작 화면—클릭하여 바로 시작" });
+  const transition = screen.getByRole("button", { name: "K-TOWN DEFENSE 시작 화면—클릭하여 바로 시작" });
   // The screen carries no visible hint; the affordance stays in the label only.
   expect(within(transition).queryByText("클릭하여 바로 시작")).not.toBeInTheDocument();
   if (action === "click") await user.click(transition);
@@ -80,7 +80,7 @@ it("continues in memory when session storage is blocked", async () => {
   };
   render(<DemoEntryGate storage={storage}><div>service workspace</div></DemoEntryGate>);
   await user.click(screen.getByRole("button", { name: "데모 시작하기" }));
-  await user.click(screen.getByRole("button", { name: /K-TOWN DEFENCE 시작 화면/ }));
+  await user.click(screen.getByRole("button", { name: /K-TOWN DEFENSE 시작 화면/ }));
   expect(screen.getByText("service workspace")).toBeVisible();
 });
 
@@ -113,7 +113,7 @@ it("lets a signed-out visitor log in again and reach the service", async () => {
   await user.click(await screen.findByRole("button", { name: "로그인 화면으로 돌아가기" }));
 
   await user.click(screen.getByRole("button", { name: "데모 시작하기" }));
-  await user.click(screen.getByRole("button", { name: /K-TOWN DEFENCE 시작 화면/ }));
+  await user.click(screen.getByRole("button", { name: /K-TOWN DEFENSE 시작 화면/ }));
 
   expect(screen.getByText("service workspace")).toBeVisible();
   expect(window.sessionStorage.getItem(DEMO_LOGIN_SESSION_KEY)).toBe("authenticated");
@@ -153,7 +153,7 @@ it("logs out from the record tab and keeps demo progress for the next login", as
   expect(window.sessionStorage.getItem(DEMO_LOGIN_SESSION_KEY)).toBeNull();
 
   await user.click(screen.getByRole("button", { name: "데모 시작하기" }));
-  await user.click(screen.getByRole("button", { name: /K-TOWN DEFENCE 시작 화면/ }));
+  await user.click(screen.getByRole("button", { name: /K-TOWN DEFENSE 시작 화면/ }));
 
   expect(within(await screen.findByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   expect(screen.queryByRole("heading", { name: "응원할 아티스트를 선택하세요" })).not.toBeInTheDocument();

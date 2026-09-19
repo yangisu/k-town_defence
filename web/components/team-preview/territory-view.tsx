@@ -47,8 +47,13 @@ export function TerritoryView({ mapConfig }: {
     if (!clearing && !visibleTerritories.some((territory) => territory.id === territoryId)) setFilter("all");
     selectTerritory(territoryId, { follow: false });
     if (clearing) return;
-    // The panel mounts with the selection, so look for it on the next frame.
-    window.setTimeout(() => document.querySelector(".tactical-panel")?.scrollIntoView?.({ behavior: "smooth", block: "nearest" }), 60);
+    window.setTimeout(() => {
+      // A full-screen map covers the page, so moving the page under it would
+      // only surprise whoever closes it. The list and card still follow.
+      if (document.querySelector(".preview-map-boundary.fullscreen")) return;
+      // The panel mounts with the selection, so look for it on this frame.
+      document.querySelector(".tactical-panel")?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    }, 60);
   };
 
   const changeFilter = (nextFilter: TerritoryFilter) => {

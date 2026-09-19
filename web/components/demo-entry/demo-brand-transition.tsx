@@ -25,7 +25,7 @@ export function DemoBrandTransition({ onComplete, durationMs = 1_500 }: Props) {
     <button
       type="button"
       className="demo-entry-screen demo-brand-transition"
-      aria-label="K-TOWN DEFENCE 시작 화면—클릭하여 바로 시작"
+      aria-label="K-TOWN DEFENSE 시작 화면—클릭하여 바로 시작"
       onClick={finish}
     >
       <DemoBrandLockup className="demo-brand-lockup--hero" />

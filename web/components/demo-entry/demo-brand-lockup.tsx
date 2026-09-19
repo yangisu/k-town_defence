@@ -6,7 +6,7 @@ export function DemoBrandLockup({ className = "" }: { className?: string }) {
   return (
     <div className={`demo-brand-lockup ${className}`.trim()}>
       <KTownMark size={56} />
-      <strong>K-TOWN<br />DEFENCE</strong>
+      <strong>K-TOWN<br />DEFENSE</strong>
     </div>
   );
 }

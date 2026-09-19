@@ -1,5 +1,6 @@
 "use client";
 
+import { KTownMark } from "@/components/brand/ktown-mark";
 import { useEffect, useState, type ReactNode, type SyntheticEvent } from "react";
 import type { AppTab } from "@/features/app-controller";
 import { ChevronRight, CircleAlert, Compass, Flag, Trophy, UserRound } from "@/components/ui/icons";
@@ -61,8 +62,9 @@ export function AppShell({
     >
       <aside className="side-rail">
         <div className="rail-top">
-          <div className="brand-mark" role="img" aria-label="K-Town Defense">
-            <span>K</span><strong>K‑TOWN<br />DEFENSE</strong>
+          <div className="brand-mark">
+            <KTownMark size={40} />
+            <strong>K‑TOWN<br />DEFENSE</strong>
           </div>
           <button
             type="button"

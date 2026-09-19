@@ -278,3 +278,20 @@ it("follows the Kakao and Google sign-in button guidelines", () => {
   // Neither provider may be quieter than the other, so one rule sizes both.
   expect(compactCss).toMatch(/\.social-login-button\{[^}]*min-height:48px/);
 });
+
+it("draws the phone filter as its own listbox rather than an OS select", () => {
+  // A bare <select> hands the list to the OS, which looks nothing like the
+  // page around it.
+  expect(previewSource).toContain("FilterSelect");
+  expect(compactCss).toMatch(/\.filter-select-trigger\{[^}]*min-height:44px/);
+  expect(compactCss).toContain(".filter-select-list{position:absolute;");
+  expect(compactCss).not.toContain(".map-filters-selectselect{");
+});
+
+it("centres what the summary cards and the stage row align to the right", () => {
+  // Their right-hand values sat on the first line's baseline instead of the
+  // middle of the box.
+  expect(compactCss).toMatch(/\.territory-summary-gridbutton\{[^}]*align-items:center/);
+  expect(compactCss).toMatch(/\.tactical-standings>div,\.tactical-awarddl>div\{[^}]*align-items:center/);
+  expect(compactCss).toMatch(/\.stronghold-mark>\.stronghold-silhouette\{[^}]*place-items:center/);
+});

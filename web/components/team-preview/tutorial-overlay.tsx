@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X } from "@/components/ui/icons";
+import { ArrowLeft, X } from "@/components/ui/icons";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { GUIDE_STEPS, type GuideStep } from "@/features/team-preview/guide-steps";
 import { t } from "@/features/team-preview/i18n";
@@ -26,28 +26,37 @@ function readRect(target: string | undefined): Rect | null {
 }
 
 /**
- * Walks a visitor through the territory page, the expedition start and the
- * scoring rules, spotlighting the real control each step describes. The page
- * behind stays legible: the guide dims it without blurring, and the card sits
- * on the opposite half of the screen from whatever it is pointing at.
+ * Walks a visitor through the territory page, spotlighting the real control
+ * each step describes. A tap anywhere moves on, so the only buttons are back
+ * and close; a step that asks for something waits for the deed instead, and
+ * leaves the page clickable so the reader can do it.
  */
-export function TutorialOverlay({ locale, onClose, onPrepareStep }: {
+export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelected = false }: {
   locale: Locale;
   onClose(): void;
   /** Puts the page into the state a step describes — the right tab, and a
    *  territory chosen for the steps that explain the tactical panel. */
   onPrepareStep?(step: GuideStep): void;
+  /** Whether a territory is chosen, which is what the "choose one" step waits
+   *  for before it moves on. */
+  territorySelected?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const [cardHeight, setCardHeight] = useState(0);
-  const nextRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const prepareRef = useRef(onPrepareStep);
   const step = GUIDE_STEPS[index];
   const lastStep = index === GUIDE_STEPS.length - 1;
+  const waiting = step.awaits === "territory";
 
-  useModalFocus(true, dialogRef, nextRef, onClose);
+  useModalFocus(true, dialogRef, closeRef, onClose);
+
+  const advance = () => {
+    if (lastStep) onClose();
+    else setIndex((current) => current + 1);
+  };
 
   useEffect(() => {
     prepareRef.current = onPrepareStep;
@@ -56,6 +65,15 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep }: {
   useEffect(() => {
     prepareRef.current?.(step);
   }, [step]);
+
+  // The waiting step moves on by itself once the reader has chosen a territory.
+  useEffect(() => {
+    if (!waiting || !territorySelected) return;
+    const settle = window.setTimeout(() => setIndex((current) => (
+      GUIDE_STEPS[current]?.awaits === "territory" ? current + 1 : current
+    )), 260);
+    return () => window.clearTimeout(settle);
+  }, [territorySelected, waiting]);
 
   useEffect(() => {
     const card = dialogRef.current;
@@ -87,7 +105,6 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep }: {
         still = settled ? still + 1 : 0;
         return settled ? current : next;
       });
-      // Keep watching briefly after it stops, then let the page rest.
       if (still < 30) frame = window.requestAnimationFrame(follow);
     };
     frame = window.requestAnimationFrame(follow);
@@ -112,8 +129,6 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep }: {
     width: rect.width + SPOTLIGHT_PADDING * 2,
     height: rect.height + SPOTLIGHT_PADDING * 2,
   } : null;
-  // Keep the card away from what it points at: below a target in the top half
-  // of the screen, above one in the bottom half.
   const viewportHeight = typeof window === "undefined" ? 0 : window.innerHeight;
   const targetInTopHalf = rect ? rect.top + rect.height / 2 < viewportHeight / 2 : true;
   const placement = spotlight ? (targetInTopHalf ? "bottom" : "top") : "center";
@@ -128,6 +143,16 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep }: {
 
   return (
     <div className={`tutorial-overlay tutorial-overlay--${placement}`}>
+      {waiting ? null : (
+        // The whole screen is the "next" control, so a reader can tap wherever
+        // they are already looking.
+        <button
+          type="button"
+          className="tutorial-advance"
+          aria-label={t(locale, lastStep ? "tutorialDone" : "tutorialNext")}
+          onClick={advance}
+        />
+      )}
       {spotlight ? (
         <div
           className="tutorial-spotlight"
@@ -136,16 +161,38 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep }: {
         />
       ) : null}
       <div
-        className="tutorial-card"
+        className={waiting ? "tutorial-card tutorial-card--waiting" : "tutorial-card"}
         role="dialog"
         aria-modal="true"
         aria-labelledby="tutorial-title"
         ref={dialogRef}
         style={{ top: cardTop }}
+        onClick={waiting ? undefined : advance}
       >
         <header>
+          <button
+            type="button"
+            className="tutorial-back"
+            aria-label={t(locale, "tutorialBack")}
+            disabled={index === 0}
+            onClick={(event) => {
+              event.stopPropagation();
+              setIndex((current) => Math.max(0, current - 1));
+            }}
+          >
+            <ArrowLeft size={16} strokeWidth={2.6} aria-hidden="true" />
+          </button>
           <p className="tutorial-progress">{index + 1} / {GUIDE_STEPS.length}</p>
-          <button type="button" onClick={onClose} aria-label={t(locale, "tutorialDismiss")}>
+          <button
+            type="button"
+            className="tutorial-close"
+            ref={closeRef}
+            aria-label={t(locale, "tutorialDismiss")}
+            onClick={(event) => {
+              event.stopPropagation();
+              onClose();
+            }}
+          >
             <X size={16} strokeWidth={2.4} aria-hidden="true" />
           </button>
         </header>
@@ -159,25 +206,6 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep }: {
             <li key={candidate.id} className={candidateIndex === index ? "current" : undefined} />
           ))}
         </ol>
-        <div className="tutorial-actions">
-          <button
-            type="button"
-            className="tutorial-back"
-            onClick={() => setIndex((current) => Math.max(0, current - 1))}
-            disabled={index === 0}
-          >
-            {t(locale, "tutorialBack")}
-          </button>
-          <button type="button" className="tutorial-skip" onClick={onClose}>{t(locale, "tutorialSkip")}</button>
-          <button
-            type="button"
-            className="primary-button"
-            ref={nextRef}
-            onClick={() => (lastStep ? onClose() : setIndex((current) => current + 1))}
-          >
-            {t(locale, lastStep ? "tutorialDone" : "tutorialNext")}
-          </button>
-        </div>
       </div>
     </div>
   );

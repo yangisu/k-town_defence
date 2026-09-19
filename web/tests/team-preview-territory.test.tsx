@@ -230,7 +230,10 @@ it.each([
   renderPreviewWithArtist({ locale: locale as "ko" | "en", selectedArtistId: "boynextdoor", selectedTerritoryId: "gwangju" });
 
   await screen.findByRole("button", { name: filterLabels[0] });
-  const filters = screen.getAllByRole("button").filter((button) => filterLabels.includes(button.textContent as typeof filterLabels[number]));
+  // The phone listbox repeats the current filter's label, so read the tag row.
+  const filters = screen.getAllByRole("button")
+    .filter((button) => !button.closest(".filter-select"))
+    .filter((button) => filterLabels.includes(button.textContent as typeof filterLabels[number]));
   expect(filters.map((button) => button.textContent)).toEqual(filterLabels);
   expect(filters[0]).toHaveAttribute("aria-pressed", "true");
   const summaryRegion = screen.getByRole("region", { name: summary });
@@ -469,14 +472,14 @@ it("offers the filters as a select as well as the tag row", async () => {
   renderPreviewWithArtist();
 
   const filters = await screen.findByRole("group", { name: "영토 필터" });
-  const select = within(filters).getByRole("combobox", { name: "영토 필터" });
-  // The select is the phone control; the tag row stays for wider screens.
-  expect(select).toHaveValue("my_fandom");
-  expect(within(filters).getByRole("button", { name: "전체" })).toBeInTheDocument();
+  // The listbox is the phone control; the tag row stays for wider screens.
+  const trigger = within(filters).getByRole("button", { name: "영토 필터: 내 팬덤" });
+  expect(within(filters).getByRole("button", { name: "전체", hidden: false })).toBeInTheDocument();
 
-  await user.selectOptions(select, "all");
+  await user.click(trigger);
+  await user.click(within(screen.getByRole("listbox", { name: "영토 필터" })).getByRole("option", { name: "전체" }));
 
-  expect(select).toHaveValue("all");
+  expect(within(filters).getByRole("button", { name: "영토 필터: 전체" })).toBeInTheDocument();
   expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getAllByRole("button")).toHaveLength(23);
 });
 

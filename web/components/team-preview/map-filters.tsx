@@ -1,5 +1,6 @@
 "use client";
 
+import { FilterSelect } from "@/components/team-preview/filter-select";
 import { previewContent } from "@/features/team-preview/content";
 import { t, type CopyKey } from "@/features/team-preview/i18n";
 import { isContestedTerritory } from "@/features/team-preview/territory-rules";
@@ -58,14 +59,14 @@ export function MapFilters({ locale, activeFilter, onChange }: {
 }) {
   return (
     <div data-guide="map-filters" className="map-filters" role="group" aria-label={locale === "ko" ? "영토 필터" : "Territory filters"}>
-      <label className="map-filters-select">
-        <span className="sr-only">{locale === "ko" ? "영토 필터" : "Territory filters"}</span>
-        <select value={activeFilter} onChange={(event) => onChange(event.target.value as TerritoryFilter)}>
-          {TERRITORY_FILTERS.map((filter) => (
-            <option key={filter.id} value={filter.id}>{t(locale, filter.labelKey)}</option>
-          ))}
-        </select>
-      </label>
+      <div className="map-filters-select">
+        <FilterSelect
+          label={locale === "ko" ? "영토 필터" : "Territory filters"}
+          options={TERRITORY_FILTERS.map((filter) => ({ id: filter.id, label: t(locale, filter.labelKey) }))}
+          value={activeFilter}
+          onChange={(id) => onChange(id as TerritoryFilter)}
+        />
+      </div>
       {TERRITORY_FILTERS.map((filter) => (
         <button
           key={filter.id}

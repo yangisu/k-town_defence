@@ -62,6 +62,13 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   // that state so a replay from My Record explains the real screen.
   const prepareGuideStep = useCallback((step: GuideStep) => {
     if (session.state.activeTab !== step.tab) session.dispatch({ type: "changeTab", tab: step.tab });
+    if (step.awaits === "territory") {
+      // The reader is about to choose one, so clear any earlier choice and, on
+      // a phone, open the list that holds the cards they need to tap.
+      if (session.state.selectedTerritoryId) session.dispatch({ type: "selectTerritory", territoryId: null });
+      document.querySelector<HTMLButtonElement>(".territory-list-toggle[aria-expanded='false']")?.click();
+      return;
+    }
     if (!step.needsTerritory || session.state.selectedTerritoryId) return;
     const first = session.state.territories[0];
     if (first) session.dispatch({ type: "selectTerritory", territoryId: first.id });
@@ -169,7 +176,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
           />
         ) : null}
       </AppShell>
-      {guideOpen ? <TutorialOverlay locale={session.state.locale} onClose={closeGuide} onPrepareStep={prepareGuideStep} /> : null}
+      {guideOpen ? <TutorialOverlay locale={session.state.locale} onClose={closeGuide} onPrepareStep={prepareGuideStep} territorySelected={session.state.selectedTerritoryId !== null} /> : null}
       {resetOpen && typeof document !== "undefined" ? createPortal(
         <div className="reset-dialog-overlay">
           <div className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title" ref={resetDialogRef}>

@@ -17,6 +17,8 @@ export function TerritoryView({ mapConfig }: {
 }) {
   const session = useDemoSession();
   const [filter, setFilter] = useState<TerritoryFilter>("my_fandom");
+  // Bumped when the map is asked to frame the territory it already has.
+  const [recentre, setRecentre] = useState(0);
   const mapRef = useRef<HTMLDivElement>(null);
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
   const selectedTerritory = session.state.artistConfirmed ? session.selectedTerritory : null;
@@ -43,10 +45,14 @@ export function TerritoryView({ mapConfig }: {
   // so the list shows it, and bring the tactical card into view.
   const selectFromMapSurface = (territoryId: string, source?: "map" | "list") => {
     if (source !== "map") return selectTerritory(territoryId);
-    const clearing = session.state.selectedTerritoryId === territoryId;
-    if (!clearing && !visibleTerritories.some((territory) => territory.id === territoryId)) setFilter("all");
-    selectTerritory(territoryId, { follow: false });
-    if (clearing) return;
+    if (!visibleTerritories.some((territory) => territory.id === territoryId)) setFilter("all");
+    // Aiming at a place on the map means "show me this", never "put it away":
+    // a second click re-centres it instead of clearing the card.
+    if (session.state.selectedTerritoryId !== territoryId) {
+      selectTerritory(territoryId, { follow: false });
+    } else {
+      setRecentre((count) => count + 1);
+    }
     window.setTimeout(() => {
       // A full-screen map covers the page, so moving the page under it would
       // only surprise whoever closes it. The list and card still follow.
@@ -170,6 +176,7 @@ export function TerritoryView({ mapConfig }: {
           listedTerritories={visibleTerritories}
           activeFilter={filter}
           selectedTerritoryId={selectedTerritory?.id ?? null}
+          recentreToken={recentre}
           onSelectTerritory={selectFromMapSurface}
         />
         {tacticalPanel}

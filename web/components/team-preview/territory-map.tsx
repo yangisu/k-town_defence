@@ -25,6 +25,9 @@ interface TerritoryMapProps {
   listedTerritories?: readonly PreviewTerritory[];
   activeFilter?: TerritoryFilter;
   selectedTerritoryId: TerritoryId | null;
+  /** Bumped by the page to frame the selected territory again, so a second
+   *  click on the map re-centres instead of doing nothing. */
+  recentreToken?: number;
   /** The map reports where the pick came from: a polygon on the map needs the
    *  list and card brought to the reader, a list card does not. */
   onSelectTerritory: (territoryId: TerritoryId, source?: "map" | "list") => void;
@@ -193,7 +196,7 @@ function ownerBoundaryCollection(collection: { type: string; features: unknown[]
   };
 }
 
-export function TerritoryMap({ filters, mapConfig, session, listedTerritories: requestedTerritories, activeFilter = "all", selectedTerritoryId, onSelectTerritory }: TerritoryMapProps) {
+export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, listedTerritories: requestedTerritories, activeFilter = "all", selectedTerritoryId, onSelectTerritory }: TerritoryMapProps) {
   const listedTerritories = requestedTerritories ?? session.territories;
   const usesListedTerritories = requestedTerritories !== undefined;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -202,6 +205,7 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
   const selectedTerritoryIdRef = useRef(selectedTerritoryId);
   const onSelectTerritoryRef = useRef(onSelectTerritory);
   const listedTerritoriesRef = useRef(listedTerritories);
+  const recentreTokenRef = useRef(0);
   const cameraSelectionRef = useRef(selectedTerritoryId);
   const [mapError, setMapError] = useState(false);
   const [listExpanded, setListExpanded] = useState(false);
@@ -499,8 +503,10 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const cameraRequested = cameraSelectionRef.current !== selectedTerritoryId;
+    const cameraRequested = cameraSelectionRef.current !== selectedTerritoryId
+      || recentreTokenRef.current !== recentreToken;
     cameraSelectionRef.current = selectedTerritoryId;
+    recentreTokenRef.current = recentreToken;
     const bounds = selectedTerritoryId ? boundsByTerritoryId.get(selectedTerritoryId) : null;
     if (cameraRequested && bounds) {
       const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
@@ -528,7 +534,7 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
       map.setFilter(selectedOutlineLayerId, ["==", ["id"], selectedTerritoryId ?? ""]);
     }
     updateGeoJsonSource(map, expeditionSourceId, expeditionCollection(session, selectedTerritoryId));
-  }, [boundsByTerritoryId, selectedTerritoryId, session]);
+  }, [boundsByTerritoryId, recentreToken, selectedTerritoryId, session]);
 
   useEffect(() => {
     const map = mapRef.current;

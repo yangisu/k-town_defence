@@ -33,6 +33,10 @@ const localBindingConfig = {
     : [],
 };
 
+// Hosts a tunnel may present so a teammate on another network can reach the
+// dev server; Vite answers an unknown Host header with a 400 otherwise.
+const tunnelHosts = [".loca.lt", ".trycloudflare.com", ".ngrok-free.app", ".ngrok.io"];
+
 export default defineConfig(async () => {
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
   // settings; application environment belongs in ignored `.env*` files.
@@ -47,8 +51,10 @@ export default defineConfig(async () => {
     // Bind every interface: listening on ::1 alone left Firefox, which resolves
     // localhost to 127.0.0.1 first, with a refused connection.
     server: isCodexSeatbeltSandbox
-      ? { host: true, watch: { useFsEvents: false, usePolling: true } }
-      : { host: true },
+      ? { host: true, allowedHosts: tunnelHosts, watch: { useFsEvents: false, usePolling: true } }
+      // allowedHosts lets a tunnel (loca.lt, trycloudflare, …) reach this dev
+      // server; Vite otherwise answers an unknown Host header with a 400.
+      : { host: true, allowedHosts: tunnelHosts },
     plugins: [
       vinext(),
       sites(),

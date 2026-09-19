@@ -7,6 +7,7 @@ import { KTownApp } from "@/features/ktown-app";
 import { getArtistHomeTerritories, previewContent } from "@/features/team-preview/content";
 import { DEMO_SESSION_KEY, createInitialDemoSession, demoSessionReducer } from "@/features/team-preview/demo-session";
 import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
+import { BRAND_WELCOME_KEY } from "@/features/team-preview/brand-welcome";
 
 /** These journeys are not about first-run onboarding, so the visitor has already dismissed the guide. */
 function skipTutorial() {
@@ -16,6 +17,8 @@ function skipTutorial() {
 beforeEach(() => {
   window.localStorage.clear();
   skipTutorial();
+  // The brand intro plays once per session; these journeys come after it.
+  window.sessionStorage.setItem(BRAND_WELCOME_KEY, "seen");
   document.documentElement.lang = "ko";
 });
 

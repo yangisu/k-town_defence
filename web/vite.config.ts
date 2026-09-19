@@ -44,9 +44,11 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    // Bind every interface: listening on ::1 alone left Firefox, which resolves
+    // localhost to 127.0.0.1 first, with a refused connection.
     server: isCodexSeatbeltSandbox
-      ? { watch: { useFsEvents: false, usePolling: true } }
-      : undefined,
+      ? { host: true, watch: { useFsEvents: false, usePolling: true } }
+      : { host: true },
     plugins: [
       vinext(),
       sites(),

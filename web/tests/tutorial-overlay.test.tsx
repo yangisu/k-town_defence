@@ -149,15 +149,15 @@ it("says so when a step's control is not on screen", async () => {
   expect(within(dialog).getByRole("note")).toHaveTextContent("지금 화면에 없어요");
 });
 
-it("always opens the guide when a first fandom is chosen, even after a dismissal", async () => {
+it("greets only a visitor who has never finished the guide", async () => {
   const user = userEvent.setup();
-  // The visitor closed the guide earlier in this tab, before ever reaching
-  // the territory page it describes.
+  // Someone who already finished it is not a new account, however they arrive.
   window.localStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
   render(<KTownApp mode="demo" mapConfig={null} />);
 
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
 
-  expect(await screen.findByRole("dialog", { name: "영토 지도부터 볼게요" })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });

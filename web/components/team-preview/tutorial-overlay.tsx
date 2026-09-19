@@ -41,6 +41,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep }: {
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [cardHeight, setCardHeight] = useState(0);
   const nextRef = useRef<HTMLButtonElement>(null);
   const prepareRef = useRef(onPrepareStep);
   const step = GUIDE_STEPS[index];
@@ -57,19 +58,51 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep }: {
   }, [step]);
 
   useEffect(() => {
-    // The page may still be settling into the state this step needs, so read
-    // the target on the next frames as well as right away.
-    const update = () => setRect(readRect(step.target));
-    update();
-    const settle = window.setTimeout(update, 120);
+    const card = dialogRef.current;
+    if (!card) return;
+    setCardHeight(card.getBoundingClientRect().height);
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => setCardHeight(entry.contentRect.height));
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     const target = document.querySelector<HTMLElement>(`[data-guide="${step.target}"]`);
     target?.scrollIntoView?.({ block: "center", inline: "nearest", behavior: "smooth" });
-    window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
+
+    // Follow the target every frame while the page scrolls into place. Reading
+    // it on scroll events alone let the outline lag and then jump to catch up.
+    let frame = 0;
+    let still = 0;
+    const follow = () => {
+      setRect((current) => {
+        const next = readRect(step.target);
+        if (!next || !current) {
+          still = 0;
+          return next;
+        }
+        const settled = Math.abs(next.top - current.top) < 0.5 && Math.abs(next.left - current.left) < 0.5
+          && Math.abs(next.width - current.width) < 0.5 && Math.abs(next.height - current.height) < 0.5;
+        still = settled ? still + 1 : 0;
+        return settled ? current : next;
+      });
+      // Keep watching briefly after it stops, then let the page rest.
+      if (still < 30) frame = window.requestAnimationFrame(follow);
+    };
+    frame = window.requestAnimationFrame(follow);
+
+    const restart = () => {
+      still = 0;
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(follow);
+    };
+    window.addEventListener("resize", restart);
+    window.addEventListener("scroll", restart, true);
     return () => {
-      window.clearTimeout(settle);
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", restart);
+      window.removeEventListener("scroll", restart, true);
     };
   }, [step, index]);
 
@@ -84,6 +117,14 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep }: {
   const viewportHeight = typeof window === "undefined" ? 0 : window.innerHeight;
   const targetInTopHalf = rect ? rect.top + rect.height / 2 < viewportHeight / 2 : true;
   const placement = spotlight ? (targetInTopHalf ? "bottom" : "top") : "center";
+  // A coordinate rather than a layout switch, so the card glides between steps
+  // instead of being re-laid out at the other end of the screen.
+  const margin = 16;
+  const cardTop = placement === "center"
+    ? Math.max(margin, (viewportHeight - cardHeight) / 2)
+    : placement === "bottom"
+      ? Math.max(margin, viewportHeight - cardHeight - margin)
+      : margin;
 
   return (
     <div className={`tutorial-overlay tutorial-overlay--${placement}`}>
@@ -100,6 +141,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep }: {
         aria-modal="true"
         aria-labelledby="tutorial-title"
         ref={dialogRef}
+        style={{ top: cardTop }}
       >
         <header>
           <p className="tutorial-progress">{index + 1} / {GUIDE_STEPS.length}</p>

@@ -7,6 +7,8 @@ import { BackToLoginButton } from "@/components/demo-entry/back-to-login-button"
 import { DemoSignOutProvider, useDemoSignOut } from "@/features/demo-entry/demo-sign-out";
 import { ArtistDrawer } from "@/components/team-preview/artist-drawer";
 import { ProfileSetup } from "@/components/team-preview/profile-setup";
+import { DemoBrandTransition } from "@/components/demo-entry/demo-brand-transition";
+import { hasSeenBrandWelcome, markBrandWelcomeSeen } from "@/features/team-preview/brand-welcome";
 import { TutorialOverlay } from "@/components/team-preview/tutorial-overlay";
 import type { GuideStep } from "@/features/team-preview/guide-steps";
 import { hasSeenTutorial, markTutorialSeen } from "@/features/team-preview/tutorial-seen";
@@ -44,11 +46,15 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   };
   const confirmArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
     session.dispatch({ type: "selectArtist", artistId });
-    // Choosing a first fandom always opens the guide: it is the moment the
-    // territory page appears, and a dismissal earlier in the tab was about a
-    // page this visitor had not reached yet.
+    // Choosing a first fandom is when the territory page appears, so the guide
+    // opens here — but only for a visitor who has never finished it. Coming
+    // back through a link is not a new account.
     setGuideChecked(true);
-    setGuideOpen(true);
+    try {
+      if (!hasSeenTutorial(window.localStorage)) setGuideOpen(true);
+    } catch {
+      setGuideOpen(true);
+    }
   };
 
   // The guide describes controls that only exist on a particular tab, and the
@@ -203,6 +209,10 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
   const membership = useMembership();
   const session = useDemoSession();
   const uiServices = useMemo(() => ({ ...services, checkIn: createPreviewCheckInService(services) }), [services]);
+  // The brand beat the demo shows after logging in, kept for the real login.
+  const [welcoming, setWelcoming] = useState(() => (
+    typeof window === "undefined" ? false : !hasSeenBrandWelcome(window.sessionStorage)
+  ));
   const { dispatch, hydrated, state } = session;
   const signOut = useCallback(() => {
     window.location.href = "/api/auth/signout";
@@ -218,6 +228,13 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
       artistId: artist.id,
     });
   }, [dispatch, hydrated, membership.fandoms, membership.membership, state.artistConfirmed, state.selectedArtistId]);
+
+  if (welcoming) {
+    return <DemoBrandTransition onComplete={() => {
+      markBrandWelcomeSeen(window.sessionStorage);
+      setWelcoming(false);
+    }} />;
+  }
 
   return (
     <DemoSignOutProvider value={signOut}>

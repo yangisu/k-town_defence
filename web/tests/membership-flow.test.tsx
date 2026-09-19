@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { MembershipGate } from "@/components/membership/membership-gate";
@@ -22,6 +22,12 @@ it("requires a fandom selection before revealing the live application", async ()
     }),
   };
 
+  const replace = vi.fn();
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: { ...window.location, pathname: "/", search: "", replace },
+  });
+
   render(
     <MembershipProvider service={service}>
       <MembershipGate><div>실시간 부산 관광지</div></MembershipGate>
@@ -43,15 +49,21 @@ it("sends unauthenticated visitors to the sign-in page", async () => {
     selectFandom: vi.fn(),
   };
 
+  const replace = vi.fn();
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: { pathname: "/", search: "", replace },
+  });
+
   render(
     <MembershipProvider service={service}>
       <MembershipGate><div>실시간 부산 관광지</div></MembershipGate>
     </MembershipProvider>,
   );
 
-  expect(await screen.findByRole("link", { name: "로그인하기" })).toHaveAttribute(
-    "href",
-    "/signin?return_to=%2F",
-  );
+  // A visitor who is not signed in belongs on the sign-in screen, not on a
+  // page whose only control is a link to it.
+  await waitFor(() => expect(replace).toHaveBeenCalledWith("/signin?return_to=%2F"));
+  expect(screen.queryByRole("link", { name: "로그인하기" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
 });

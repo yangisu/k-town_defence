@@ -1,3 +1,4 @@
+import { DemoBrandLockup } from "@/components/demo-entry/demo-brand-lockup";
 import { SocialLoginButtons } from "@/components/auth/social-login-buttons";
 import { safeRelativeReturnPath } from "@/lib/server/return-path";
 import { isProviderConfigured, SOCIAL_PROVIDERS } from "@/lib/server/social-auth";
@@ -14,6 +15,8 @@ type PageProps = {
   searchParams: Promise<{ return_to?: string; error?: string }>;
 };
 
+/** Wears the demo entry screen's dark card so signing in and entering the demo
+ *  read as one product rather than two unrelated front doors. */
 export default async function SignInPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const returnTo = safeRelativeReturnPath(params.return_to ?? "/");
@@ -21,20 +24,23 @@ export default async function SignInPage({ searchParams }: PageProps) {
   const hasConfiguredProvider = SOCIAL_PROVIDERS.some(isProviderConfigured);
 
   return (
-    <main className="membership-gate">
-      <div className="membership-card">
-        <span className="eyebrow">K-TOWN DEFENSE</span>
-        <h1>SNS 계정으로 로그인</h1>
-        <p>{hasConfiguredProvider ? "연결된 SNS 계정으로 바로 시작할 수 있어요." : "SNS 로그인을 준비하고 있어요. 지금은 체험 모드로 둘러볼 수 있습니다."}</p>
+    <main className="demo-entry-screen signin-screen">
+      <section className="signin-card" aria-labelledby="signin-title">
+        <DemoBrandLockup />
+        <h1 id="signin-title">로그인</h1>
+        <p>{hasConfiguredProvider
+          ? "SNS 계정으로 바로 시작하고, 좋아하는 아티스트의 영토를 지켜 주세요."
+          : "SNS 로그인을 준비하고 있어요. 지금은 체험 모드로 둘러볼 수 있습니다."}</p>
         {errorMessage ? (
-          <div className="state-message warning" role="alert">
-            <p>{errorMessage}</p>
-          </div>
+          <p className="signin-error" role="alert">{errorMessage}</p>
         ) : null}
         {hasConfiguredProvider ? <SocialLoginButtons returnTo={returnTo} /> : (
-          <a className="primary-button" href="/demo">체험 모드로 둘러보기</a>
+          <a className="signin-demo-link" href="/demo">체험 모드로 둘러보기</a>
         )}
-      </div>
+        <small className="signin-note">
+          로그인하면 <a href="/terms">이용약관</a>과 <a href="/privacy">개인정보처리방침</a>에 동의하는 것으로 봅니다.
+        </small>
+      </section>
     </main>
   );
 }

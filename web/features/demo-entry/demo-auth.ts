@@ -23,10 +23,6 @@ export function subscribeToDemoLogin(listener: DemoLoginListener) {
   };
 }
 
-export function isValidDemoEmail(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-}
-
 export function hasDemoLogin(storage: Pick<Storage, "getItem">) {
   try {
     return storage.getItem(DEMO_LOGIN_SESSION_KEY) === COMPLETED_VALUE;

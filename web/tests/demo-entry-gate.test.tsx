@@ -14,22 +14,18 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("validates credentials before entering the brand transition", async () => {
+it("enters the demo from a single button, with no credentials to invent", async () => {
   const user = userEvent.setup();
   render(<DemoEntryGate><div>service workspace</div></DemoEntryGate>);
 
-  const heading = await screen.findByRole("heading", { name: "Log in" });
+  const heading = await screen.findByRole("heading", { name: "데모 체험하기" });
   // The brand name belongs to the lockup above, so the heading must not repeat it.
   expect(within(heading).queryByText(/K-TOWN/i)).not.toBeInTheDocument();
-  await user.type(screen.getByLabelText("Email"), "invalid");
-  await user.click(screen.getByRole("button", { name: "Log in" }));
-  expect(screen.getByText("Enter a valid email address.")).toBeVisible();
-  expect(screen.getByText("Enter your password.")).toBeVisible();
+  // The demo is a doorway, not an account: no email, no password.
+  expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
 
-  await user.clear(screen.getByLabelText("Email"));
-  await user.type(screen.getByLabelText("Email"), "fan@example.com");
-  await user.type(screen.getByLabelText("Password"), "demo");
-  await user.click(screen.getByRole("button", { name: "Log in" }));
+  await user.click(screen.getByRole("button", { name: "데모 시작하기" }));
 
   expect(screen.getByRole("button", { name: "K-TOWN DEFENCE 시작 화면—클릭하여 바로 시작" })).toBeVisible();
   expect(window.sessionStorage.getItem(DEMO_LOGIN_SESSION_KEY)).toBe("authenticated");
@@ -57,15 +53,13 @@ it("restores an authenticated tab directly into the service", async () => {
   window.sessionStorage.setItem(DEMO_LOGIN_SESSION_KEY, "authenticated");
   render(<DemoEntryGate><div>service workspace</div></DemoEntryGate>);
   expect(await screen.findByText("service workspace")).toBeVisible();
-  expect(screen.queryByRole("heading", { name: "Log in" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "데모 체험하기" })).not.toBeInTheDocument();
 });
 
 it.each(["click", "Enter", " "])("skips the transition with %s", async (action) => {
   const user = userEvent.setup();
   render(<DemoEntryGate><div>service workspace</div></DemoEntryGate>);
-  await user.type(await screen.findByLabelText("Email"), "fan@example.com");
-  await user.type(screen.getByLabelText("Password"), "demo");
-  await user.click(screen.getByRole("button", { name: "Log in" }));
+  await user.click(screen.getByRole("button", { name: "데모 시작하기" }));
   const transition = screen.getByRole("button", { name: "K-TOWN DEFENCE 시작 화면—클릭하여 바로 시작" });
   // The screen carries no visible hint; the affordance stays in the label only.
   expect(within(transition).queryByText("클릭하여 바로 시작")).not.toBeInTheDocument();
@@ -85,9 +79,7 @@ it("continues in memory when session storage is blocked", async () => {
     removeItem: () => { throw new Error("blocked"); },
   };
   render(<DemoEntryGate storage={storage}><div>service workspace</div></DemoEntryGate>);
-  await user.type(await screen.findByLabelText("Email"), "fan@example.com");
-  await user.type(screen.getByLabelText("Password"), "demo");
-  await user.click(screen.getByRole("button", { name: "Log in" }));
+  await user.click(screen.getByRole("button", { name: "데모 시작하기" }));
   await user.click(screen.getByRole("button", { name: /K-TOWN DEFENCE 시작 화면/ }));
   expect(screen.getByText("service workspace")).toBeVisible();
 });
@@ -109,7 +101,7 @@ it("returns an authenticated visitor to the login screen and clears the marker",
 
   await user.click(await screen.findByRole("button", { name: "로그인 화면으로 돌아가기" }));
 
-  expect(await screen.findByRole("heading", { name: "Log in" })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "데모 체험하기" })).toBeVisible();
   expect(screen.queryByText("service workspace")).not.toBeInTheDocument();
   expect(window.sessionStorage.getItem(DEMO_LOGIN_SESSION_KEY)).toBeNull();
 });
@@ -120,9 +112,7 @@ it("lets a signed-out visitor log in again and reach the service", async () => {
   render(<DemoEntryGate><SignOutProbe /></DemoEntryGate>);
   await user.click(await screen.findByRole("button", { name: "로그인 화면으로 돌아가기" }));
 
-  await user.type(screen.getByLabelText("Email"), "fan@example.com");
-  await user.type(screen.getByLabelText("Password"), "demo");
-  await user.click(screen.getByRole("button", { name: "Log in" }));
+  await user.click(screen.getByRole("button", { name: "데모 시작하기" }));
   await user.click(screen.getByRole("button", { name: /K-TOWN DEFENCE 시작 화면/ }));
 
   expect(screen.getByText("service workspace")).toBeVisible();
@@ -141,7 +131,7 @@ it("returns to the login screen from the artist selection screen", async () => {
   expect(header).toContainElement(back);
   await user.click(back);
 
-  expect(await screen.findByRole("heading", { name: "Log in" })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "데모 체험하기" })).toBeVisible();
   expect(screen.queryByRole("heading", { name: "응원할 아티스트를 선택하세요" })).not.toBeInTheDocument();
   expect(window.sessionStorage.getItem(DEMO_LOGIN_SESSION_KEY)).toBeNull();
 });
@@ -159,49 +149,12 @@ it("logs out from the record tab and keeps demo progress for the next login", as
   const account = await screen.findByRole("region", { name: "계정" });
   await user.click(within(account).getByRole("button", { name: "로그아웃" }));
 
-  expect(await screen.findByRole("heading", { name: "Log in" })).toBeVisible();
+  expect(await screen.findByRole("heading", { name: "데모 체험하기" })).toBeVisible();
   expect(window.sessionStorage.getItem(DEMO_LOGIN_SESSION_KEY)).toBeNull();
 
-  await user.type(screen.getByLabelText("Email"), "fan@example.com");
-  await user.type(screen.getByLabelText("Password"), "demo");
-  await user.click(screen.getByRole("button", { name: "Log in" }));
+  await user.click(screen.getByRole("button", { name: "데모 시작하기" }));
   await user.click(screen.getByRole("button", { name: /K-TOWN DEFENCE 시작 화면/ }));
 
   expect(within(await screen.findByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   expect(screen.queryByRole("heading", { name: "응원할 아티스트를 선택하세요" })).not.toBeInTheDocument();
-});
-
-it("reveals and re-masks the password from the eye toggle inside the field", async () => {
-  const user = userEvent.setup();
-  render(<DemoEntryGate><div>service workspace</div></DemoEntryGate>);
-
-  const password = await screen.findByLabelText("Password");
-  await user.type(password, "demo-secret");
-  expect(password).toHaveAttribute("type", "password");
-
-  const reveal = screen.getByRole("button", { name: "Show password" });
-  // Masked state shows the struck-through eye.
-  expect(reveal.querySelector(".lucide-eye-off")).not.toBeNull();
-
-  await user.click(reveal);
-  expect(password).toHaveAttribute("type", "text");
-  expect(password).toHaveValue("demo-secret");
-
-  const hide = screen.getByRole("button", { name: "Hide password" });
-  expect(hide.querySelector(".lucide-eye-off")).toBeNull();
-
-  await user.click(hide);
-  expect(password).toHaveAttribute("type", "password");
-  expect(screen.getByRole("button", { name: "Show password" })).toBeVisible();
-});
-
-it("keeps the reveal toggle out of the submit path", async () => {
-  const user = userEvent.setup();
-  render(<DemoEntryGate><div>service workspace</div></DemoEntryGate>);
-
-  await user.type(await screen.findByLabelText("Email"), "fan@example.com");
-  await user.click(screen.getByRole("button", { name: "Show password" }));
-  // Toggling visibility must not submit the form, so no validation error appears.
-  expect(screen.queryByText("Enter your password.")).not.toBeInTheDocument();
-  expect(window.sessionStorage.getItem(DEMO_LOGIN_SESSION_KEY)).toBeNull();
 });

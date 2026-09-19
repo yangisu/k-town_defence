@@ -4,9 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import Page from "@/app/page";
 
 async function loginToDemo(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(await screen.findByLabelText("Email"), "fan@example.com");
-  await user.type(screen.getByLabelText("Password"), "demo");
-  await user.click(screen.getByRole("button", { name: "Log in" }));
+  await user.click(screen.getByRole("button", { name: "데모 시작하기" }));
   await user.click(screen.getByRole("button", { name: /K-TOWN DEFENCE 시작 화면/ }));
 }
 

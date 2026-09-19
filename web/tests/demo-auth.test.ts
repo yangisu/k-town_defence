@@ -3,21 +3,10 @@ import {
   DEMO_LOGIN_SESSION_KEY,
   clearDemoLogin,
   hasDemoLogin,
-  isValidDemoEmail,
   saveDemoLogin,
 } from "@/features/demo-entry/demo-auth";
 
 describe("demo authentication helpers", () => {
-  it.each([
-    ["fan@example.com", true],
-    [" fan@example.com ", true],
-    ["fan@example", false],
-    ["fan example.com", false],
-    ["", false],
-  ])("validates %j as %s", (email, expected) => {
-    expect(isValidDemoEmail(email)).toBe(expected);
-  });
-
   it("persists and reads only the session completion marker", () => {
     const values = new Map<string, string>();
     const storage = {

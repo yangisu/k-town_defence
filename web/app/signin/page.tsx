@@ -15,8 +15,9 @@ type PageProps = {
   searchParams: Promise<{ return_to?: string; error?: string }>;
 };
 
-/** Wears the demo entry screen's dark card so signing in and entering the demo
- *  read as one product rather than two unrelated front doors. */
+/** A light card on the product's own paper: the provider buttons have to keep
+ *  their brand colours, and Kakao's yellow reads far better there than on the
+ *  demo entry's dark ground. */
 export default async function SignInPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const returnTo = safeRelativeReturnPath(params.return_to ?? "/");
@@ -24,7 +25,7 @@ export default async function SignInPage({ searchParams }: PageProps) {
   const hasConfiguredProvider = SOCIAL_PROVIDERS.some(isProviderConfigured);
 
   return (
-    <main className="demo-entry-screen signin-screen">
+    <main className="signin-screen">
       <section className="signin-card" aria-labelledby="signin-title">
         <DemoBrandLockup />
         <h1 id="signin-title">로그인</h1>

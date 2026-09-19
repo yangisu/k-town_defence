@@ -8,6 +8,7 @@ import { DemoSignOutProvider, useDemoSignOut } from "@/features/demo-entry/demo-
 import { ArtistDrawer } from "@/components/team-preview/artist-drawer";
 import { ProfileSetup } from "@/components/team-preview/profile-setup";
 import { TutorialOverlay } from "@/components/team-preview/tutorial-overlay";
+import type { GuideStep } from "@/features/team-preview/guide-steps";
 import { hasSeenTutorial, markTutorialSeen } from "@/features/team-preview/tutorial-seen";
 import { ObjectiveStrip } from "@/components/team-preview/objective-strip";
 import { TerritoryView } from "@/components/team-preview/territory-view";
@@ -50,10 +51,20 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     setGuideOpen(true);
   };
 
+  // The guide describes controls that only exist on a particular tab, and the
+  // tactical panel only renders once a territory is chosen. Put the page into
+  // that state so a replay from My Record explains the real screen.
+  const prepareGuideStep = useCallback((step: GuideStep) => {
+    if (session.state.activeTab !== step.tab) session.dispatch({ type: "changeTab", tab: step.tab });
+    if (!step.needsTerritory || session.state.selectedTerritoryId) return;
+    const first = session.state.territories[0];
+    if (first) session.dispatch({ type: "selectTerritory", territoryId: first.id });
+  }, [session]);
+
   const closeGuide = () => {
     setGuideOpen(false);
     try {
-      markTutorialSeen(window.sessionStorage);
+      markTutorialSeen(window.localStorage);
     } catch {
       // Nothing to remember when storage is blocked.
     }
@@ -70,7 +81,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     if (guideChecked || !session.state.artistConfirmed) return;
     setGuideChecked(true);
     try {
-      if (!hasSeenTutorial(window.sessionStorage)) setGuideOpen(true);
+      if (!hasSeenTutorial(window.localStorage)) setGuideOpen(true);
     } catch {
       // Blocked storage only means the guide greets this visit too.
     }
@@ -150,7 +161,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
           />
         ) : null}
       </AppShell>
-      {guideOpen ? <TutorialOverlay locale={session.state.locale} onClose={closeGuide} /> : null}
+      {guideOpen ? <TutorialOverlay locale={session.state.locale} onClose={closeGuide} onPrepareStep={prepareGuideStep} /> : null}
       {resetOpen && typeof document !== "undefined" ? createPortal(
         <div className="reset-dialog-overlay">
           <div className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title" ref={resetDialogRef}>

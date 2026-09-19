@@ -38,6 +38,19 @@ export function TerritoryView({ mapConfig }: {
     if (!cleared && follow) mapRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   };
 
+  // A territory picked on the map may sit outside the current filter, which
+  // would leave it selected with no card in the list beneath. Widen the filter
+  // so the list shows it, and bring the tactical card into view.
+  const selectFromMapSurface = (territoryId: string, source?: "map" | "list") => {
+    if (source !== "map") return selectTerritory(territoryId);
+    const clearing = session.state.selectedTerritoryId === territoryId;
+    if (!clearing && !visibleTerritories.some((territory) => territory.id === territoryId)) setFilter("all");
+    selectTerritory(territoryId, { follow: false });
+    if (clearing) return;
+    // The panel mounts with the selection, so look for it on the next frame.
+    window.setTimeout(() => document.querySelector(".tactical-panel")?.scrollIntoView?.({ behavior: "smooth", block: "nearest" }), 60);
+  };
+
   const changeFilter = (nextFilter: TerritoryFilter) => {
     setFilter(nextFilter);
     // A deliberate deselection outlives a filter change; only a selection that
@@ -152,7 +165,7 @@ export function TerritoryView({ mapConfig }: {
           listedTerritories={visibleTerritories}
           activeFilter={filter}
           selectedTerritoryId={selectedTerritory?.id ?? null}
-          onSelectTerritory={selectTerritory}
+          onSelectTerritory={selectFromMapSurface}
         />
         {tacticalPanel}
       </div>

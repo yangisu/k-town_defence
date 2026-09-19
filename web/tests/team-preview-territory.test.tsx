@@ -15,6 +15,7 @@ import {
 } from "@/features/team-preview/demo-session";
 import { GAME_RULES, type MissionAward } from "@/features/team-preview/game-rules";
 import { DemoSessionProvider } from "@/features/team-preview/demo-session-context";
+import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
 
 beforeEach(() => window.localStorage.clear());
 

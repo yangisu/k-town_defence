@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { X } from "@/components/ui/icons";
-import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
-import { GUIDE_STEPS } from "@/features/team-preview/guide-steps";
+import { GUIDE_STEPS, type GuideStep } from "@/features/team-preview/guide-steps";
 import { t } from "@/features/team-preview/i18n";
 import type { Locale } from "@/features/team-preview/types";
 
@@ -27,35 +26,52 @@ function readRect(target: string | undefined): Rect | null {
 }
 
 /**
- * Walks a first-time visitor through the territory page, the expedition start
- * and the scoring rules, spotlighting the real control each step describes.
- * A step whose control is off-screen still explains itself from the centre,
- * so the tour never dead-ends on a layout that hides its target.
+ * Walks a visitor through the territory page, the expedition start and the
+ * scoring rules, spotlighting the real control each step describes. The page
+ * behind stays legible: the guide dims it without blurring, and the card sits
+ * on the opposite half of the screen from whatever it is pointing at.
  */
-export function TutorialOverlay({ locale, onClose }: { locale: Locale; onClose(): void }) {
+export function TutorialOverlay({ locale, onClose, onPrepareStep }: {
+  locale: Locale;
+  onClose(): void;
+  /** Puts the page into the state a step describes — the right tab, and a
+   *  territory chosen for the steps that explain the tactical panel. */
+  onPrepareStep?(step: GuideStep): void;
+}) {
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
+  const prepareRef = useRef(onPrepareStep);
   const step = GUIDE_STEPS[index];
   const lastStep = index === GUIDE_STEPS.length - 1;
 
-  useBodyScrollLock(true);
   useModalFocus(true, dialogRef, nextRef, onClose);
 
   useEffect(() => {
-    const target = document.querySelector<HTMLElement>(`[data-guide="${step.target}"]`);
-    target?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    prepareRef.current = onPrepareStep;
+  }, [onPrepareStep]);
+
+  useEffect(() => {
+    prepareRef.current?.(step);
+  }, [step]);
+
+  useEffect(() => {
+    // The page may still be settling into the state this step needs, so read
+    // the target on the next frames as well as right away.
     const update = () => setRect(readRect(step.target));
     update();
-    // The spotlight tracks its control, which the page can still move under it.
+    const settle = window.setTimeout(update, 120);
+    const target = document.querySelector<HTMLElement>(`[data-guide="${step.target}"]`);
+    target?.scrollIntoView?.({ block: "center", inline: "nearest", behavior: "smooth" });
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
     return () => {
+      window.clearTimeout(settle);
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update, true);
     };
-  }, [step.target]);
+  }, [step, index]);
 
   const spotlight = rect ? {
     top: rect.top - SPOTLIGHT_PADDING,
@@ -63,9 +79,14 @@ export function TutorialOverlay({ locale, onClose }: { locale: Locale; onClose()
     width: rect.width + SPOTLIGHT_PADDING * 2,
     height: rect.height + SPOTLIGHT_PADDING * 2,
   } : null;
+  // Keep the card away from what it points at: below a target in the top half
+  // of the screen, above one in the bottom half.
+  const viewportHeight = typeof window === "undefined" ? 0 : window.innerHeight;
+  const targetInTopHalf = rect ? rect.top + rect.height / 2 < viewportHeight / 2 : true;
+  const placement = spotlight ? (targetInTopHalf ? "bottom" : "top") : "center";
 
   return (
-    <div className={spotlight ? "tutorial-overlay tutorial-overlay--anchored" : "tutorial-overlay"}>
+    <div className={`tutorial-overlay tutorial-overlay--${placement}`}>
       {spotlight ? (
         <div
           className="tutorial-spotlight"
@@ -83,7 +104,7 @@ export function TutorialOverlay({ locale, onClose }: { locale: Locale; onClose()
         <header>
           <p className="tutorial-progress">{index + 1} / {GUIDE_STEPS.length}</p>
           <button type="button" onClick={onClose} aria-label={t(locale, "tutorialDismiss")}>
-            <X size={18} strokeWidth={2.4} aria-hidden="true" />
+            <X size={16} strokeWidth={2.4} aria-hidden="true" />
           </button>
         </header>
         <h2 id="tutorial-title">{step.title[locale]}</h2>

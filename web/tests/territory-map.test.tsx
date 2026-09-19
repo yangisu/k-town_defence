@@ -153,11 +153,11 @@ it("uses Amazon Location and keeps map selection equivalent to the territory lis
   mapHarness.instances[0].emitLayer("click", "preview-territory-fill", {
     features: [{ id: "daegu", properties: { id: "daegu" } }],
   });
-  expect(onSelectTerritory).toHaveBeenLastCalledWith("daegu");
+  expect(onSelectTerritory).toHaveBeenLastCalledWith("daegu", "map");
 
   const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
   await user.click(within(list).getByRole("button", { name: /^대구/ }));
-  expect(onSelectTerritory).toHaveBeenLastCalledWith("daegu");
+  expect(onSelectTerritory).toHaveBeenLastCalledWith("daegu", "list");
 
   rerender(
     <TerritoryMap
@@ -211,7 +211,7 @@ it("shows a real operable territory list when map configuration is missing", asy
   const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
   expect(within(list).getAllByRole("button")).toHaveLength(previewContent.territories.length);
   await user.click(within(list).getByRole("button", { name: /^영월/ }));
-  expect(onSelectTerritory).toHaveBeenCalledWith("yeongwol");
+  expect(onSelectTerritory).toHaveBeenCalledWith("yeongwol", "list");
 });
 
 it("localizes the configured map and missing-configuration controls in English", () => {
@@ -278,7 +278,7 @@ it("recovers from a map style error without losing attribution or territory cont
 
   const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
   await user.click(within(list).getByRole("button", { name: /^부산/ }));
-  expect(onSelectTerritory).toHaveBeenCalledWith("busan");
+  expect(onSelectTerritory).toHaveBeenCalledWith("busan", "list");
 
   await user.click(screen.getByRole("button", { name: "다시 시도" }));
   await waitFor(() => expect(mapHarness.instances).toHaveLength(2));
@@ -355,7 +355,7 @@ it("keeps configured boundary, click, and mission layers equivalent to the filte
   map.emitLayer("click", "preview-territory-fill", { features: [{ id: "busan" }] });
   expect(onSelectTerritory).not.toHaveBeenCalled();
   map.emitLayer("click", "preview-territory-fill", { features: [{ id: "yeongwol" }] });
-  expect(onSelectTerritory).toHaveBeenCalledWith("yeongwol");
+  expect(onSelectTerritory).toHaveBeenCalledWith("yeongwol", "map");
 
   const busanSession = {
     ...completeSession,

@@ -11,6 +11,7 @@ import {
 } from "@/features/team-preview/demo-session";
 import type { MissionAward } from "@/features/team-preview/game-rules";
 import { KTownApp } from "@/features/ktown-app";
+import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
 
 const missionAward: MissionAward = {
   visit: 100,
@@ -24,7 +25,11 @@ const missionAward: MissionAward = {
   cappedPoints: 260,
 };
 
-beforeEach(() => window.localStorage.clear());
+beforeEach(() => {
+  window.localStorage.clear();
+  // These journeys are not about onboarding, so the visitor has seen the guide.
+  window.localStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
+});
 
 function completedEnglishSession() {
   let selected = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });

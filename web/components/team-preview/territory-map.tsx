@@ -15,7 +15,7 @@ import { t } from "@/features/team-preview/i18n";
 import { useLiveLocation, type LiveLocationPosition } from "@/features/map/use-live-location";
 import { ownerColor, strongholdColor, territoryBounds } from "@/features/team-preview/map-presentation";
 import type { PreviewTerritory, TerritoryId } from "@/features/team-preview/types";
-import { amazonLocationStyleUrl, type MapConfig } from "@/lib/map-config";
+import { mapStyleUrl, type MapConfig } from "@/lib/map-config";
 import type { TerritoryFilter } from "./map-filters";
 
 interface TerritoryMapProps {
@@ -25,7 +25,9 @@ interface TerritoryMapProps {
   listedTerritories?: readonly PreviewTerritory[];
   activeFilter?: TerritoryFilter;
   selectedTerritoryId: TerritoryId | null;
-  onSelectTerritory: (territoryId: TerritoryId) => void;
+  /** The map reports where the pick came from: a polygon on the map needs the
+   *  list and card brought to the reader, a list card does not. */
+  onSelectTerritory: (territoryId: TerritoryId, source?: "map" | "list") => void;
 }
 
 const boundarySourceId = "preview-territory-boundaries";
@@ -257,7 +259,7 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
     let styleLoaded = false;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: amazonLocationStyleUrl(mapConfig),
+      style: mapStyleUrl(mapConfig),
       center: [127.8, 36.3],
       zoom: 6.2,
       // On a phone a single finger belongs to the page, not the map.
@@ -432,7 +434,7 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
         const feature = event.features?.[0];
         const territoryId = String(feature?.id ?? feature?.properties?.id ?? "");
         if (sessionRef.current.territories.some((territory) => territory.id === territoryId)) {
-          onSelectTerritoryRef.current(territoryId);
+          onSelectTerritoryRef.current(territoryId, "map");
         }
       });
     });
@@ -650,7 +652,7 @@ export function TerritoryMap({ filters, mapConfig, session, listedTerritories: r
         locale={session.locale}
         selectedArtistId={session.artistConfirmed ? session.selectedArtistId : null}
         selectedTerritoryId={selectedTerritoryId}
-        onSelectTerritory={onSelectTerritory}
+        onSelectTerritory={(territoryId) => onSelectTerritory(territoryId, "list")}
       />
     </section>
   );

@@ -27,8 +27,7 @@ const place: Place = {
 
 /** These journeys are not about onboarding, so the visitor has seen the guide. */
 function skipGuide() {
-  window.sessionStorage.clear();
-  window.sessionStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
+  window.localStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
 }
 
 beforeEach(() => {

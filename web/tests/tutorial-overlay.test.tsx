@@ -90,7 +90,7 @@ it("remembers a finished guide so it does not interrupt the next visit", async (
   const { unmount } = render(<KTownApp mode="demo" mapConfig={null} />);
 
   await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "건너뛰기" }));
-  expect(window.sessionStorage.getItem(TUTORIAL_SEEN_KEY)).toBe("seen");
+  expect(window.localStorage.getItem(TUTORIAL_SEEN_KEY)).toBe("seen");
 
   unmount();
   render(<KTownApp mode="demo" mapConfig={null} />);
@@ -106,7 +106,7 @@ it("closes the guide with Escape and with the close control", async () => {
   await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "가이드 닫기" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-  window.sessionStorage.clear();
+  window.localStorage.removeItem(TUTORIAL_SEEN_KEY);
   const { unmount } = render(<KTownApp mode="demo" mapConfig={null} />);
   expect(await screen.findByRole("dialog")).toBeVisible();
   await user.keyboard("{Escape}");
@@ -117,7 +117,7 @@ it("closes the guide with Escape and with the close control", async () => {
 it("reopens the guide from the record page", async () => {
   const user = userEvent.setup();
   storeConfirmedBtsSession();
-  window.sessionStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
+  window.localStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
   render(<KTownApp mode="demo" mapConfig={null} />);
 
   expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
@@ -153,7 +153,7 @@ it("always opens the guide when a first fandom is chosen, even after a dismissal
   const user = userEvent.setup();
   // The visitor closed the guide earlier in this tab, before ever reaching
   // the territory page it describes.
-  window.sessionStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
+  window.localStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
   render(<KTownApp mode="demo" mapConfig={null} />);
 
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));

@@ -1,8 +1,16 @@
 import { GAME_RULES } from "@/features/team-preview/game-rules";
 import type { Locale } from "@/features/team-preview/types";
 
+export type GuideTab = "explore" | "journey";
+
 export interface GuideStep {
   id: string;
+  /** Tab this step describes. The guide opens it before showing the step, so a
+   *  replay started from another page still lands on the control it explains. */
+  tab: GuideTab;
+  /** Steps about the tactical panel need a territory chosen, or the panel the
+   *  step describes is not rendered at all. */
+  needsTerritory?: boolean;
   /** Element to spotlight, matched with [data-guide="…"]. A step with no
    *  target explains a rule rather than a control, and centres its card. */
   target?: string;
@@ -15,6 +23,7 @@ const rules = GAME_RULES;
 export const GUIDE_STEPS: readonly GuideStep[] = [
   {
     id: "overview",
+    tab: "explore",
     title: { ko: "영토 지도부터 볼게요", en: "Start with the territory map" },
     body: {
       ko: "여기는 팬덤끼리 전국의 영토를 두고 겨루는 화면이에요. 지금부터 각 버튼이 무엇을 하는지, 점수는 어떻게 쌓이고 어디에 반영되는지 하나씩 짚어 드릴게요. 언제든 건너뛸 수 있고, 내 기록에서 다시 볼 수 있어요.",
@@ -23,6 +32,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: "summary",
+    tab: "explore",
     target: "territory-summary",
     title: { ko: "요약 카드는 바로가기예요", en: "The summary cards are shortcuts" },
     body: {
@@ -32,6 +42,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: "filters",
+    tab: "explore",
     target: "map-filters",
     title: { ko: "필터로 지도에 보이는 영토를 고르세요", en: "Filter what the map shows" },
     body: {
@@ -41,6 +52,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: "map",
+    tab: "explore",
     target: "territory-map",
     title: { ko: "지도 위 버튼 세 개", en: "Three buttons on the map" },
     body: {
@@ -50,6 +62,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: "list",
+    tab: "explore",
     target: "territory-list",
     title: { ko: "영토 카드를 누르면 지도와 연결돼요", en: "Territory cards drive the map" },
     body: {
@@ -59,6 +72,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: "pager",
+    tab: "explore",
+    needsTerritory: true,
     target: "tactical-pager",
     title: { ko: "전술 패널은 좌우로 넘길 수 있어요", en: "Page through the tactical panel" },
     body: {
@@ -68,6 +83,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: "standings",
+    tab: "explore",
+    needsTerritory: true,
     target: "tactical-standings",
     title: { ko: "지금 점수 차이를 확인하세요", en: "Check the current gap" },
     body: {
@@ -77,6 +94,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: "connection",
+    tab: "explore",
+    needsTerritory: true,
     target: "tactical-connection",
     title: { ko: "왜 이 지역인지 근거를 밝혀요", en: "Why this place is linked" },
     body: {
@@ -86,6 +105,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: "award",
+    tab: "explore",
+    needsTerritory: true,
     target: "tactical-award",
     title: { ko: "점수는 이렇게 쌓여요", en: "How points add up" },
     body: {
@@ -95,6 +116,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: "stronghold",
+    tab: "explore",
     title: { ko: "거점 단계가 오르면 버프가 커져요", en: "Stronghold stages widen the buff" },
     body: {
       ko: `영토에 쌓인 유효 포인트가 그 영토의 거점 단계를 정해요. 씨앗에서 시작해 ${rules.strongholdTreeAt.toLocaleString()}P에서 나무, ${rules.strongholdLandmarkAt.toLocaleString()}P에서 랜드마크가 됩니다. 씨앗이면 방문에 +${rules.strongholdVisitBonus}P, 나무부터는 체류에 +${rules.strongholdDwellBonus}P, 랜드마크는 지역 소비에 +${rules.strongholdSpendBonus}P까지 더해져요. 오래 지킨 영토일수록 지키기 쉬워지는 구조예요.`,
@@ -103,6 +125,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: "impact",
+    tab: "explore",
+    needsTerritory: true,
     target: "tactical-impact",
     title: { ko: "배수와 상한이 최종 점수를 정해요", en: "Multipliers and caps decide the final score" },
     body: {
@@ -112,6 +136,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: "start-expedition",
+    tab: "explore",
+    needsTerritory: true,
     target: "start-expedition",
     title: { ko: "원정을 시작해 볼까요", en: "Start an expedition" },
     body: {
@@ -121,6 +147,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   },
   {
     id: "check-in",
+    tab: "explore",
     title: { ko: "현장에서 체크인하면 반영돼요", en: "Check in on site to bank it" },
     body: {
       ko: "원정 화면에서 장소마다 체크인 버튼이 있어요. 누르면 위치와 현장 사진으로 방문을 인증하고, 인증이 끝나면 그만큼의 유효 포인트가 그 영토의 우리 팬덤 점수에 더해집니다. 점수가 쌓이면 소유 팬덤과 거점 단계가 바뀌고, 랭킹과 내 기록에도 곧바로 반영돼요.",

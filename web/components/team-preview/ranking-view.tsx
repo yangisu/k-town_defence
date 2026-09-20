@@ -119,14 +119,17 @@ export function RankingView({ locale, fandoms, territories, selectedArtistId, on
             {goal.kind === "defend_first"
               ? <strong>{t(locale, "rankingDefendingFirst")}</strong>
               : (
-                <>
+                // The condition and what meets it are one sentence, so they sit
+                // in one block — the lime above is the fandom's name, and
+                // sharing its colour made this read as part of that instead.
+                <p className="ranking-goal-target">
                   <small>{t(locale, "rankingUntilRankChange")}</small>
                   <strong>
                     {locale === "ko"
                       ? `거점 ${goal.strongholdGap}${t(locale, "rankingStrongholdUnit")} ${t(locale, "rankingGainStrongholds")}`
                       : `${goal.strongholdGap} ${t(locale, "rankingGainStrongholds")}`}
                   </strong>
-                </>
+                </p>
               )}
           </div>
           <progress

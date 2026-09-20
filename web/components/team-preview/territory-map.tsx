@@ -203,6 +203,25 @@ function hoverable(base: ExpressionSpecification | number, hovered: number): Exp
   return ["case", ["boolean", ["feature-state", "hover"], false], hovered, base] as ExpressionSpecification;
 }
 
+/**
+ * The reader's own territories are already the loudest thing on the map, so a
+ * halo in their fandom colour disappears into the fill it surrounds. Theirs
+ * glow white instead — the one colour their fill is never close to.
+ */
+function glowColorExpression(selectedArtistId: string | null): ExpressionSpecification {
+  return [
+    "case",
+    ["==", ["get", "ownerArtistId"], selectedArtistId ?? ""],
+    "#ffffff",
+    ["get", "ownerColor"],
+  ] as ExpressionSpecification;
+}
+
+/** True only for the territories the reader's fandom holds. */
+function mineExpression(selectedArtistId: string | null): ExpressionSpecification {
+  return ["==", ["get", "ownerArtistId"], selectedArtistId ?? ""] as ExpressionSpecification;
+}
+
 function filterOpacityExpression(territories: readonly PreviewTerritory[], selectedArtistId: string | null): ExpressionSpecification {
   return [
     "match",
@@ -377,10 +396,10 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         source: boundarySourceId,
         // The halo a lifted button casts, in the territory's own colour.
         paint: {
-          "line-color": ["get", "ownerColor"],
-          "line-width": hoverable(0, 7),
+          "line-color": glowColorExpression(sessionRef.current.selectedArtistId),
+          "line-width": hoverable(0, 8),
           "line-blur": 4,
-          "line-opacity": hoverable(0, 0.26),
+          "line-opacity": hoverable(0, 0.34),
           "line-width-transition": { duration: 180, delay: 0 },
           "line-opacity-transition": { duration: 180, delay: 0 },
         },
@@ -437,9 +456,15 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         id: "preview-selected-fandom-outline",
         type: "line",
         source: boundarySourceId,
-        filter: ["==", ["get", "ownerArtistId"], sessionRef.current.selectedArtistId ?? ""],
+        filter: mineExpression(sessionRef.current.selectedArtistId),
         // The fandom's own colour says "yours"; white is the country's coast.
-        paint: { "line-color": ["get", "ownerColor"], "line-width": 1.6 },
+        // This edge already sits at full strength, so the hover it answers to
+        // is a jump in weight — the quiet layer beneath cannot show through it.
+        paint: {
+          "line-color": ["get", "ownerColor"],
+          "line-width": hoverable(1.6, 4.2),
+          "line-width-transition": { duration: 180, delay: 0 },
+        },
       });
       map.addLayer({
         id: selectedOutlineLayerId,
@@ -596,7 +621,10 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
       map.setPaintProperty(territoryLayerId, "fill-color", ownerColorExpression(session.territories));
     }
     if (map.getLayer("preview-selected-fandom-outline")) {
-      map.setFilter("preview-selected-fandom-outline", ["==", ["get", "ownerArtistId"], session.selectedArtistId ?? ""]);
+      map.setFilter("preview-selected-fandom-outline", mineExpression(session.selectedArtistId));
+    }
+    if (map.getLayer("preview-territory-glow")) {
+      map.setPaintProperty("preview-territory-glow", "line-color", glowColorExpression(session.selectedArtistId));
     }
     if (!usesListedTerritories) {
       const filters = visibleLayerFilters(session.territories);

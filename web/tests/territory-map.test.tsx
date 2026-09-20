@@ -640,8 +640,17 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
   expect(map.layers.find((layer) => layer.id === "preview-selected-fandom-outline")?.filter)
     .toEqual(["==", ["get", "ownerArtistId"], "bts"]);
   expect(map.layers.find((layer) => layer.id === "preview-selected-fandom-outline")?.paint)
-    // The fandom's own colour marks its territories; white is the coast.
-    .toEqual({ "line-color": ["get", "ownerColor"], "line-width": 1.6 });
+    // The fandom's own colour marks its territories; white is the coast. This
+    // edge rests at full strength, so hover has to answer in weight.
+    .toEqual({
+      "line-color": ["get", "ownerColor"],
+      "line-width": ["case", ["boolean", ["feature-state", "hover"], false], 4.2, 1.6],
+      "line-width-transition": { duration: 180, delay: 0 },
+    });
+  // A halo in the fandom's own colour vanishes into its own fill, so the
+  // reader's territories glow white and everyone else's glow their colour.
+  expect((map.layers.find((layer) => layer.id === "preview-territory-glow")?.paint as Record<string, unknown>)?.["line-color"])
+    .toEqual(["case", ["==", ["get", "ownerArtistId"], "bts"], "#ffffff", ["get", "ownerColor"]]);
   expect(map.layers.find((layer) => layer.id === "preview-territory-selected"))
     .toMatchObject({ type: "fill", paint: { "fill-color": ["get", "ownerColor"], "fill-opacity": 0.38 } });
   expect(map.layers.find((layer) => layer.id === "preview-territory-selected-outline"))

@@ -240,7 +240,7 @@ it("does not allow reconfirming the current fandom as a profile change", async (
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
   await user.click(within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole("button", { name: "내 기록" }));
-  await user.click(screen.getByRole("button", { name: "아티스트 추가" }));
+  await user.click(screen.getByRole("button", { name: "아티스트 설정" }));
 
   // Already the active fandom, so the drawer offers a switch and disables it.
   expect(screen.getByRole("button", { name: "이 팬덤으로 전환" })).toBeDisabled();
@@ -253,7 +253,7 @@ it("keeps profile-menu changes on the strongest relevant territory", async () =>
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
   await user.click(within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole("button", { name: "내 기록" }));
-  await user.click(screen.getByRole("button", { name: "아티스트 추가" }));
+  await user.click(screen.getByRole("button", { name: "아티스트 설정" }));
   await user.click(screen.getByRole("radio", { name: /aespa.*MY/i }));
   await user.click(screen.getByRole("button", { name: "이 팬덤 추가" }));
 
@@ -328,7 +328,7 @@ it("switches artists without carrying the previous artist's expedition route", a
   await user.click(screen.getByRole("button", { name: "영토 지도로" }));
 
   await user.click(within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole("button", { name: "내 기록" }));
-  await user.click(screen.getByRole("button", { name: "아티스트 추가" }));
+  await user.click(screen.getByRole("button", { name: "아티스트 설정" }));
   await user.click(screen.getByRole("radio", { name: /aespa.*MY/i }));
   await user.click(screen.getByRole("button", { name: "이 팬덤 추가" }));
   await user.click(within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole("button", { name: "영토 지도" }));

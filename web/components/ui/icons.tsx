@@ -24,6 +24,7 @@ export {
   Share2,
   Shield,
   Sparkles,
+  Trash2,
   Trophy,
   UserRound,
   Utensils,

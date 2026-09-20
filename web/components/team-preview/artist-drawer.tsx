@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, type CSSProperties } from "react";
-import { X } from "@/components/ui/icons";
+import { Trash2, X } from "@/components/ui/icons";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { getArtistHomeTerritories, previewContent } from "@/features/team-preview/content";
 import { t } from "@/features/team-preview/i18n";
@@ -24,6 +24,9 @@ interface ArtistSelectorProps {
   confirmLabel: string;
   confirmationDisabled?: boolean;
   stickyConfirmation?: boolean;
+  /** Already on the roster: shown, but greyed out and sunk to the bottom,
+   *  because the list below exists to find someone new. */
+  followedArtistIds?: readonly ArtistId[];
   onSelect(artistId: ArtistId): void;
   onConfirm(): void;
 }
@@ -34,19 +37,27 @@ export function ArtistSelector({
   confirmLabel,
   confirmationDisabled = false,
   stickyConfirmation = false,
+  followedArtistIds = [],
   onSelect,
   onConfirm,
 }: ArtistSelectorProps) {
   const [query, setQuery] = useState("");
   const artists = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
-    if (!needle) return previewContent.artists;
-    return previewContent.artists.filter((artist) => [
-      artist.artistName.ko,
-      artist.artistName.en,
-      artist.fandomName,
-    ].some((value) => value.toLocaleLowerCase().includes(needle)));
-  }, [query]);
+    const matching = needle
+      ? previewContent.artists.filter((artist) => [
+        artist.artistName.ko,
+        artist.artistName.en,
+        artist.fandomName,
+      ].some((value) => value.toLocaleLowerCase().includes(needle)))
+      : previewContent.artists;
+    // A stable partition: whoever is still available first, in catalog order,
+    // then the ones already followed. This list is for finding someone new.
+    return [
+      ...matching.filter((artist) => !followedArtistIds.includes(artist.id)),
+      ...matching.filter((artist) => followedArtistIds.includes(artist.id)),
+    ];
+  }, [followedArtistIds, query]);
   const selectionVisible = selectedArtistId !== null
     && artists.some((artist) => artist.id === selectedArtistId);
 
@@ -71,7 +82,7 @@ export function ArtistSelector({
               <label
                 htmlFor={`preview-artist-${artist.id}`}
                 aria-label={`${artist.artistName[locale]} ${artist.artistName.en} ${artist.fandomName}`}
-                className="artist-option"
+                className={followedArtistIds.includes(artist.id) ? "artist-option followed" : "artist-option"}
                 key={artist.id}
                 style={{ "--artist-color": artist.color } as CSSProperties}
               >
@@ -81,6 +92,7 @@ export function ArtistSelector({
                   name="preview-artist"
                   value={artist.id}
                   checked={selectedArtistId === artist.id}
+                  disabled={followedArtistIds.includes(artist.id)}
                   onChange={() => onSelect(artist.id)}
                 />
                 <span
@@ -169,10 +181,10 @@ function OpenArtistDrawer({ locale, selectedArtistId, followedArtistIds = [], on
                     <small>{artist.artistName[locale]}</small>
                   </span>
                   {artist.id === selectedArtistId
-                    ? <b>{t(locale, "recordActiveFandom")}</b>
+                    ? <b className="artist-roster-pill">{t(locale, "recordActiveFandom")}</b>
                     : (
-                      <button type="button" className="artist-roster-switch" onClick={() => { onSelect(artist.id); onClose(); }}>
-                        {t(locale, "recordSwitchArtist")}
+                      <button type="button" className="artist-roster-pill artist-roster-switch" onClick={() => { onSelect(artist.id); onClose(); }}>
+                        {t(locale, "recordSwitchShort")}
                       </button>
                     )}
                   {onRemove ? (
@@ -182,7 +194,7 @@ function OpenArtistDrawer({ locale, selectedArtistId, followedArtistIds = [], on
                       aria-label={t(locale, "recordRemoveArtistLabel").replace("{fandom}", artist.fandomName)}
                       onClick={() => onRemove(artist.id)}
                     >
-                      <X aria-hidden="true" size={16} strokeWidth={2.6} />
+                      <Trash2 aria-hidden="true" size={16} strokeWidth={2.2} />
                     </button>
                   ) : null}
                 </li>
@@ -193,6 +205,7 @@ function OpenArtistDrawer({ locale, selectedArtistId, followedArtistIds = [], on
         <ArtistSelector
           locale={locale}
           selectedArtistId={draftArtistId}
+          followedArtistIds={followedArtistIds}
           onSelect={setDraftArtistId}
           confirmLabel={t(locale, draftIsNew ? "artistAddConfirm" : "recordSwitchArtist")}
           confirmationDisabled={draftArtistId === selectedArtistId}

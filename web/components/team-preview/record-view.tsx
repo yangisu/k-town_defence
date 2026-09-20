@@ -317,7 +317,7 @@ export function RecordView({
             </ul>
           ) : null}
         </div>
-        <button type="button" onClick={onChangeArtist}>{t(locale, "recordAddArtist")}</button>
+        <button type="button" onClick={onChangeArtist}>{t(locale, "recordArtistSettings")}</button>
       </section>
 
       {onSignOut || onReset || onReplayGuide ? (

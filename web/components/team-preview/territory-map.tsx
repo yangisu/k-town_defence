@@ -61,31 +61,40 @@ const markerLabels = Object.fromEntries(previewContent.artists.map((artist) => [
  * shape a reader sees.
  */
 /**
- * The base map is scenery, not the subject: the fandom colours have to carry
- * the meaning. Grey every layer the style ships with and drop its borders and
- * labels, so the only colour and the only lines on screen are the territories
- * this product draws.
+ * The base map is scenery, not the subject. Its borders and labels go, since
+ * the only lines worth reading are the territories this product draws, but
+ * its colours stay — a blue sea and coloured land read better than grey —
+ * pulled a little towards grey so the fandom colours still lead.
  */
+function softenHex(hex: string, towardsGrey = 0.28) {
+  const value = hex.trim().replace("#", "");
+  const full = value.length === 3 ? value.split("").map((part) => part + part).join("") : value;
+  if (full.length !== 6 || /[^0-9a-f]/i.test(full)) return null;
+  const channels = [0, 2, 4].map((offset) => Number.parseInt(full.slice(offset, offset + 2), 16));
+  const grey = channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+  const mixed = channels.map((channel) => Math.round(channel + (grey - channel) * towardsGrey));
+  return `#${mixed.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
 function neutraliseBaseMap(map: MapLibreMap) {
   if (typeof map.getStyle !== "function") return;
   const style = map.getStyle();
   for (const layer of style?.layers ?? []) {
     if (layer.id.startsWith("preview-") || layer.id.startsWith("my-location")) continue;
-    const id = layer.id.toLowerCase();
-    const water = id.includes("water") || id.includes("ocean") || id.includes("sea") || id.includes("marine");
+    if (typeof map.setPaintProperty !== "function" || typeof map.setLayoutProperty !== "function") return;
     try {
-      if (typeof map.setPaintProperty !== "function" || typeof map.setLayoutProperty !== "function") return;
-      if (layer.type === "background") {
-        map.setPaintProperty(layer.id, "background-color", "#eceae4");
-      } else if (layer.type === "fill") {
-        map.setPaintProperty(layer.id, "fill-color", water ? "#dfe1e3" : "#e6e4de");
-        map.setPaintProperty(layer.id, "fill-outline-color", water ? "#dfe1e3" : "#e6e4de");
-      } else {
-        // Borders, roads and labels all belong to the scenery.
+      if (layer.type === "line" || layer.type === "symbol") {
+        // Country borders and place labels belong to the scenery.
         map.setLayoutProperty(layer.id, "visibility", "none");
+        continue;
       }
+      const property = layer.type === "background" ? "background-color" : layer.type === "fill" ? "fill-color" : null;
+      if (!property) continue;
+      const current = map.getPaintProperty(layer.id, property);
+      const softened = typeof current === "string" ? softenHex(current) : null;
+      if (softened) map.setPaintProperty(layer.id, property, softened);
     } catch {
-      // A style may not accept every property; the rest still greys out.
+      // A style may not accept every property; the rest still softens.
     }
   }
 }

@@ -557,8 +557,7 @@ it("clears the tactical panel when the selected territory is picked again", asyn
   expect(screen.getByRole("complementary", { name: "부산 전술 패널" })).toBeVisible();
 });
 
-it("collapses the tactical card from its own chevron", async () => {
-  const user = userEvent.setup();
+it("keeps the tactical card open, with no chevron to fold it away", async () => {
   renderPreviewWithArtist();
 
   const panel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
@@ -566,16 +565,9 @@ it("collapses the tactical card from its own chevron", async () => {
   expect(within(panel).getByRole("heading", { name: "부산" }).parentElement)
     .not.toHaveTextContent("ARMY");
 
-  const collapse = within(panel).getByRole("button", { name: "영토 카드 접기" });
-  expect(collapse).toHaveAttribute("aria-expanded", "true");
-  expect(within(panel).getByRole("button", { name: "원정 시작" })).toBeVisible();
-
-  await user.click(collapse);
-
-  expect(within(panel).queryByRole("button", { name: "원정 시작" })).not.toBeInTheDocument();
-  expect(document.getElementById("tactical-panel-body")).toBeNull();
-
-  await user.click(within(panel).getByRole("button", { name: "영토 카드 펼치기" }));
+  // The card is what the reader came for, so it has nothing to fold away.
+  expect(within(panel).queryByRole("button", { name: "영토 카드 접기" })).not.toBeInTheDocument();
+  expect(within(panel).queryByRole("button", { name: "영토 카드 펼치기" })).not.toBeInTheDocument();
   expect(within(panel).getByRole("button", { name: "원정 시작" })).toBeVisible();
 });
 

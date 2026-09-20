@@ -81,6 +81,7 @@ vi.mock("maplibre-gl", () => {
     addLayer(layer: Record<string, unknown>) { this.layers.push(layer); return this; }
     getLayer(id: string) { return this.layers.find((layer) => layer.id === id); }
     getStyle() { return { layers: this.layers }; }
+    getPaintProperty() { return undefined; }
     setLayoutProperty() { return this; }
 
     emit(event: string, value: MapEvent = {}) {

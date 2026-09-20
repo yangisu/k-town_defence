@@ -194,7 +194,6 @@ export function TacticalPanel({
   const swipeOrigin = useRef<{ x: number; y: number } | null>(null);
   const [awardHelpOpen, setAwardHelpOpen] = useState(false);
   const [impactHelpOpen, setImpactHelpOpen] = useState(false);
-  const [bodyOpen, setBodyOpen] = useState(true);
   const [slide, setSlide] = useState<"next" | "previous" | null>(null);
   const locale: Locale = session.locale;
   const copy = panelCopy[locale];
@@ -326,19 +325,8 @@ export function TacticalPanel({
       ) : null}
       <header>
         <h2>{territory.name[locale]}</h2>
-        <button
-          type="button"
-          className={bodyOpen ? "tactical-collapse open" : "tactical-collapse"}
-          aria-expanded={bodyOpen}
-          aria-controls="tactical-panel-body"
-          aria-label={t(locale, bodyOpen ? "panelCollapse" : "panelExpand")}
-          onClick={() => setBodyOpen((open) => !open)}
-        >
-          <ChevronRight size={17} strokeWidth={2.8} aria-hidden="true" />
-        </button>
       </header>
 
-      {bodyOpen ? (
       <div
         className={slide ? `tactical-panel-body slide-${slide}` : "tactical-panel-body"}
         id="tactical-panel-body"
@@ -463,7 +451,6 @@ export function TacticalPanel({
       </button>
       {blockedByOtherRoute ? <p className="tactical-blocked-note" role="note">{copy.blockedNote}</p> : null}
       </div>
-      ) : null}
     </aside>
   );
 }

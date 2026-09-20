@@ -62,16 +62,10 @@ export function TerritoryView({ mapConfig }: {
     }, 60);
   };
 
-  const changeFilter = (nextFilter: TerritoryFilter) => {
-    setFilter(nextFilter);
-    // A deliberate deselection outlives a filter change; only a selection that
-    // the new filter hides is moved onto the first territory it does show.
-    if (!selectedArtist || session.state.selectedTerritoryId === null) return;
-    const nextTerritories = filterAndOrderTerritories(session.state.territories, nextFilter, selectedArtist.id);
-    if (nextTerritories.length > 0 && !nextTerritories.some((territory) => territory.id === session.state.selectedTerritoryId)) {
-      selectTerritory(nextTerritories[0].id);
-    }
-  };
+  // A filter decides what the list shows, never what is chosen. A territory
+  // the reader picked stays picked until they pick another one, here or on the
+  // map, even while the filter hides its card.
+  const changeFilter = (nextFilter: TerritoryFilter) => setFilter(nextFilter);
 
   const openSummaryTerritory = (nextFilter: TerritoryFilter, territoryId: string | null) => {
     setFilter(nextFilter);

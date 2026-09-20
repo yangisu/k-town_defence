@@ -31,6 +31,7 @@ interface MapHarness {
   emit: (event: string, value?: MapEvent) => void;
   emitLayer: (event: string, layer: string, value?: MapEvent) => void;
   canvas: { style: { cursor: string } };
+  sourceSpecs: Map<string, { promoteId?: string; data?: unknown }>;
 }
 
 const mapHarness = vi.hoisted(() => ({ instances: [] as MapHarness[] }));
@@ -70,8 +71,10 @@ vi.mock("maplibre-gl", () => {
     canvas = { style: { cursor: "" } };
     getCanvas() { return this.canvas; }
     addControl() { return this; }
-    addSource(id: string, specification?: { data?: unknown }) {
+    sourceSpecs = new Map<string, { promoteId?: string; data?: unknown }>();
+    addSource(id: string, specification?: { data?: unknown; promoteId?: string }) {
       this.sources.set(id, { setData: vi.fn(), initialData: specification?.data });
+      this.sourceSpecs.set(id, specification ?? {});
       return this;
     }
     getSource(id: string) { return this.sources.get(id); }
@@ -802,4 +805,23 @@ it("never hands MapLibre a filter key without a filter", async () => {
     if (!("filter" in layer)) continue;
     expect(Array.isArray(layer.filter), `${layer.id} filter`).toBe(true);
   }
+});
+
+it("promotes the territory id so the owner colours and highlight resolve", async () => {
+  render(
+    <TerritoryMap
+      mapConfig={config}
+      session={createInitialDemoSession()}
+      selectedTerritoryId={null}
+      onSelectTerritory={() => undefined}
+    />,
+  );
+  mapHarness.instances[0].emit("load");
+
+  // MapLibre drops a feature id it cannot read as a number, which left every
+  // ["id"] expression — fill colour, opacity, the selected highlight — falling
+  // through to its default, so every territory came out the same purple.
+  const source = mapHarness.instances[0].sourceSpecs.get("preview-territory-boundaries");
+  expect(source?.promoteId).toBe("id");
+  expect(mapHarness.instances[0].sourceSpecs.get("preview-strongholds")?.promoteId).toBe("id");
 });

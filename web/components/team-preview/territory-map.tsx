@@ -312,12 +312,17 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
       styleLoaded = true;
       map.addSource(boundarySourceId, {
         type: "geojson",
+        // MapLibre drops a feature id it cannot read as a number, which left
+        // every ["id"] expression — fill colour, opacity, the selected
+        // highlight — falling through to its default.
+        promoteId: "id",
         data: boundaryCollectionRef.current
           ? ownerBoundaryCollection(boundaryCollectionRef.current, sessionRef.current.territories)
           : "/data/preview-territories.geojson",
       });
       map.addSource(strongholdSourceId, {
         type: "geojson",
+        promoteId: "id",
         data: pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current),
       });      map.addSource(expeditionSourceId, {
         type: "geojson",
@@ -620,6 +625,12 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
           data-guide="territory-map"
           className={mapFocused ? "preview-territory-map focused" : "preview-territory-map"}
           onPointerDown={() => setMapFocused(true)}
+          // A mouse over the map is already aiming at it, so the wheel should
+          // zoom without a click first. A finger is not: on a touch screen the
+          // page keeps the gesture until the map is tapped.
+          onPointerEnter={(event) => {
+            if (event.pointerType === "mouse") setMapFocused(true);
+          }}
           role="region"
           aria-label={session.locale === "ko" ? "대한민국 팬덤 영토 지도" : "Korea fandom territory map"}
         >

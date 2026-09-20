@@ -91,8 +91,8 @@ The regions come from ADM1 and ADM2, whose coastlines are drawn at different
 fidelities, so eight coastal regions — Jeju, Pohang, Gyeongju, Geoje, Busan,
 Ulsan, Incheon and Siheung — painted past the country's own outline.
 
- is the ADM1 download from the same pinned revision
-() dissolved into one shape, so the coast a region is cut against
+`korea-outline.geojson` is the ADM1 download from the same pinned revision
+(`9469f09`) dissolved into one shape, so the coast a region is cut against
 is the coast those regions were drawn on — an ADM0 outline from Natural Earth
 draws its islands differently and left Incheon's in the sea. Each region is
 intersected with it and rounded back to the four decimal places the file

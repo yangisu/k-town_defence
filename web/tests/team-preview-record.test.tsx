@@ -244,7 +244,10 @@ it("tucks the season into the summary card with an explanation toggle", async ()
   await user.click(info);
 
   expect(within(summary).getByText(/영토 소유와 거점 단계를 정합니다/)).toBeVisible();
-  expect(within(summary).getByText(/데모용 고정값/)).toBeVisible();
+  // The note explains what a season is; the demo caveat it used to carry was
+  // about the prototype, not the game.
+  expect(within(summary).getByText(/영토 소유와 거점 단계를 정합니다/)).toBeVisible();
+  expect(within(summary).queryByText(/데모용 고정값/)).not.toBeInTheDocument();
 
   await user.click(info);
   expect(document.getElementById("record-season-about")).toBeNull();

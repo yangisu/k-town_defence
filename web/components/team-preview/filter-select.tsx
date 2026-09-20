@@ -87,7 +87,6 @@ export function FilterSelect({ label, options, value, onChange }: {
   // the page often has no room left to scroll, so the room is made first, and
   // given back when the list closes. Scrolling moves the trigger, the
   // placement effect follows it, and the whole list comes into view.
-  const scrolledIntoView = useRef(false);
   const roomAdded = useRef(false);
 
   // Giving the room back belongs to closing the list, not to re-placing it:
@@ -100,22 +99,34 @@ export function FilterSelect({ label, options, value, onChange }: {
         document.body.style.paddingBottom = "";
         roomAdded.current = false;
       }
-      scrolledIntoView.current = false;
     };
   }, [open]);
 
+  // Keyed to the opening alone. Watching the anchor too meant the first scroll
+  // event — the browser still settling the page the last closing shortened —
+  // cancelled this before it could measure, and every second open slid out of
+  // view. Waiting a couple of frames lets that settling finish first.
   useEffect(() => {
-    if (!open || scrolledIntoView.current || !anchor) return;
-    const list = listRef.current;
-    if (!list) return;
-    scrolledIntoView.current = true;
-    const overflow = Math.ceil(list.getBoundingClientRect().bottom - (window.innerHeight - LIST_MARGIN));
-    if (overflow <= 0) return;
-    const existing = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
-    document.body.style.paddingBottom = `${existing + overflow}px`;
-    roomAdded.current = true;
-    window.scrollBy({ top: overflow, behavior: "smooth" });
-  }, [anchor, open]);
+    if (!open) return;
+    let frame = 0;
+    let waited = 0;
+    const measure = () => {
+      const list = listRef.current;
+      if (!list || waited < 2) {
+        waited += 1;
+        frame = requestAnimationFrame(measure);
+        return;
+      }
+      const overflow = Math.ceil(list.getBoundingClientRect().bottom - (window.innerHeight - LIST_MARGIN));
+      if (overflow <= 0) return;
+      const existing = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+      document.body.style.paddingBottom = `${existing + overflow}px`;
+      roomAdded.current = true;
+      window.scrollBy({ top: overflow, behavior: "smooth" });
+    };
+    frame = requestAnimationFrame(measure);
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
 
   const take = (id: string) => {
     onChange(id);

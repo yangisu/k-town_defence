@@ -1,5 +1,6 @@
-import type { CSSProperties } from "react";
-import { Trophy } from "@/components/ui/icons";
+import { useState, type CSSProperties } from "react";
+import { ChevronRight, Trophy } from "@/components/ui/icons";
+import { StrongholdMark } from "@/components/team-preview/stronghold-mark";
 import { previewContent } from "@/features/team-preview/content";
 import { rankFandoms } from "@/features/team-preview/game-rules";
 import { t } from "@/features/team-preview/i18n";
@@ -60,6 +61,13 @@ function FandomIdentity({ locale, artistId, fandomName }: { locale: Locale; arti
 }
 
 export function RankingView({ locale, fandoms, territories, selectedArtistId, onInspectTerritory }: Props) {
+  const [openFandomId, setOpenFandomId] = useState<ArtistId | null>(null);
+  // Both lists are long, and on a phone they push each other off the screen.
+  // The toggle only shows there; on a wide layout they sit side by side and
+  // never need folding, so the class it sets does nothing.
+  const [openSections, setOpenSections] = useState({ leaderboard: true, contested: true });
+  const toggleSection = (key: "leaderboard" | "contested") =>
+    setOpenSections((current) => ({ ...current, [key]: !current[key] }));
   const ranked = rankFandoms(fandoms);
   const selected = ranked.find((row) => row.artistId === selectedArtistId) ?? null;
   const goal = rankingGoal(ranked, selectedArtistId);
@@ -67,10 +75,23 @@ export function RankingView({ locale, fandoms, territories, selectedArtistId, on
     .filter(isContestedTerritory)
     .map((territory) => {
       const owner = territory.standings.find((standing) => standing.artistId === territory.ownerArtistId) ?? territory.standings[0];
-      const challenger = territory.standings
+      const rivals = territory.standings
         .filter((standing) => standing.artistId !== territory.ownerArtistId)
-        .sort((a, b) => b.validPoints - a.validPoints)[0];
-      return { territory, owner, challenger, gap: territoryGap(territory) };
+        .sort((a, b) => b.validPoints - a.validPoints);
+      // Whose board this is. Holding it, the row names whoever is closest
+      // behind; chasing it, the row names the reader and the distance they
+      // have to cover — a fandom with no points here still has a distance,
+      // and showing the top rival instead made every board read as ARMY's.
+      const holdsIt = territory.ownerArtistId === selectedArtistId;
+      const mine = selectedArtistId
+        ? territory.standings.find((standing) => standing.artistId === selectedArtistId)
+          ?? { artistId: selectedArtistId, fandomName: artistFor(selectedArtistId)?.fandomName ?? "", validPoints: 0 }
+        : null;
+      const challenger = holdsIt || !mine ? rivals[0] : mine;
+      const gap = holdsIt || !mine
+        ? territoryGap(territory)
+        : Math.max(owner.validPoints - mine.validPoints, 0);
+      return { territory, owner, challenger, gap };
     })
     .filter((item): item is typeof item & { owner: NonNullable<typeof item.owner>; challenger: NonNullable<typeof item.challenger> } => (
       item.owner !== undefined && item.challenger !== undefined
@@ -144,37 +165,86 @@ export function RankingView({ locale, fandoms, territories, selectedArtistId, on
       ) : null}
 
       <div className="ranking-dashboard-grid">
-        <section className="ranking-leaderboard-section">
-          <h2>{t(locale, "rankingTitle")}</h2>
+        <section className={openSections.leaderboard ? "ranking-leaderboard-section" : "ranking-leaderboard-section folded"}>
+          <button
+            type="button"
+            className="ranking-section-toggle"
+            aria-expanded={openSections.leaderboard}
+            aria-label={t(locale, openSections.leaderboard ? "rankingCollapseSection" : "rankingExpandSection")
+              .replace("{section}", t(locale, "rankingTitle"))}
+            onClick={() => toggleSection("leaderboard")}
+          >
+            <h2>{t(locale, "rankingTitle")}</h2>
+            <ChevronRight size={18} strokeWidth={2.6} aria-hidden="true" />
+          </button>
           <ol className="ranking-leaderboard" aria-label={t(locale, "rankingTitle")}>
             {ranked.map((row) => {
               const artist = artistFor(row.artistId);
               const isSelected = row.artistId === selectedArtistId;
+              const open = openFandomId === row.artistId;
+              const held = territories.filter((territory) => territory.ownerArtistId === row.artistId);
               return (
                 <li key={row.artistId} className={isSelected ? "selected" : undefined} aria-current={isSelected ? "true" : undefined} style={{ "--artist-color": artist?.color ?? "var(--purple)" } as CSSProperties}>
-                  <span className="ranking-row-rank">#{row.rank}</span>
-                  <div className="ranking-row-identity">
-                    <strong><FandomIdentity locale={locale} artistId={row.artistId} fandomName={row.fandomName} /></strong>
-                    {isSelected ? <span className="sr-only">{t(locale, "rankingSelected")}</span> : null}
-                  </div>
-                  <div className="ranking-row-stats">
-                    <span>{formatPoints(locale, row.validPoints)}</span>
-                    <span>{t(locale, trendKeys[row.trend])}</span>
-                  </div>
-                  {/* The bar measured a count against the largest holding,
-                      which is not a number anyone plays toward. The count is
-                      the fact; the row wears the fandom's colour instead. */}
-                  <p className="ranking-row-strongholds">
-                    {t(locale, "rankingStrongholds")} {row.strongholds}{t(locale, "rankingStrongholdUnit")}
-                  </p>
+                  {/* A count of strongholds says how many; a reader who follows
+                      that fandom wants to know which. The row opens onto the
+                      list rather than sending them elsewhere to find it. */}
+                  <button
+                    type="button"
+                    className="ranking-row-open"
+                    aria-expanded={open}
+                    aria-label={t(locale, "rankingShowTerritories").replace("{fandom}", row.fandomName)}
+                    onClick={() => setOpenFandomId(open ? null : row.artistId)}
+                  >
+                    <span className="ranking-row-rank">#{row.rank}</span>
+                    <span className="ranking-row-identity">
+                      <strong><FandomIdentity locale={locale} artistId={row.artistId} fandomName={row.fandomName} /></strong>
+                      {isSelected ? <span className="sr-only">{t(locale, "rankingSelected")}</span> : null}
+                    </span>
+                    <span className="ranking-row-stats">
+                      <span>{formatPoints(locale, row.validPoints)}</span>
+                      <span>{t(locale, trendKeys[row.trend])}</span>
+                    </span>
+                    {/* The bar measured a count against the largest holding,
+                        which is not a number anyone plays toward. The count is
+                        the fact; the row wears the fandom's colour instead. */}
+                    <span className="ranking-row-strongholds">
+                      {t(locale, "rankingStrongholds")} {row.strongholds}{t(locale, "rankingStrongholdUnit")}
+                    </span>
+                    <ChevronRight className="ranking-row-caret" size={16} strokeWidth={2.6} aria-hidden="true" />
+                  </button>
+                  {open ? (
+                    <div className="ranking-row-held">
+                      <h3>{t(locale, "rankingHeldTerritories")}</h3>
+                      {held.length === 0 ? <p>{t(locale, "rankingNoTerritories")}</p> : (
+                        <ul>
+                          {held.map((territory) => (
+                            <li key={territory.id}>
+                              <StrongholdMark stage={territory.strongholdStage} locale={locale} ownerColor={artist?.color} />
+                              <span>{territory.name[locale]}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ) : null}
                 </li>
               );
             })}
           </ol>
         </section>
 
-        <section className="contested-territories">
-          <h2>{t(locale, "rankingContested")}</h2>
+        <section className={openSections.contested ? "contested-territories" : "contested-territories folded"}>
+          <button
+            type="button"
+            className="ranking-section-toggle"
+            aria-expanded={openSections.contested}
+            aria-label={t(locale, openSections.contested ? "rankingCollapseSection" : "rankingExpandSection")
+              .replace("{section}", t(locale, "rankingContested"))}
+            onClick={() => toggleSection("contested")}
+          >
+            <h2>{t(locale, "rankingContested")}</h2>
+            <ChevronRight size={18} strokeWidth={2.6} aria-hidden="true" />
+          </button>
           <ol aria-label={t(locale, "rankingContested")}>
             {contested.map(({ territory, owner, challenger, gap }) => (
               <li key={territory.id}>

@@ -264,7 +264,15 @@ export function RecordView({
             return (
               <li key={stage} className={unlocked ? "unlocked" : "locked"}>
                 <StageBadge stage={stage} locale={locale} unlocked={unlocked} ownerColor={artist?.color} />
-                <span>{t(locale, label)}</span>
+                {/* A badge belongs to a fandom, so it says which one earned it. */}
+                <span>
+                  {t(locale, label)}
+                  {unlocked && artist ? (
+                    <small className="record-reward-fandom">
+                      {t(locale, "recordBadgeEarnedBy").replace("{fandom}", artist.fandomName)}
+                    </small>
+                  ) : null}
+                </span>
                 <span className={unlocked ? "record-state unlocked" : "record-state"}>
                   {unlocked ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : <Lock size={13} strokeWidth={2.6} aria-hidden="true" />}
                   <span className="sr-only">{t(locale, unlocked ? "recordUnlocked" : "recordLocked")}</span>

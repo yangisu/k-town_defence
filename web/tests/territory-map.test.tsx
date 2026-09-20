@@ -847,3 +847,22 @@ it("draws the country this game is played in, and only its outline in white", as
   // The ground sits under everything this product draws on top of it.
   expect(layers.indexOf(ground!)).toBeLessThan(layers.findIndex((layer) => layer.id === "preview-territory-fill"));
 });
+
+it("names each territory once there is room for the name", async () => {
+  render(
+    <TerritoryMap
+      mapConfig={config}
+      session={createInitialDemoSession()}
+      selectedTerritoryId={null}
+      onSelectTerritory={() => undefined}
+    />,
+  );
+  mapHarness.instances[0].emit("load");
+
+  const names = mapHarness.instances[0].layers.find((layer) => layer.id === "preview-territory-names");
+  expect(names).toMatchObject({ type: "symbol", source: "preview-strongholds" });
+  // Zoomed out the names would pile onto the markers, so they wait for room
+  // and drop out rather than overlap.
+  expect(names?.minzoom).toBeGreaterThan(6.2);
+  expect(names?.layout).toMatchObject({ "text-allow-overlap": false, "text-optional": true });
+});

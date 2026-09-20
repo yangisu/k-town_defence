@@ -44,7 +44,7 @@ export function ObjectiveStrip({ locale, fandomName, fandomColor, onChangeArtist
       style={painted}
     >
       {fandomName && onChangeArtist ? (
-        <button type="button" onClick={onChangeArtist} aria-label={`${fandomName} · ${t(locale, "recordChangeArtist")}`}>
+        <button type="button" onClick={onChangeArtist} aria-label={`${fandomName} · ${t(locale, "recordManageFandoms")}`}>
           {fandomName}
         </button>
       ) : <strong>{fandomName ?? t(locale, "chooseArtistObjective")}</strong>}

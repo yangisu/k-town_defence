@@ -22,6 +22,13 @@ export interface DemoSession {
   locale: Locale;
   artistConfirmed: boolean;
   selectedArtistId: ArtistId | null;
+  /**
+   * Every fandom on the reader's roster. One of them is the active one —
+   * `selectedArtistId` — and the map, ranking and recommendations still answer
+   * to that one alone; the rest wait on the roster so switching back costs a
+   * tap instead of choosing again. The active artist is always a member.
+   */
+  followedArtistIds: ArtistId[];
   selectedTerritoryId: TerritoryId | null;
   activeTab: AppTab;
   selectedExpeditionId: string | null;
@@ -37,6 +44,7 @@ export interface DemoSession {
 export type DemoSessionAction =
   | { type: "selectArtist"; artistId: ArtistId }
   | { type: "changeProfile"; artistId: ArtistId }
+  | { type: "removeArtist"; artistId: ArtistId }
   | { type: "selectTerritory"; territoryId: TerritoryId | null }
   | { type: "changeTab"; tab: AppTab }
   | { type: "openExpedition"; expeditionId: string }
@@ -128,6 +136,7 @@ export function createInitialDemoSession(): DemoSession {
     locale: "ko",
     artistConfirmed: false,
     selectedArtistId: null,
+    followedArtistIds: [],
     selectedTerritoryId: null,
     activeTab: "explore",
     selectedExpeditionId: null,
@@ -139,6 +148,11 @@ export function createInitialDemoSession(): DemoSession {
     missionVisitCounts: {},
     contributedToday: 0,
   };
+}
+
+/** The roster with this artist on it, and the same array when already there. */
+function withArtist(followedArtistIds: ArtistId[], artistId: ArtistId) {
+  return followedArtistIds.includes(artistId) ? followedArtistIds : [...followedArtistIds, artistId];
 }
 
 function compatibleExpedition(expeditionId: string, artistId: ArtistId, territoryId: TerritoryId) {
@@ -209,18 +223,58 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         ...state,
         artistConfirmed: true,
         selectedArtistId: action.artistId,
+        followedArtistIds: withArtist(state.followedArtistIds, action.artistId),
         selectedTerritoryId: null,
         activeTab: "explore",
         selectedExpeditionId: null,
         activeExpeditionId: null,
       };
     case "changeProfile": {
-      if (state.artistConfirmed && state.selectedArtistId === action.artistId) return state;
+      // Picking an artist adds them to the roster as well as making them the
+      // active one, so "change" and "add" are the same gesture from the reader's
+      // side: they end up following whoever they just chose.
+      if (state.artistConfirmed && state.selectedArtistId === action.artistId) {
+        const followedArtistIds = withArtist(state.followedArtistIds, action.artistId);
+        return followedArtistIds === state.followedArtistIds ? state : { ...state, followedArtistIds };
+      }
       const territory = selectProfileTerritory(action.artistId, state.territories);
       return {
         ...state,
         artistConfirmed: true,
         selectedArtistId: action.artistId,
+        followedArtistIds: withArtist(state.followedArtistIds, action.artistId),
+        selectedTerritoryId: territory?.id ?? null,
+        activeTab: state.activeTab === "journey" ? "journey" : "explore",
+        selectedExpeditionId: null,
+        activeExpeditionId: null,
+      };
+    }
+    case "removeArtist": {
+      if (!state.followedArtistIds.includes(action.artistId)) return state;
+      const followedArtistIds = state.followedArtistIds.filter((artistId) => artistId !== action.artistId);
+      // Leaving the active fandom hands the seat to the next one on the roster.
+      // Leaving the last one empties it, and the reader chooses again — their
+      // visits keep the fandom they were made for either way.
+      if (state.selectedArtistId !== action.artistId) return { ...state, followedArtistIds };
+      const successor = followedArtistIds[0] ?? null;
+      if (!successor) {
+        return {
+          ...state,
+          followedArtistIds,
+          artistConfirmed: false,
+          selectedArtistId: null,
+          selectedTerritoryId: null,
+          activeTab: "explore",
+          selectedExpeditionId: null,
+          activeExpeditionId: null,
+        };
+      }
+      const territory = selectProfileTerritory(successor, state.territories);
+      return {
+        ...state,
+        followedArtistIds,
+        artistConfirmed: true,
+        selectedArtistId: successor,
         selectedTerritoryId: territory?.id ?? null,
         activeTab: state.activeTab === "journey" ? "journey" : "explore",
         selectedExpeditionId: null,
@@ -428,6 +482,13 @@ export function isValidDemoSession(value: unknown): value is DemoSession {
     || !isNonNegativeFinite(value.contributedToday)
     || value.contributedToday > GAME_RULES.dailyCap) return false;
 
+  if (!Array.isArray(value.followedArtistIds)
+    || !value.followedArtistIds.every(isArtistId)
+    || new Set(value.followedArtistIds).size !== value.followedArtistIds.length) return false;
+  // The active fandom is always on the roster, and an unconfirmed reader has
+  // no roster to be active in.
+  if (value.selectedArtistId !== null && !value.followedArtistIds.includes(value.selectedArtistId)) return false;
+  if (value.selectedArtistId === null && value.followedArtistIds.length > 0) return false;
   if (value.artistConfirmed !== (value.selectedArtistId !== null)) return false;
   if (!value.artistConfirmed && value.selectedTerritoryId !== null) return false;
   if (!value.artistConfirmed && (value.activeTab !== "explore" || value.selectedExpeditionId !== null)) return false;
@@ -457,7 +518,19 @@ export function isValidDemoSession(value: unknown): value is DemoSession {
 }
 
 export function parseDemoSession(value: unknown): DemoSession | null {
-  return isValidDemoSession(value) ? value : null;
+  // The roster is derivable where it is absent or incomplete: a session saved
+  // before it existed followed exactly the one fandom it had chosen, and the
+  // active fandom is a member by definition. Filling that in beats rejecting a
+  // session that is otherwise sound, which would throw away a whole history.
+  const candidate = isRecord(value) ? { ...value, followedArtistIds: rosterOf(value) } : value;
+  return isValidDemoSession(candidate) ? candidate : null;
+}
+
+function rosterOf(value: Record<string, unknown>) {
+  const stored = Array.isArray(value.followedArtistIds) ? value.followedArtistIds.filter(isArtistId) : [];
+  const roster = [...new Set(stored)];
+  if (!isArtistId(value.selectedArtistId)) return roster.length > 0 && value.selectedArtistId === null ? [] : roster;
+  return roster.includes(value.selectedArtistId) ? roster : [...roster, value.selectedArtistId];
 }
 
 export function loadDemoSession(storage: Pick<Storage, "getItem">): DemoSession {

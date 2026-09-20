@@ -240,9 +240,10 @@ it("does not allow reconfirming the current fandom as a profile change", async (
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
   await user.click(within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole("button", { name: "내 기록" }));
-  await user.click(screen.getByRole("button", { name: "아티스트 변경" }));
+  await user.click(screen.getByRole("button", { name: "아티스트 추가" }));
 
-  expect(screen.getByRole("button", { name: "이 팬덤으로 변경" })).toBeDisabled();
+  // Already the active fandom, so the drawer offers a switch and disables it.
+  expect(screen.getByRole("button", { name: "이 팬덤으로 전환" })).toBeDisabled();
 });
 
 it("keeps profile-menu changes on the strongest relevant territory", async () => {
@@ -252,9 +253,9 @@ it("keeps profile-menu changes on the strongest relevant territory", async () =>
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
   await user.click(within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole("button", { name: "내 기록" }));
-  await user.click(screen.getByRole("button", { name: "아티스트 변경" }));
+  await user.click(screen.getByRole("button", { name: "아티스트 추가" }));
   await user.click(screen.getByRole("radio", { name: /aespa.*MY/i }));
-  await user.click(screen.getByRole("button", { name: "이 팬덤으로 변경" }));
+  await user.click(screen.getByRole("button", { name: "이 팬덤 추가" }));
 
   expect(await screen.findByRole("region", { name: "내 팬덤 설정" })).toHaveTextContent("에스파 · MY");
   await waitFor(() => expect(JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!)).toMatchObject({
@@ -327,9 +328,9 @@ it("switches artists without carrying the previous artist's expedition route", a
   await user.click(screen.getByRole("button", { name: "영토 지도로" }));
 
   await user.click(within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole("button", { name: "내 기록" }));
-  await user.click(screen.getByRole("button", { name: "아티스트 변경" }));
+  await user.click(screen.getByRole("button", { name: "아티스트 추가" }));
   await user.click(screen.getByRole("radio", { name: /aespa.*MY/i }));
-  await user.click(screen.getByRole("button", { name: "이 팬덤으로 변경" }));
+  await user.click(screen.getByRole("button", { name: "이 팬덤 추가" }));
   await user.click(within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole("button", { name: "영토 지도" }));
   expect(await screen.findByRole("complementary", { name: "수원 전술 패널" })).toBeVisible();
 
@@ -502,7 +503,7 @@ it("opens the artist drawer from the header fandom pill", async () => {
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
 
-  await user.click(await screen.findByRole("button", { name: "ARMY · 아티스트 변경" }));
+  await user.click(await screen.findByRole("button", { name: "ARMY · 내 팬덤 관리" }));
 
   expect(await screen.findByRole("dialog", { name: "아티스트 선택" })).toBeVisible();
 });

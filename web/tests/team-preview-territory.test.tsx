@@ -219,7 +219,7 @@ it.each([
     [["소유 영토", "2"], ["가장 강한 소유 영토", "광주"], ["내 거점에서 가까운 접전지", "원주"], ["추천 행동", "방어 · 원주"]],
     "현재 소유",
     "전국 보기",
-    "아티스트 변경",
+    "내 팬덤 관리",
     "내 팬덤 영토 요약",
   ],
   [
@@ -228,7 +228,7 @@ it.each([
     [["Owned territories", "2"], ["Strongest owned territory", "Gwangju"], ["Contested territory near my base", "Wonju"], ["Recommended action", "Defend · Wonju"]],
     "Current owner",
     "National view",
-    "Change artist",
+    "Manage my fandoms",
     "My fandom territory summary",
   ],
 ] as const)("keeps every personalized summary value and filter order available in %s", async (locale, filterLabels, summaryPairs, owner, nationalView, changeArtist, summary) => {

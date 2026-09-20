@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { Camera, Check, CircleAlert, Lock, X } from "@/components/ui/icons";
 import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
@@ -87,6 +87,13 @@ export function RecordView({
   const artist = previewContent.artists.find((candidate) => candidate.id === session.selectedArtistId);
   const highestStage = summary.highestStageOrder >= 0 ? stages[summary.highestStageOrder] : null;
   const formatPoints = (points: number) => `${points.toLocaleString(locale === "ko" ? "ko-KR" : "en-US")}P`;
+  // Which fandom a visit was made for. With more than one followed, "where I
+  // went" is only half the record — the other half is who I went as.
+  const fandomTag = (artistId: string | undefined) => previewContent.artists
+    .find((candidate) => candidate.id === artistId)?.fandomName;
+  const followedArtists = session.followedArtistIds
+    .map((artistId) => previewContent.artists.find((candidate) => candidate.id === artistId))
+    .filter((candidate): candidate is (typeof previewContent.artists)[number] => candidate !== undefined);
 
   // Each expedition spans its first through its last approved check-in.
   const expeditionSpans = new Map<string, { first: number; last: number }>();
@@ -155,11 +162,15 @@ export function RecordView({
               {session.completedExpeditionIds.map((expeditionId) => {
                 const expedition = previewContent.expeditions.find((candidate) => candidate.id === expeditionId);
                 const territory = session.territories.find((candidate) => candidate.id === expedition?.territoryId);
+                // A record can outlive the fandom that made it, so the row
+                // names the fandom that was playing, not the one playing now.
+                const walkedBy = fandomTag(session.approvedCheckIns.find((record) => record.expeditionId === expeditionId)?.artistId);
                 return (
                   <li key={expeditionId}>
                     <strong>{expedition?.title[locale] ?? expeditionId}</strong>
                     <span>{territory?.name[locale] ?? expedition?.territoryId ?? "—"}</span>
                     <span>{spanLabel(expeditionId) ?? "—"}</span>
+                    {walkedBy ? <em className="record-fandom-tag">{walkedBy}</em> : null}
                   </li>
                 );
               })}
@@ -221,6 +232,7 @@ export function RecordView({
                       {place?.name[locale] ?? entry.placeId}
                     </button>
                   </strong>
+                  {fandomTag(entry.artistId) ? <em className="record-fandom-tag">{fandomTag(entry.artistId)}</em> : null}
                   <div className="record-history-meta">
                     <span>{territory?.name[locale] ?? entry.territoryId}</span>
                     <span>{formatPoints(entry.awardedPoints)}</span>
@@ -289,8 +301,23 @@ export function RecordView({
           <span>{t(locale, "recordFandomSettings")}</span>
           <strong>{artist ? `${artist.artistName[locale]} · ${artist.fandomName}` : "—"}</strong>
           <p>{t(locale, "recordFandomSettingsDescription")}</p>
+          {/* The roster is read here and managed in the drawer, so this page
+              says who is on it without becoming a second place to edit it. */}
+          {followedArtists.length > 1 ? (
+            <ul className="record-fandom-roster" aria-label={t(locale, "recordFollowedFandoms")}>
+              {followedArtists.map((followed) => (
+                <li
+                  key={followed.id}
+                  className={followed.id === session.selectedArtistId ? "active" : undefined}
+                  style={{ "--artist-color": followed.color } as CSSProperties}
+                >
+                  {followed.fandomName}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
-        <button type="button" onClick={onChangeArtist}>{t(locale, "recordChangeArtist")}</button>
+        <button type="button" onClick={onChangeArtist}>{t(locale, "recordAddArtist")}</button>
       </section>
 
       {onSignOut || onReset || onReplayGuide ? (

@@ -6,6 +6,7 @@ import {
   createInitialDemoSession,
   demoSessionReducer,
   loadDemoSession,
+  parseDemoSession,
   saveDemoSession,
   selectProfileTerritory,
 } from "@/features/team-preview/demo-session";
@@ -453,4 +454,64 @@ describe("demo preview session", () => {
 
     expect(loadDemoSession(storageWith(JSON.stringify(saved)))).toEqual(saved);
   });
+});
+
+// Following a second fandom is adding, not replacing: the roster keeps both,
+// the newest pick plays, and leaving one hands the seat to whoever is left.
+it("keeps every chosen fandom on the roster and plays the newest one", () => {
+  let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  expect(state.followedArtistIds).toEqual(["bts"]);
+
+  state = demoSessionReducer(state, { type: "changeProfile", artistId: "aespa" });
+  expect(state.followedArtistIds).toEqual(["bts", "aespa"]);
+  expect(state.selectedArtistId).toBe("aespa");
+
+  // Choosing one already followed switches to them without duplicating the row.
+  state = demoSessionReducer(state, { type: "changeProfile", artistId: "bts" });
+  expect(state.followedArtistIds).toEqual(["bts", "aespa"]);
+  expect(state.selectedArtistId).toBe("bts");
+});
+
+it("hands the active seat to the rest of the roster when a fandom is left", () => {
+  let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  state = demoSessionReducer(state, { type: "changeProfile", artistId: "aespa" });
+
+  // Leaving one the reader is not playing as only shortens the roster.
+  state = demoSessionReducer(state, { type: "removeArtist", artistId: "bts" });
+  expect(state.followedArtistIds).toEqual(["aespa"]);
+  expect(state.selectedArtistId).toBe("aespa");
+  expect(state.artistConfirmed).toBe(true);
+
+  // Leaving the last one empties it and sends the reader back to choosing.
+  state = demoSessionReducer(state, { type: "removeArtist", artistId: "aespa" });
+  expect(state.followedArtistIds).toEqual([]);
+  expect(state.selectedArtistId).toBeNull();
+  expect(state.artistConfirmed).toBe(false);
+  expect(state.selectedTerritoryId).toBeNull();
+});
+
+it("leaves a visit crediting the fandom it was made for after that fandom is left", () => {
+  let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "busan" });
+  state = demoSessionReducer(state, { type: "openExpedition", expeditionId: "bts-busan-artist-linked-expedition" });
+  state = demoSessionReducer(state, {
+    type: "completeCheckIn",
+    expeditionId: "bts-busan-artist-linked-expedition",
+    placeId: "busan-asiad-bts-concert-venue",
+    award: { visit: 100, dwell: 0, localSpend: 0, accommodation: 0, strongholdBonus: 0, subtotal: 100, multiplier: 1, validPoints: 100, cappedPoints: 100 },
+  });
+  state = demoSessionReducer(state, { type: "changeProfile", artistId: "aespa" });
+  state = demoSessionReducer(state, { type: "removeArtist", artistId: "bts" });
+
+  expect(state.followedArtistIds).toEqual(["aespa"]);
+  expect(state.approvedCheckIns[0]?.artistId).toBe("bts");
+  expect(state.territories.find((territory) => territory.id === "busan")?.standings
+    .some((standing) => standing.artistId === "bts")).toBe(true);
+});
+
+it("restores a session saved before the roster existed", () => {
+  const legacy = { ...demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" }) } as Record<string, unknown>;
+  delete legacy.followedArtistIds;
+
+  expect(parseDemoSession(legacy)?.followedArtistIds).toEqual(["bts"]);
 });

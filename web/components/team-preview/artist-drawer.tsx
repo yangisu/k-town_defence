@@ -11,8 +11,11 @@ interface Props {
   open: boolean;
   locale: Locale;
   selectedArtistId: ArtistId | null;
+  /** The roster, so it can be switched between and left from here. */
+  followedArtistIds?: ArtistId[];
   onClose(): void;
   onSelect(artistId: ArtistId): void;
+  onRemove?(artistId: ArtistId): void;
 }
 
 interface ArtistSelectorProps {
@@ -111,24 +114,32 @@ export function ArtistSelector({
   );
 }
 
-export function ArtistDrawer({ open, locale, selectedArtistId, onClose, onSelect }: Props) {
+export function ArtistDrawer({ open, locale, selectedArtistId, followedArtistIds, onClose, onSelect, onRemove }: Props) {
   if (!open) return null;
 
   return (
     <OpenArtistDrawer
       locale={locale}
       selectedArtistId={selectedArtistId}
+      followedArtistIds={followedArtistIds}
       onClose={onClose}
       onSelect={onSelect}
+      onRemove={onRemove}
     />
   );
 }
 
-function OpenArtistDrawer({ locale, selectedArtistId, onClose, onSelect }: Omit<Props, "open">) {
+function OpenArtistDrawer({ locale, selectedArtistId, followedArtistIds = [], onClose, onSelect, onRemove }: Omit<Props, "open">) {
   const [draftArtistId, setDraftArtistId] = useState<ArtistId | null>(selectedArtistId);
   const dialogRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   useModalFocus(true, dialogRef, titleRef, onClose);
+  const followed = followedArtistIds
+    .map((artistId) => previewContent.artists.find((candidate) => candidate.id === artistId))
+    .filter((artist): artist is (typeof previewContent.artists)[number] => artist !== undefined);
+  // Confirming an artist already on the roster switches to them; confirming a
+  // new one adds them. One button, because it is one gesture: play as this.
+  const draftIsNew = draftArtistId !== null && !followedArtistIds.includes(draftArtistId);
 
   return (
     <div className="artist-drawer-overlay">
@@ -142,11 +153,48 @@ function OpenArtistDrawer({ locale, selectedArtistId, onClose, onSelect }: Omit<
             <X aria-hidden="true" size={20} />
           </button>
         </header>
+        {followed.length > 0 ? (
+          <section className="artist-roster" aria-label={t(locale, "recordFollowedFandoms")}>
+            <h3>{t(locale, "recordFollowedFandoms")}</h3>
+            <ul>
+              {followed.map((artist) => (
+                <li
+                  key={artist.id}
+                  className={artist.id === selectedArtistId ? "active" : undefined}
+                  style={{ "--artist-color": artist.color } as CSSProperties}
+                >
+                  <span aria-hidden="true" />
+                  <span>
+                    <strong>{artist.fandomName}</strong>
+                    <small>{artist.artistName[locale]}</small>
+                  </span>
+                  {artist.id === selectedArtistId
+                    ? <b>{t(locale, "recordActiveFandom")}</b>
+                    : (
+                      <button type="button" className="artist-roster-switch" onClick={() => { onSelect(artist.id); onClose(); }}>
+                        {t(locale, "recordSwitchArtist")}
+                      </button>
+                    )}
+                  {onRemove ? (
+                    <button
+                      type="button"
+                      className="artist-roster-remove"
+                      aria-label={t(locale, "recordRemoveArtistLabel").replace("{fandom}", artist.fandomName)}
+                      onClick={() => onRemove(artist.id)}
+                    >
+                      <X aria-hidden="true" size={16} strokeWidth={2.6} />
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
         <ArtistSelector
           locale={locale}
           selectedArtistId={draftArtistId}
           onSelect={setDraftArtistId}
-          confirmLabel={t(locale, "profileChangeConfirm")}
+          confirmLabel={t(locale, draftIsNew ? "artistAddConfirm" : "recordSwitchArtist")}
           confirmationDisabled={draftArtistId === selectedArtistId}
           stickyConfirmation
           onConfirm={() => {

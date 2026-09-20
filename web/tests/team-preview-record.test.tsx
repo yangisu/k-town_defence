@@ -187,7 +187,7 @@ it("moves artist changes from the global header into My Record", async () => {
   expect(screen.queryByRole("button", { name: "내 팬덤 · ARMY" })).not.toBeInTheDocument();
   const settings = screen.getByRole("region", { name: "내 팬덤 설정" });
   expect(settings).toHaveTextContent("방탄소년단 · ARMY");
-  await user.click(within(settings).getByRole("button", { name: "아티스트 변경" }));
+  await user.click(within(settings).getByRole("button", { name: "아티스트 추가" }));
   expect(screen.getByRole("dialog", { name: "아티스트 선택" })).toBeVisible();
 });
 

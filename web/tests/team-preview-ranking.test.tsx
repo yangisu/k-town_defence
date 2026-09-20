@@ -112,10 +112,13 @@ for (const locale of ["ko", "en"] as const) {
     // the fact is announced once rather than printed twice beside itself.
     expect(within(podiumCards[0]).getByLabelText(copy.firstRank)).toHaveTextContent("1");
     expect(podiumCards[0]).toHaveTextContent(`${copy.artist} · ARMY`);
-    expect(podiumCards[0]).toHaveTextContent("4");
-    expect(podiumCards[0]).toHaveTextContent("8,000P");
-    expect(podiumCards[0]).toHaveTextContent(locale === "ko" ? "상승" : "Up");
     expect(podiumCards[0]).toHaveStyle({ "--artist-color": "#7c5ce0" });
+    // The podium says who is first and nothing else — strongholds, points and
+    // trend are the leaderboard's job, and it carries all three below.
+    expect(podiumCards[0]).not.toHaveTextContent("8,000P");
+    expect(podiumCards[0]).not.toHaveTextContent(locale === "ko" ? "상승" : "Up");
+    expect(within(screen.getByRole("list", { name: copy.leaderboard })).getAllByRole("listitem")[0])
+      .toHaveTextContent("8,000P");
 
     const goal = screen.getByRole("region", { name: copy.myFandom });
     expect(goal).toHaveTextContent(copy.myFandom);

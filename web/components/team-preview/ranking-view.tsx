@@ -101,14 +101,11 @@ export function RankingView({ locale, fandoms, territories, selectedArtistId, on
               </div>
               {/* The numeral says the place; spelling it out beside itself was
                   the same fact twice, so the phrase moves to the label. */}
+              {/* Strongholds, points and trend all repeat in the leaderboard
+                  below. Up here the podium says one thing: who is first. */}
               <div className="podium-plinth" aria-label={t(locale, "fandomRankPosition").replace("{rank}", String(row.rank))}>
                 <b>{row.rank}</b>
               </div>
-              <dl>
-                <div><dt>{t(locale, "rankingStrongholds")}</dt><dd>{row.strongholds}{t(locale, "rankingStrongholdUnit")}</dd></div>
-                <div><dt>{t(locale, "rankingPoints")}</dt><dd>{formatPoints(locale, row.validPoints)}</dd></div>
-                <div><dt>{t(locale, "fandomRank")}</dt><dd>{t(locale, trendKeys[row.trend])}</dd></div>
-              </dl>
             </li>
           );
         })}

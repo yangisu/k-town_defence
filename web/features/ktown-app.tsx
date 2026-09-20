@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { AppShell } from "@/components/app-shell";
 import { BackToLoginButton } from "@/components/demo-entry/back-to-login-button";
@@ -22,6 +22,7 @@ import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { MembershipProvider, useMembership } from "@/features/membership/membership-context";
 import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/demo-session-context";
 import type { DemoSession as DemoSessionState } from "@/features/team-preview/demo-session";
+import type { ArtistId } from "@/features/team-preview/types";
 import { previewContent } from "@/features/team-preview/content";
 import { createRemoteDemoSessionStore } from "@/features/team-preview/remote-session-store";
 import { t } from "@/features/team-preview/i18n";
@@ -40,11 +41,16 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   onChangeFandom?: (artistId: NonNullable<DemoSessionState["selectedArtistId"]>) => void;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Leaving a fandom cannot be undone from the UI, so it is asked before it is
+  // done. Holding the artist id here is what makes the question specific.
+  const [leavingArtistId, setLeavingArtistId] = useState<ArtistId | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideChecked, setGuideChecked] = useState(false);
   const resetDialogRef = useRef<HTMLDivElement>(null);
   const resetTitleRef = useRef<HTMLHeadingElement>(null);
+  const leaveDialogRef = useRef<HTMLDivElement>(null);
+  const leaveTitleRef = useRef<HTMLHeadingElement>(null);
   const session = useDemoSession();
   const signOut = useDemoSignOut();
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
@@ -115,6 +121,8 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   }, [session.state.activeTab, session.state.artistConfirmed]);
   useModalFocus(resetOpen, resetDialogRef, resetTitleRef, () => setResetOpen(false));
   useBodyScrollLock(resetOpen);
+  useModalFocus(leavingArtistId !== null, leaveDialogRef, leaveTitleRef, () => setLeavingArtistId(null));
+  useBodyScrollLock(leavingArtistId !== null);
 
   if (!session.hydrated) return <p role="status">{t(session.state.locale, "loading")}</p>;
 
@@ -182,12 +190,31 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
             open={drawerOpen}
             locale={session.state.locale}
             selectedArtistId={session.state.artistConfirmed ? session.state.selectedArtistId : null}
+            // In integrated mode the roster lives on the server, so the drawer
+            // stays a single-fandom switch until that contract catches up.
+            followedArtistIds={onChangeFandom ? undefined : session.state.followedArtistIds}
             onClose={() => setDrawerOpen(false)}
             onSelect={chooseArtist}
+            onRemove={onChangeFandom ? undefined : setLeavingArtistId}
           />
         ) : null}
       </AppShell>
       {guideOpen ? <TutorialOverlay locale={session.state.locale} onClose={closeGuide} onPrepareStep={prepareGuideStep} territorySelected={session.state.selectedTerritoryId !== null} /> : null}
+      {leavingArtistId !== null && typeof document !== "undefined" ? createPortal(
+        <LeaveFandomDialog
+          locale={session.state.locale}
+          artistId={leavingArtistId}
+          isLastFandom={session.state.followedArtistIds.length <= 1}
+          dialogRef={leaveDialogRef}
+          titleRef={leaveTitleRef}
+          onCancel={() => setLeavingArtistId(null)}
+          onConfirm={() => {
+            session.dispatch({ type: "removeArtist", artistId: leavingArtistId });
+            setLeavingArtistId(null);
+          }}
+        />,
+        document.body,
+      ) : null}
       {resetOpen && typeof document !== "undefined" ? createPortal(
         <div className="reset-dialog-overlay">
           <div className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title" ref={resetDialogRef}>
@@ -202,6 +229,40 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
         document.body,
       ) : null}
     </>
+  );
+}
+
+/**
+ * Leaving a fandom is asked, not assumed. The question names the fandom, says
+ * what survives it — every visit already made — and warns when it is the last
+ * one on the roster, because that sends the reader back to choosing.
+ */
+function LeaveFandomDialog({ locale, artistId, isLastFandom, dialogRef, titleRef, onCancel, onConfirm }: {
+  locale: DemoSessionState["locale"];
+  artistId: ArtistId;
+  isLastFandom: boolean;
+  dialogRef: RefObject<HTMLDivElement | null>;
+  titleRef: RefObject<HTMLHeadingElement | null>;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const artist = previewContent.artists.find((candidate) => candidate.id === artistId);
+  const fandomName = artist?.fandomName ?? artistId;
+
+  return (
+    <div className="reset-dialog-overlay">
+      <div className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="leave-fandom-title" ref={dialogRef}>
+        <h2 id="leave-fandom-title" tabIndex={-1} ref={titleRef}>
+          {t(locale, "recordRemoveConfirmTitle").replace("{fandom}", fandomName)}
+        </h2>
+        <p>{t(locale, "recordRemoveConfirmBody")}</p>
+        {isLastFandom ? <p>{t(locale, "recordRemoveConfirmLast")}</p> : null}
+        <div className="reset-dialog-actions">
+          <button type="button" onClick={onCancel}>{t(locale, "recordRemoveCancel")}</button>
+          <button type="button" onClick={onConfirm}>{t(locale, "recordRemoveConfirmAction")}</button>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -37,10 +37,10 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     id: "summary",
     tab: "explore",
     target: "territory-summary",
-    title: { ko: "요약 카드", en: "Summary cards" },
+    title: { ko: "추천 행동", en: "Recommended move" },
     body: {
-      ko: "내 팬덤이 가진 영토 수, 가장 포인트를 많이 쌓은 영토, 가까운 접전지, 추천 행동을 보여줘요.",
-      en: "Your fandom's territory count, the one with the most points banked, the nearest contested territory and the recommended move.",
+      ko: "지금 가장 시급한 한 가지를 알려줘요. 누르면 그 영토가 지도에 바로 잡힙니다.",
+      en: "The one move that matters most right now. Press it and the map frames that territory.",
     },
   },
   {

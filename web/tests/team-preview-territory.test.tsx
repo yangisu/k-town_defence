@@ -186,21 +186,24 @@ it.each([
   });
 });
 
-it("uses summary cards as map navigation and explains the distance anchor", async () => {
+it("uses the recommended action as map navigation", async () => {
   const user = userEvent.setup();
   renderPreviewWithArtist({ selectedArtistId: "rescene", selectedTerritoryId: "geoje" });
 
-  const summary = await screen.findByRole("region", { name: "내 팬덤 영토 요약" });
-  const strongest = within(summary).getByRole("button", { name: /가장 강한 소유 영토.*경주/ });
-  const nearest = within(summary).getByRole("button", { name: /내 거점에서 가까운 접전지/ });
+  // The three cards beside it restated the list and filter below, so the one
+  // that says what to do next is all that is left — and pressing it frames
+  // that territory on the map.
+  const summary = await screen.findByRole("region", { name: "추천 행동" });
+  const action = within(summary).getByRole("button");
+  expect(within(summary).getAllByRole("button")).toHaveLength(1);
+  expect(action).toHaveTextContent(/방어|탈환/);
 
-  expect(nearest).toHaveTextContent(/거점 기준.*약 .*km/);
-  await user.click(strongest);
+  await user.click(action);
 
-  await waitFor(() => expect(JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!)).toMatchObject({
-    selectedTerritoryId: "gyeongju",
-  }));
-  expect(screen.getByRole("button", { name: /^경주/ })).toHaveAttribute("aria-pressed", "true");
+  const chosen = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as DemoSession;
+  await waitFor(() => expect(chosen.selectedTerritoryId).not.toBeNull());
+  expect(screen.getByRole("button", { name: new RegExp(`^${screen.getByRole("complementary", { name: /전술 패널$/ }).getAttribute("aria-label")!.replace(" 전술 패널", "")}`) }))
+    .toHaveAttribute("aria-pressed", "true");
 });
 
 it("names the region's own public route in English when there is no tie", async () => {
@@ -215,21 +218,21 @@ it("names the region's own public route in English when there is no tie", async 
 it.each([
   [
     "ko",
-    ["내 팬덤", "접전 지역", "아티스트 연결", "전체"],
-    [["소유 영토", "2"], ["가장 강한 소유 영토", "광주"], ["내 거점에서 가까운 접전지", "원주"], ["추천 행동", "방어 · 원주"]],
+    ["소유 영토", "접전 지역", "아티스트 연결", "전체"],
+    [["추천 행동", "방어 · 원주"]],
     "현재 소유",
     "전국 보기",
     "내 팬덤 관리",
-    "내 팬덤 영토 요약",
+    "추천 행동",
   ],
   [
     "en",
-    ["My fandom", "Contested", "Artist connection", "All"],
-    [["Owned territories", "2"], ["Strongest owned territory", "Gwangju"], ["Contested territory near my base", "Wonju"], ["Recommended action", "Defend · Wonju"]],
+    ["Owned territories", "Contested", "Artist connection", "All"],
+    [["Recommended action", "Defend · Wonju"]],
     "Current owner",
     "National view",
     "Manage my fandoms",
-    "My fandom territory summary",
+    "Recommended action",
   ],
 ] as const)("keeps every personalized summary value and filter order available in %s", async (locale, filterLabels, summaryPairs, owner, nationalView, changeArtist, summary) => {
   const user = userEvent.setup();
@@ -457,12 +460,12 @@ it("keeps the filters in the map action row and the camera reset out of it witho
   expect(within(list).getAllByRole("button")).toHaveLength(23);
 });
 
-it("renders the summary cards above the map", async () => {
+it("renders the recommended action above the map", async () => {
   renderPreviewWithArtist();
 
-  const summary = await screen.findByRole("region", { name: "내 팬덤 영토 요약" });
+  const summary = await screen.findByRole("region", { name: "추천 행동" });
   const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
-  // The four cards head the page, with the map block underneath them.
+  // The action heads the page, with the map block underneath it.
   expect(summary.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
@@ -504,7 +507,7 @@ it("offers the filters as a select as well as the tag row", async () => {
 
   const filters = await screen.findByRole("group", { name: "영토 필터" });
   // The listbox is the phone control; the tag row stays for wider screens.
-  const trigger = within(filters).getByRole("button", { name: "영토 필터: 내 팬덤" });
+  const trigger = within(filters).getByRole("button", { name: "영토 필터: 소유 영토" });
   expect(within(filters).getByRole("button", { name: "전체", hidden: false })).toBeInTheDocument();
 
   await user.click(trigger);
@@ -514,13 +517,13 @@ it("offers the filters as a select as well as the tag row", async () => {
   expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getAllByRole("button")).toHaveLength(23);
 });
 
-it("brings the map into view when a summary card is used", async () => {
+it("brings the map into view when the recommended action is used", async () => {
   const user = userEvent.setup();
   const scrollIntoView = vi.fn();
   Element.prototype.scrollIntoView = scrollIntoView;
   renderPreviewWithArtist();
 
-  await user.click(within(await screen.findByRole("region", { name: "내 팬덤 영토 요약" }))
+  await user.click(within(await screen.findByRole("region", { name: "추천 행동" }))
     .getAllByRole("button")[0]);
 
   expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
@@ -637,7 +640,7 @@ it("lets a filter change the list without changing what is chosen", async () => 
   await user.click(screen.getByRole("button", { name: "전체" }));
   expect(screen.queryByRole("complementary", { name: /전술 패널$/ })).not.toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "내 팬덤" }));
+  await user.click(screen.getByRole("button", { name: "소유 영토" }));
   expect(screen.queryByRole("complementary", { name: /전술 패널$/ })).not.toBeInTheDocument();
 
   // A filter decides what the list shows, never what is chosen: the territory

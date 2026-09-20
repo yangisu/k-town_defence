@@ -96,3 +96,41 @@ export function useDemoSession() {
   if (!value) throw new Error("DemoSessionProvider required");
   return value;
 }
+
+/**
+ * The whole bag of folds, for a page whose sections are keyed by something it
+ * only learns at render time — a fandom id, a badge stage. Same bargain as
+ * useDisclosure: written to the session when there is one, kept locally when
+ * there is not.
+ */
+export function useDisclosures(): [Record<string, boolean>, (key: string, open: boolean) => void] {
+  const session = useContext(DemoSessionContext);
+  const [local, setLocal] = useState<Record<string, boolean>>({});
+  if (!session) return [local, (key, open) => setLocal((current) => ({ ...current, [key]: open }))];
+  return [
+    session.state.disclosures,
+    (key, open) => session.dispatch({ type: "setDisclosure", key, open }),
+  ];
+}
+
+/**
+ * A fold that remembers itself. Reads like useState, but the answer lives in
+ * the session, so a section the reader closed on the ranking page is still
+ * closed when they come back to it from the map.
+ */
+export function useDisclosure(
+  key: string,
+  fallback: boolean,
+): [boolean, (open: boolean | ((current: boolean) => boolean)) => void] {
+  // A panel rendered outside a session — a preview, a test — still folds; it
+  // just has nowhere to write the answer down, so it keeps it to itself.
+  const session = useContext(DemoSessionContext);
+  const [local, setLocal] = useState(fallback);
+  if (!session) return [local, setLocal];
+  const open = session.state.disclosures[key] ?? fallback;
+  return [open, (next) => session.dispatch({
+    type: "setDisclosure",
+    key,
+    open: typeof next === "function" ? next(open) : next,
+  })];
+}

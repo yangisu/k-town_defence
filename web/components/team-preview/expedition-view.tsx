@@ -181,7 +181,6 @@ export function PreviewExpeditionView({
   const requestedExpeditionId = expeditionId ?? session.state.selectedExpeditionId;
   const expedition = previewContent.expeditions.find((candidate) => (
     candidate.id === requestedExpeditionId
-    && candidate.territoryId === session.state.selectedTerritoryId
     && (candidate.artistId === null || candidate.artistId === session.state.selectedArtistId)
   )) ?? null;
   const connection = previewContent.connections.find((candidate) => candidate.id === expedition?.connectionId) ?? null;

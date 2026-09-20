@@ -7,6 +7,7 @@ import { StageBadge } from "@/components/team-preview/stage-badge";
 import { StrongholdMark } from "@/components/team-preview/stronghold-mark";
 import { previewContent } from "@/features/team-preview/content";
 import type { DemoSession } from "@/features/team-preview/demo-session";
+import { useDisclosure, useDisclosures } from "@/features/team-preview/demo-session-context";
 import { t } from "@/features/team-preview/i18n";
 import type { Locale, StrongholdStage } from "@/features/team-preview/types";
 
@@ -77,10 +78,15 @@ export function RecordView({
   onReset?: () => void;
   onReplayGuide?: () => void;
 }) {
-  const [seasonInfoOpen, setSeasonInfoOpen] = useState(false);
-  const [growthInfoOpen, setGrowthInfoOpen] = useState(false);
+  const [disclosures, setDisclosure] = useDisclosures();
+  const [seasonInfoOpen, setSeasonInfoOpen] = useDisclosure("record.season", false);
+  const [growthInfoOpen, setGrowthInfoOpen] = useDisclosure("record.growth", false);
   const [openCheckIn, setOpenCheckIn] = useState<{ index: number } | null>(null);
-  const [openReward, setOpenReward] = useState<StrongholdStage | null>(null);
+  // Each badge row keeps its own fold, so a reader who opened one to read its
+  // sources finds it still open next time they pass through.
+  const rewardKey = (stage: StrongholdStage) => `record.reward.${stage}`;
+  const rewardOpen = (stage: StrongholdStage) => disclosures[rewardKey(stage)] ?? false;
+  const toggleReward = (stage: StrongholdStage) => setDisclosure(rewardKey(stage), !rewardOpen(stage));
   const detailRef = useRef<HTMLDivElement>(null);
   const detailTitleRef = useRef<HTMLHeadingElement>(null);
   const summary = recordSummary(session);
@@ -282,8 +288,8 @@ export function RecordView({
                   <button
                     type="button"
                     className="record-reward-open"
-                    aria-expanded={openReward === stage}
-                    onClick={() => setOpenReward((current) => (current === stage ? null : stage))}
+                    aria-expanded={rewardOpen(stage)}
+                    onClick={() => toggleReward(stage)}
                   >
                     <StageBadge stage={stage} locale={locale} unlocked ownerColor={artist?.color} />
                     <span>{t(locale, label)}</span>
@@ -299,7 +305,7 @@ export function RecordView({
                   <span className="sr-only">{t(locale, unlocked ? "recordUnlocked" : "recordLocked")}</span>
                 </span>
                 {/* Each fandom and place that earned it, one tag apiece. */}
-                {openReward === stage ? (
+                {rewardOpen(stage) ? (
                   <span className="record-reward-sources">
                     {sources.map((source) => (
                       <small

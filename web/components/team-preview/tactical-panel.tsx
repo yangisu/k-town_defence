@@ -6,7 +6,7 @@ import { calculateMissionAward, GAME_RULES, rankFandoms, stageForPoints } from "
 import { previewContent } from "@/features/team-preview/content";
 import { t } from "@/features/team-preview/i18n";
 import type { DemoSession } from "@/features/team-preview/demo-session";
-import { useDemoSession } from "@/features/team-preview/demo-session-context";
+import { useDemoSession, useDisclosure } from "@/features/team-preview/demo-session-context";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
 import type {
   ArtistConnection,
@@ -194,8 +194,8 @@ export function TacticalPanel({
 }) {
   const demoSession = useDemoSession();
   const swipeOrigin = useRef<{ x: number; y: number } | null>(null);
-  const [awardHelpOpen, setAwardHelpOpen] = useState(false);
-  const [impactHelpOpen, setImpactHelpOpen] = useState(false);
+  const [awardHelpOpen, setAwardHelpOpen] = useDisclosure("tactical.award", false);
+  const [impactHelpOpen, setImpactHelpOpen] = useDisclosure("tactical.impact", false);
   const [slide, setSlide] = useState<"next" | "previous" | null>(null);
   const [switchOpen, setSwitchOpen] = useState(false);
   const switchDialogRef = useRef<HTMLDivElement>(null);

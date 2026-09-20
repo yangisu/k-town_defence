@@ -532,6 +532,47 @@ it("remembers the slice of the board the reader asked for", () => {
   expect(state.selectedTerritoryId).toBe("busan");
 });
 
+// A running route used to drag the map back to its own territory every time
+// the reader opened the expedition tab, quietly undoing wherever they had just
+// been. The route keeps running; the map keeps the reader's last move.
+it("leaves the map on the reader's last territory while a route runs elsewhere", () => {
+  let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "busan" });
+  state = demoSessionReducer(state, { type: "openExpedition", expeditionId: "bts-busan-artist-linked-expedition" });
+  expect(state.activeExpeditionId).toBe("bts-busan-artist-linked-expedition");
+
+  state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "ulsan" });
+  state = demoSessionReducer(state, { type: "changeTab", tab: "expedition" });
+
+  expect(state.selectedExpeditionId).toBe("bts-busan-artist-linked-expedition");
+  expect(state.selectedTerritoryId).toBe("ulsan");
+
+  state = demoSessionReducer(state, { type: "changeTab", tab: "explore" });
+  expect(state.selectedTerritoryId).toBe("ulsan");
+});
+
+// A section the reader folded shut stays shut across the whole app, and only
+// a new roster starts the reading over.
+it("remembers every fold until the roster changes", () => {
+  let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  expect(state.disclosures).toEqual({});
+
+  state = demoSessionReducer(state, { type: "setDisclosure", key: "ranking.leaderboard", open: false });
+  state = demoSessionReducer(state, { type: "changeTab", tab: "journey" });
+  state = demoSessionReducer(state, { type: "changeTab", tab: "explore" });
+  expect(state.disclosures["ranking.leaderboard"]).toBe(false);
+
+  state = demoSessionReducer(state, { type: "changeProfile", artistId: "seventeen" });
+  expect(state.disclosures).toEqual({});
+});
+
+it("restores a session saved before folds were remembered", () => {
+  const legacy = { ...demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" }) } as Record<string, unknown>;
+  delete legacy.disclosures;
+
+  expect(parseDemoSession(legacy)?.disclosures).toEqual({});
+});
+
 it("restores a session saved before the filter was remembered", () => {
   const legacy = { ...demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" }) } as Record<string, unknown>;
   delete legacy.territoryFilter;

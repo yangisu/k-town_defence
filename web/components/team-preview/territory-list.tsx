@@ -41,7 +41,7 @@ export function TerritoryList({ id, collapsed = false, territories, locale, sele
             onClick={() => onSelectTerritory(territory.id)}
           >
             <strong>{territory.name[locale]}</strong>
-            <span className="territory-owner"><i aria-hidden="true" />{t(locale, "currentOwner")} · {owner?.fandomName ?? "—"}</span>
+            <span className="territory-owner"><i aria-hidden="true" />{owner?.fandomName ?? "—"}</span>
             <StrongholdMark stage={territory.strongholdStage} locale={locale} ownerColor={ownerColor} />
             {territory.populationDecline ? <small className="territory-multiplier">{territory.balanceMultiplier}×</small> : null}
             {selectedArtistId ? (

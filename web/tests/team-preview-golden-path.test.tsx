@@ -35,7 +35,7 @@ it("completes the personalized BTS territory journey and persists its profile an
 
   const ownedList = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
   await user.click(within(ownedList).getByRole("button", { name: /^부산/ }));
-  expect(within(screen.getByRole("complementary", { name: "부산 전술 패널" })).getByText("현재 소유 · ARMY")).toBeVisible();
+  expect(within(screen.getByRole("complementary", { name: "부산 전술 패널" })).getByText(/방탄소년단 · ARMY \d+P/)).toBeVisible();
 
   await user.click(screen.getByRole("button", { name: "전체" }));
   const territoryList = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
@@ -43,8 +43,9 @@ it("completes the personalized BTS territory journey and persists its profile an
   await user.click(gwangju);
   expect(gwangju).toHaveAttribute("aria-pressed", "true");
   const gwangjuPanel = screen.getByRole("complementary", { name: "광주 전술 패널" });
-  expect(within(gwangjuPanel).getByText("현재 소유 · ONEDOOR")).toBeVisible();
-  expect(within(gwangjuPanel).getByText("도전자 · ARMY")).toBeVisible();
+  expect(within(gwangjuPanel).getByText(/보이넥스트도어 · ONEDOOR \d+P/)).toBeVisible();
+  // The challenger row is gone: who holds it and the gap are what a reader acts on.
+  expect(within(gwangjuPanel).queryByText(/도전자/)).not.toBeInTheDocument();
   expect(within(gwangjuPanel).getByText("지역 연결 스토리 · 제이홉")).toBeVisible();
 
   await waitFor(() => expect(window.localStorage.getItem(DEMO_SESSION_KEY)).not.toBeNull());

@@ -406,7 +406,8 @@ it("keeps the map fallback, territory-card selection, and selected-region text k
   expect(busan).toHaveAttribute("aria-pressed", "false");
   const selectedRegion = await screen.findByRole("complementary", { name: "광주 전술 패널" });
   expect(within(selectedRegion).getByRole("heading", { name: "광주" })).toBeVisible();
-  expect(within(selectedRegion).getByText("현재 소유 · ONEDOOR")).toBeVisible();
+  expect(within(selectedRegion).getByText("현재 소유")).toBeVisible();
+  expect(within(selectedRegion).getByText(/보이넥스트도어 · ONEDOOR \d+P/)).toBeVisible();
   // The camera reset only appears when a live map exists to reset.
   expect(screen.queryByRole("button", { name: "전국 보기" })).not.toBeInTheDocument();
 });

@@ -242,7 +242,10 @@ it.each([
     button.querySelector("strong")?.textContent,
   ])).toEqual(summaryPairs);
   const territoryListLabel = locale === "ko" ? "지도와 같은 영토 목록" : "Map-equivalent territory list";
-  expect(screen.getByRole("list", { name: territoryListLabel })).toHaveTextContent(`${owner} · ONEDOOR`);
+  // The card names the fandom; "current owner" was a label saying what the
+  // position of the name already says.
+  expect(screen.getByRole("list", { name: territoryListLabel })).toHaveTextContent("ONEDOOR");
+  expect(screen.getByRole("list", { name: territoryListLabel })).not.toHaveTextContent(owner);
   expect(screen.queryByRole("button", { name: nationalView })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: changeArtist })).not.toBeInTheDocument();
 
@@ -509,8 +512,10 @@ it("labels a public route without borrowing the artist connection story", async 
   expect(source).toHaveClass("tactical-source");
   expect(within(panel).queryByText("추천 근거 보기")).not.toBeInTheDocument();
 
-  // The stronghold-growth note sits on its own line under the defence gap.
-  const gap = within(panel).getByText(/^방어 우위 \d+P$/);
+  // The stronghold-growth note sits on its own line under the defence gap,
+  // whose value carries the number alone — the row label says what it means.
+  const gapRow = within(panel).getByText("방어 우위").closest("div")!;
+  const gap = within(gapRow).getByText(/^\d+P$/);
   expect(gap.nextElementSibling).toHaveTextContent(/거점 성장까지|최고 단계 방어 중/);
 });
 

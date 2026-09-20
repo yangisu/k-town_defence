@@ -193,8 +193,6 @@ it("uses Amazon Location and keeps map selection equivalent to the territory lis
     "preview-territory-selected-outline",
     ["==", ["id"], ""],
   );
-  expect(mapHarness.instances[0].sources.get("preview-selected-expedition")?.setData)
-    .toHaveBeenLastCalledWith(expect.objectContaining({ features: [] }));
 });
 
 it("shows a real operable territory list when map configuration is missing", async () => {

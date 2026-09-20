@@ -92,13 +92,13 @@ it("renders a sourced public artist stop followed only by neutral nearby recomme
 it.each([
   [
     "ko",
-    ["ARMY", "현재 소유 · ONEDOOR", "도전자 · ARMY", "지역 연결 스토리 · 제이홉"],
+    ["ARMY", "현재 소유", "지역 연결 스토리 · 제이홉"],
     "BTS 부산 공식 공연장 원정",
     "아티스트 연관 장소 중심",
   ],
   [
     "en",
-    ["ARMY", "Current owner · ONEDOOR", "Challenger · ARMY", "Regional connection story · j-hope"],
+    ["ARMY", "Current owner", "Regional connection story · j-hope"],
     "BTS Busan official concert venue expedition",
     "Artist-linked places first",
   ],

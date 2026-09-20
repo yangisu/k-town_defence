@@ -35,7 +35,6 @@ interface TerritoryMapProps {
 
 const boundarySourceId = "preview-territory-boundaries";
 const strongholdSourceId = "preview-strongholds";
-const expeditionSourceId = "preview-selected-expedition";
 const connectionSourceId = "preview-artist-connections";
 const myLocationSourceId = "my-location";
 const myLocationLayerId = "my-location-dot";
@@ -136,25 +135,6 @@ function connectionCollection(session: DemoSession, centres: ReadonlyMap<string,
         } : null;
       })
       .filter((feature) => feature !== null) : [],
-  };
-}
-
-function expeditionCollection(session: DemoSession, selectedTerritoryId: TerritoryId | null) {
-  const expedition = session.selectedArtistId && selectedTerritoryId
-    ? getPlayableExpedition(session.selectedArtistId, selectedTerritoryId)
-    : null;
-  const coordinates = expedition?.stopIds
-    .map((stopId) => previewContent.places.find((place) => place.id === stopId))
-    .filter((place) => place !== undefined)
-    .map((place) => [place.coordinates.longitude, place.coordinates.latitude]) ?? [];
-
-  return {
-    type: "FeatureCollection" as const,
-    features: coordinates.length >= 2 ? [{
-      type: "Feature" as const,
-      properties: { expeditionId: expedition!.id },
-      geometry: { type: "LineString" as const, coordinates },
-    }] : [],
   };
 }
 
@@ -326,9 +306,6 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         type: "geojson",
         promoteId: "id",
         data: pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current, sessionRef.current.selectedArtistId),
-      });      map.addSource(expeditionSourceId, {
-        type: "geojson",
-        data: expeditionCollection(sessionRef.current, selectedTerritoryIdRef.current),
       });
       map.addSource(connectionSourceId, {
         type: "geojson",
@@ -383,12 +360,6 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         paint: { "line-color": "#16231d", "line-width": 4 },
       });
       map.addLayer({
-        id: "preview-expedition-line",
-        type: "line",
-        source: expeditionSourceId,
-        // The route between an expedition's stops, not a border.
-        paint: { "line-color": "#ff6b35", "line-width": 4, "line-dasharray": [1.5, 1] },
-      });      map.addLayer({
         id: "preview-artist-connection-pins",
         type: "circle",
         source: connectionSourceId,
@@ -553,7 +524,6 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
     if (map.getLayer(selectedOutlineLayerId)) {
       map.setFilter(selectedOutlineLayerId, ["==", ["id"], selectedTerritoryId ?? ""]);
     }
-    updateGeoJsonSource(map, expeditionSourceId, expeditionCollection(session, selectedTerritoryId));
   }, [boundsByTerritoryId, recentreToken, selectedTerritoryId, session]);
 
   useEffect(() => {

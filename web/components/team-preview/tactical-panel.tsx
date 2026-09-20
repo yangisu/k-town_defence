@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type TouchEvent } from "react";
+import { useRef, useState, type CSSProperties, type TouchEvent } from "react";
 import { ArrowLeft, ArrowRight, ChevronRight, CircleAlert, ExternalLink } from "@/components/ui/icons";
 import { calculateMissionAward, GAME_RULES, rankFandoms, stageForPoints } from "@/features/team-preview/game-rules";
 import { previewContent } from "@/features/team-preview/content";
@@ -283,6 +283,9 @@ export function TacticalPanel({
   return (
     <aside
       className="tactical-panel"
+      // The card wears a wash of whoever holds the territory, so who owns it
+      // registers before a word is read.
+      style={territoryOwnerColor ? { "--owner-color": territoryOwnerColor } as CSSProperties : undefined}
       aria-label={`${territory.name[locale]} ${locale === "ko" ? "전술 패널" : "tactical panel"}`}
       onTouchStart={pageCount > 1 ? beginSwipe : undefined}
       onTouchEnd={pageCount > 1 ? endSwipe : undefined}
@@ -341,13 +344,20 @@ export function TacticalPanel({
       >
 
       <dl data-guide="tactical-standings" className="tactical-standings">
-        <div><dt>{copy.owner} · {owner?.fandomName ?? "—"}</dt><dd>{standingName(owner)}</dd></div>
-        <div><dt>{copy.challenger} · {challenger?.fandomName ?? "—"}</dt><dd>{standingName(challenger)}</dd></div>
-        <div><dt>{copy.stronghold}</dt><dd><StrongholdMark stage={territory.strongholdStage} locale={locale} ownerColor={territoryOwnerColor} /></dd></div>
+        {/* Who holds it and how far off we are — the two things a reader acts
+            on. The owner's line carries its own stronghold stage, so the stage
+            needs no row of its own, and the value repeats no label. */}
+        <div>
+          <dt>{copy.owner}</dt>
+          <dd className="tactical-owner">
+            <span>{standingName(owner)}</span>
+            <StrongholdMark stage={territory.strongholdStage} locale={locale} ownerColor={territoryOwnerColor} />
+          </dd>
+        </div>
         <div>
           <dt>{selectedOwns ? copy.defense : copy.capture}</dt>
           <dd>
-            <span>{selectedOwns ? `${copy.defense} ${defenseGap}P` : `${copy.capture} ${captureGap}P`}</span>
+            <span>{selectedOwns ? `${defenseGap}P` : `${captureGap}P`}</span>
             {selectedOwns ? <span>{buildGap === null ? copy.maxStage : `${copy.build} ${buildGap}P`}</span> : null}
           </dd>
         </div>

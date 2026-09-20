@@ -295,3 +295,21 @@ it("centres what the summary cards and the stage row align to the right", () => 
   expect(compactCss).toMatch(/\.tactical-standings>div,\.tactical-awarddl>div\{[^}]*align-items:center/);
   expect(compactCss).toMatch(/\.stronghold-mark>\.stronghold-silhouette\{[^}]*place-items:center/);
 });
+
+it("drives the tactical card from the owner's colour, action included", () => {
+  // A tinted box with a lime button stapled on reads as two things; one colour
+  // has to carry the ground, the edge, the inner panels and the action.
+  expect(compactCss).toMatch(/\.tactical-panel\{[^}]*--owner-wash:color-mix/);
+  expect(compactCss).toMatch(/\.tactical-panel\{[^}]*background:var\(--owner-wash\)/);
+  expect(compactCss).toMatch(/\.tactical-panel\{[^}]*border-color:var\(--owner-edge\)/);
+  expect(compactCss).toMatch(/\.tactical-panel\.primary-button\{[^}]*background:var\(--owner-color/);
+});
+
+it("keeps the phone's filter control while hiding the tag row", () => {
+  // The phone rule hid every button inside the filter group, which took the
+  // listbox trigger with it and left no way to filter at all.
+  const phone = compactCss.slice(compactCss.indexOf("@media(max-width:767px)"));
+  expect(phone).toContain(".map-filters>button{display:none}");
+  expect(phone).not.toContain(".map-filtersbutton{display:none}");
+  expect(phone).toContain(".map-filters-select{display:block");
+});

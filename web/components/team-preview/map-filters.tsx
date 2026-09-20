@@ -77,13 +77,6 @@ export function MapFilters({ locale, activeFilter, onChange }: {
           {t(locale, filter.labelKey)}
         </button>
       ))}
-      {activeFilter === "contested" ? (
-        <p className="map-sort-explanation" role="status">
-          {locale === "ko"
-            ? "정렬: 방어 긴급도 → 탈환 필요 포인트 → 내 거점 거리"
-            : "Sorted by: defense urgency → capture points needed → distance from my base"}
-        </p>
-      ) : null}
     </div>
   );
 }

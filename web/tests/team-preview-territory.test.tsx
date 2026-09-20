@@ -83,7 +83,8 @@ it("changes results when the user filters to contested territory", async () => {
 
   expect(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
     .toHaveTextContent("탈환까지");
-  expect(screen.getByText("정렬: 방어 긴급도 → 탈환 필요 포인트 → 내 거점 거리")).toBeVisible();
+  // The sort note explained an ordering the list itself shows, so it is gone.
+  expect(screen.queryByText(/^정렬:/)).not.toBeInTheDocument();
 });
 
 it("shows the resolved fandom owner after a mission captures a territory", () => {

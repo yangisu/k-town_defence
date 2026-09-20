@@ -271,8 +271,9 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
       style: mapStyleUrl(mapConfig),
       center: [127.8, 36.3],
       zoom: 6.2,
-      // On a phone a single finger belongs to the page, not the map.
-      cooperativeGestures: window.matchMedia?.("(max-width: 767px)").matches ?? false,
+      // A finger belongs to the page until it is put on the map, but a mouse
+      // wheel should just zoom — a narrow window is not a touch screen.
+      cooperativeGestures: window.matchMedia?.("(pointer: coarse)").matches ?? false,
       dragPan: false,
       scrollZoom: false,
       attributionControl: false,

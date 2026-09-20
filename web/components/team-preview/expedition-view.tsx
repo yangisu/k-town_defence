@@ -234,7 +234,6 @@ export function PreviewExpeditionView({
   const ownerStrongholdStage = territory.ownerArtistId === session.state.selectedArtistId ? territory.strongholdStage : null;
   const awards = places.map((place) => maximumAward(place, territory.balanceMultiplier, ownerStrongholdStage));
   const totalAward = awards.reduce((total, award) => total + award.cappedPoints, 0);
-  const orderedStandings = [...territory.standings].sort((a, b) => b.validPoints - a.validPoints);
 
   const startCheckIn = (place: PreviewMissionPlace) => {
     onStartCheckIn?.(place);
@@ -270,7 +269,6 @@ export function PreviewExpeditionView({
             selectedArtistId={session.state.selectedArtistId}
             defaultOpen
           />
-          <p>{territory.balanceReason[locale]}</p>
         </aside>
       </section>
 

@@ -126,7 +126,9 @@ it("pairs the expedition hero with the territory standings once both columns fit
   // the hero and the itinerary keeps the full width. The integrated hero keeps
   // its poster.
   expect(compactCss).toContain(".preview-expedition-view.expedition-hero{grid-template-columns:minmax(0,1fr);");
-  expect(compactCss).toContain("@media(min-width:1080px){.preview-expedition-view.expedition-hero{grid-template-columns:minmax(0,1fr)300px");
+  // The second column grows with the hero rather than sitting at a fixed
+  // 300px, so the standings rows use the width a wide screen gives them.
+  expect(compactCss).toContain("@media(min-width:1080px){.preview-expedition-view.expedition-hero{grid-template-columns:minmax(0,1fr)minmax(300px,34%)");
   expect(compactCss).toContain(".preview-expedition-view.expedition-hero>.battle-card{position:static");
   expect(compactCss).toContain(".preview-expedition-view.expedition-layout{grid-template-columns:minmax(0,1fr)}");
   expect(compactCss).toContain(".expedition-hero{grid-template-columns:1.3fr.7fr}");

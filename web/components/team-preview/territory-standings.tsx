@@ -19,7 +19,6 @@ export function TerritoryStandings({ territory, locale, selectedArtistId, defaul
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const ranked = [...territory.standings].sort((left, right) => right.validPoints - left.validPoints);
-  const total = ranked.reduce((sum, standing) => sum + standing.validPoints, 0);
 
   return (
     <section className="territory-standings" aria-label={`${territory.name[locale]} ${t(locale, "territoryStandings")}`}>
@@ -29,8 +28,9 @@ export function TerritoryStandings({ territory, locale, selectedArtistId, defaul
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
+        {/* No running total: the fandoms in a territory are read against each
+            other, and their sum is not a number anyone plays against. */}
         <span>{t(locale, "territoryStandings")}</span>
-        <small>{total.toLocaleString()}P</small>
         <ChevronRight size={16} strokeWidth={2.6} aria-hidden="true" />
       </button>
       {open ? (

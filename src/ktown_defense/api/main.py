@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from ..infrastructure.database import create_engine_and_session_factory
 from ..photo_storage import PrivatePhotoStorage
+from ..related_attractions import RelatedAttractionService
 from ..settings import Settings
 from .auth_routes import router as auth_router
 from .checkin_routes import router as checkin_router
@@ -35,6 +36,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.engine = engine
     app.state.session_factory = session_factory
     app.state.photo_storage = PrivatePhotoStorage(app.state.settings.upload_dir)
+    app.state.related_attraction_service = RelatedAttractionService(
+        service_key=(
+            runtime_settings.ktour_service_key.get_secret_value()
+            if runtime_settings.ktour_service_key is not None
+            else None
+        )
+    )
     install_error_handlers(app)
 
     secret = runtime_settings.gateway_shared_secret

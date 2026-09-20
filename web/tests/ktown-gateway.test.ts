@@ -74,6 +74,29 @@ describe("K-Town gateway", () => {
     );
   });
 
+  it("forwards the related-attractions route only for a valid place UUID", async () => {
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ placeId: "place", items: [] }));
+    const validUuid = "123e4567-e89b-12d3-a456-426614174000";
+    const response = await proxyKtownRequest(
+      new Request(`http://site/api/ktown/api/v1/places/${validUuid}/related-attractions`),
+      ["api", "v1", "places", validUuid, "related-attractions"],
+      { baseUrl: "http://backend", platformUserId: null, fetcher },
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetcher).toHaveBeenCalledWith(
+      `http://backend/api/v1/places/${validUuid}/related-attractions`,
+      expect.objectContaining({ method: "GET" }),
+    );
+
+    const invalid = await proxyKtownRequest(
+      new Request("http://site/api/ktown/api/v1/places/place-1/related-attractions"),
+      ["api", "v1", "places", "place-1", "related-attractions"],
+      { baseUrl: "http://backend", platformUserId: null, fetcher },
+    );
+    expect(invalid.status).toBe(404);
+  });
+
   it("forwards public expedition and status routes with bounded query parameters", async () => {
     const fetcher = vi.fn().mockResolvedValue(Response.json({ stops: [] }));
     await proxyKtownRequest(

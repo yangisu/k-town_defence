@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Clock3, ExternalLink, Footprints, MapPin, Shield } from "@/components/ui/icons";
 import { CheckInFlow } from "@/components/check-in/check-in-flow";
@@ -13,7 +13,7 @@ import { calculateMissionAward, rankFandoms, type MissionAward } from "@/feature
 import { TerritoryStandings } from "@/components/team-preview/territory-standings";
 import { t } from "@/features/team-preview/i18n";
 import type { Locale, PreviewMissionPlace, StrongholdStage } from "@/features/team-preview/types";
-import type { CheckInImpact, CheckInResult, CheckInService, Place } from "@/lib/domain";
+import type { CheckInImpact, CheckInResult, CheckInService, Place, RelatedAttraction, TourismService } from "@/lib/domain";
 
 const copy = {
   ko: {
@@ -53,6 +53,9 @@ const copy = {
     regionalStory: "지역 연결 스토리",
     regionalSupport: "지역의 공공 관광 코스",
     noDirectPlace: "검증된 아티스트 직접 연관 장소가 없어 지역의 공공 관광지만 안내합니다.",
+    related: "함께 둘러볼 곳",
+    relatedSource: "한국관광공사 연관 관광지 데이터",
+    distance: "약",
   },
   en: {
     back: "Back to territory map",
@@ -91,6 +94,9 @@ const copy = {
     regionalStory: "Regional connection story",
     regionalSupport: "Public tourism route in this region",
     noDirectPlace: "No verified direct artist destination is available; this route includes regional public attractions only.",
+    related: "Nearby to explore",
+    relatedSource: "Korea Tourism Organization related-place data",
+    distance: "About",
   },
 } as const;
 
@@ -165,12 +171,14 @@ function missionImpact(before: DemoSession, after: DemoSession, place: PreviewMi
 export function PreviewExpeditionView({
   expeditionId,
   checkInService,
+  relatedAttractionService,
   checkInMode = "demo",
   onBack,
   onStartCheckIn,
 }: {
   expeditionId: string | null;
   checkInService: CheckInService;
+  relatedAttractionService?: TourismService;
   checkInMode?: "demo" | "integrated";
   onBack: () => void;
   onStartCheckIn?: (place: PreviewMissionPlace) => void;
@@ -191,9 +199,54 @@ export function PreviewExpeditionView({
     candidate.artistId === session.state.selectedArtistId && candidate.territoryId === expedition?.territoryId
   )) ?? null;
   const territory = session.state.territories.find((candidate) => candidate.id === expedition?.territoryId) ?? null;
-  const places = expedition?.stopIds
-    .map((id) => previewContent.places.find((candidate) => candidate.id === id))
-    .filter((place): place is PreviewMissionPlace => Boolean(place)) ?? [];
+  const places = useMemo(
+    () => expedition?.stopIds
+      .map((id) => previewContent.places.find((candidate) => candidate.id === id))
+      .filter((place): place is PreviewMissionPlace => Boolean(place)) ?? [],
+    [expedition],
+  );
+  const [relatedPlaceIds, setRelatedPlaceIds] = useState<Record<string, string>>({});
+  const [relatedAttractionsByPlaceId, setRelatedAttractionsByPlaceId] = useState<Record<string, RelatedAttraction[]>>({});
+  const placeIdsKey = places.map((place) => place.id).join(",");
+  useEffect(() => {
+    if (!relatedAttractionService || places.length === 0) return;
+    let cancelled = false;
+    void relatedAttractionService.listPlaces({ regionId: expedition?.territoryId }).then((livePlaces) => {
+      if (cancelled) return;
+      const nextIds = Object.fromEntries(places.flatMap((place) => {
+        const livePlace = livePlaces.find((candidate) => candidate.nameKo.trim() === place.name.ko.trim());
+        return livePlace ? [[place.id, livePlace.id]] : [];
+      }));
+      setRelatedPlaceIds((current) => ({ ...current, ...nextIds }));
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [expedition?.territoryId, placeIdsKey, places, relatedAttractionService]);
+
+  useEffect(() => {
+    if (!relatedAttractionService || places.length === 0) return;
+    let cancelled = false;
+    const missingPlaces = places.filter((place) => {
+      const livePlaceId = relatedPlaceIds[place.id];
+      return livePlaceId !== undefined && !(livePlaceId in relatedAttractionsByPlaceId);
+    });
+    if (missingPlaces.length === 0) return;
+    void Promise.all(missingPlaces.map(async (place) => {
+      const livePlaceId = relatedPlaceIds[place.id];
+      if (!livePlaceId) return [place.id, []] as const;
+      try {
+        return [livePlaceId, await relatedAttractionService.getRelatedAttractions(livePlaceId)] as const;
+      } catch {
+        return [livePlaceId, []] as const;
+      }
+    })).then((results) => {
+      if (cancelled) return;
+      setRelatedAttractionsByPlaceId((current) => ({
+        ...current,
+        ...Object.fromEntries(results),
+      }));
+    });
+    return () => { cancelled = true; };
+  }, [placeIdsKey, places, relatedAttractionService, relatedAttractionsByPlaceId, relatedPlaceIds]);
   const [checkInPlace, setCheckInPlace] = useState<PreviewMissionPlace | null>(null);
   const [endOpen, setEndOpen] = useState(false);
   const endDialogRef = useRef<HTMLDivElement>(null);
@@ -335,6 +388,15 @@ export function PreviewExpeditionView({
                       ? <span className="stop-done">{labels.checkInDone}</span>
                       : <button type="button" onClick={() => startCheckIn(place)} aria-label={`${place.name[locale]} ${labels.checkIn}`}>{labels.checkIn}</button>}
                   </div>
+                  {relatedAttractionsByPlaceId[place.id]?.slice(0, 1).map((related) => (
+                    <div className="related-attraction" key={`${place.id}:${related.nameKo}`}>
+                      <span className="related-attraction-label">{labels.related}</span>
+                      <strong>{related.nameKo}</strong>
+                      {related.category ? <span>{related.category}</span> : null}
+                      {related.distanceKm !== undefined ? <span>{labels.distance} {related.distanceKm.toFixed(1)}km</span> : null}
+                      <small>{labels.relatedSource}</small>
+                    </div>
+                  ))}
                 </li>
               );
             })}

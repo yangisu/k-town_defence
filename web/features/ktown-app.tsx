@@ -161,6 +161,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
             <PreviewExpeditionView
               expeditionId={session.state.selectedExpeditionId}
               checkInService={services.checkIn}
+              relatedAttractionService={services.tourism}
               checkInMode={mode}
               onBack={() => undefined}
             />

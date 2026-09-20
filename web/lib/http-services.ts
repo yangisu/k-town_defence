@@ -11,6 +11,7 @@ import type {
   ExpeditionRecommendationFilter,
   LiveExpedition,
   OpenDataStatus,
+  RelatedAttraction,
   SeasonMembership,
 } from "./domain";
 import { services as demoServices } from "./demo-services";
@@ -285,6 +286,30 @@ function mapOpenDataStatus(value: unknown): OpenDataStatus {
   };
 }
 
+function mapRelatedAttractions(value: unknown): RelatedAttraction[] {
+  const dto = object(value);
+  text(dto.placeId);
+  if (!Array.isArray(dto.items)) invalidResponse();
+  return dto.items.map((value) => {
+    const item = object(value);
+    const source = text(item.source);
+    if (source !== "KTOUR_RELATED_ATTRACTION") invalidResponse();
+    const distance = item.distanceKm === null || item.distanceKm === undefined
+      ? undefined
+      : finiteNumber(item.distanceKm);
+    const relatedRank = finiteNumber(item.relatedRank);
+    if (!Number.isInteger(relatedRank) || relatedRank < 1) invalidResponse();
+    return {
+      nameKo: text(item.nameKo),
+      relatedRank,
+      ...(distance === undefined ? {} : { distanceKm: distance }),
+      ...(item.category === null || item.category === undefined ? {} : { category: text(item.category) }),
+      ...(item.imageUrl === null || item.imageUrl === undefined ? {} : { imageUrl: httpsUrl(item.imageUrl) }),
+      source,
+    };
+  });
+}
+
 export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
   return {
     tourism: {
@@ -318,6 +343,13 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
           `/api/v1/expeditions/recommended?${params.toString()}`,
         );
         return mapExpedition(response);
+      },
+      async getRelatedAttractions(placeId: string) {
+        const response = await requestJson<unknown>(
+          fetcher,
+          `/api/v1/places/${placeId}/related-attractions`,
+        );
+        return mapRelatedAttractions(response);
       },
       async getOpenDataStatus() {
         return mapOpenDataStatus(

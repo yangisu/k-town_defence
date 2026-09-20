@@ -15,6 +15,7 @@ const allowedRoutes = [
   { method: "PUT", pattern: /^api\/v1\/me\/game-state$/ },
   { method: "GET", pattern: /^api\/v1\/places$/ },
   { method: "GET", pattern: new RegExp(`^api/v1/places/${UUID}$`) },
+  { method: "GET", pattern: new RegExp(`^api/v1/places/${UUID}/related-attractions$`) },
   { method: "GET", pattern: /^api\/v1\/expeditions\/recommended$/ },
   { method: "GET", pattern: /^api\/v1\/open-data\/status$/ },
   { method: "POST", pattern: /^api\/v1\/checkins$/ },

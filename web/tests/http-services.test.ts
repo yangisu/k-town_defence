@@ -163,6 +163,32 @@ const strictExpedition = {
     expect(expedition.stops[0].place.openTime).toBe("09:00~18:00");
   });
 
+  it("maps read-only related attractions without making them expedition stops", async () => {
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({
+      placeId: "place-1",
+      items: [{
+        nameKo: "부산시민공원",
+        relatedRank: 2,
+        distanceKm: null,
+        category: "문화시설",
+        imageUrl: null,
+        source: "KTOUR_RELATED_ATTRACTION",
+      }],
+    }));
+
+    await expect(createHttpServices(fetcher).tourism.getRelatedAttractions("place-1"))
+      .resolves.toEqual([{
+        nameKo: "부산시민공원",
+        relatedRank: 2,
+        category: "문화시설",
+        source: "KTOUR_RELATED_ATTRACTION",
+      }]);
+    expect(fetcher).toHaveBeenCalledWith(
+      "/api/ktown/api/v1/places/place-1/related-attractions",
+      expect.any(Object),
+    );
+  });
+
   it("maps safe open-data status and rejects malformed expedition stops", async () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(jsonResponse({

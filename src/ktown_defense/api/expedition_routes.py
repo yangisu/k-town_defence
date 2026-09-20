@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Annotated
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 
@@ -16,6 +17,7 @@ from ..infrastructure.models import (
     OpenApiCallLogModel,
     PlaceModel,
 )
+from ..related_attractions import RelatedAttraction, RelatedAttractionService
 from .dependencies import get_session
 from .errors import ApiError
 from .place_routes import PlaceResponse
@@ -95,6 +97,24 @@ class OpenDataStatusResponse(BaseModel):
     operations: list[OperationStatusResponse]
 
 
+class RelatedAttractionResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    name_ko: str = Field(serialization_alias="nameKo")
+    related_rank: int = Field(serialization_alias="relatedRank")
+    distance_km: float | None = Field(default=None, serialization_alias="distanceKm")
+    category: str | None = None
+    image_url: str | None = Field(default=None, serialization_alias="imageUrl")
+    source: str = "KTOUR_RELATED_ATTRACTION"
+
+
+class RelatedAttractionsResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    place_id: str = Field(serialization_alias="placeId")
+    items: list[RelatedAttractionResponse]
+
+
 @router.get(
     "/api/v1/expeditions/recommended",
     response_model=RecommendedExpeditionResponse,
@@ -141,6 +161,42 @@ async def recommended_expedition(
             )
             for index, stop in enumerate(recommendation.stops, start=1)
         ],
+    )
+
+
+@router.get(
+    "/api/v1/places/{place_id}/related-attractions",
+    response_model=RelatedAttractionsResponse,
+)
+async def related_attractions(
+    place_id: str,
+    request: Request,
+    session: Session,
+) -> RelatedAttractionsResponse:
+    try:
+        place_uuid = UUID(place_id)
+    except ValueError as exc:
+        raise ApiError(404, "PLACE_NOT_FOUND", "관광지를 찾을 수 없습니다.") from exc
+    place = await session.scalar(
+        select(PlaceModel).where(
+            PlaceModel.id == place_uuid,
+            PlaceModel.is_public.is_(True),
+            PlaceModel.is_active.is_(True),
+        )
+    )
+    if place is None:
+        raise ApiError(404, "PLACE_NOT_FOUND", "관광지를 찾을 수 없습니다.")
+    base_ym = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y%m")
+    service: RelatedAttractionService = request.app.state.related_attraction_service
+    items: tuple[RelatedAttraction, ...] = await service.get_for_place(
+        place_id=place.id,
+        name_ko=place.name_ko,
+        region_code=place.region_code,
+        base_ym=base_ym,
+    )
+    return RelatedAttractionsResponse(
+        place_id=place_id,
+        items=[RelatedAttractionResponse(**item.__dict__) for item in items],
     )
 
 

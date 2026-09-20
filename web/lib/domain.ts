@@ -75,6 +75,15 @@ export interface LiveExpedition {
   stops: LiveExpeditionStop[];
 }
 
+export interface RelatedAttraction {
+  nameKo: string;
+  relatedRank: number;
+  distanceKm?: number;
+  category?: string;
+  imageUrl?: string;
+  source: "KTOUR_RELATED_ATTRACTION";
+}
+
 export interface OpenDataOperationStatus {
   operation: string;
   lastSucceededAt: string;
@@ -191,6 +200,7 @@ export interface TourismService {
   getRegion(regionId: string): Promise<Region>;
   listPlaces(filter: PlaceFilter): Promise<Place[]>;
   getRecommendedExpedition(filter: ExpeditionRecommendationFilter): Promise<LiveExpedition>;
+  getRelatedAttractions(placeId: string): Promise<RelatedAttraction[]>;
   getOpenDataStatus(): Promise<OpenDataStatus>;
 }
 

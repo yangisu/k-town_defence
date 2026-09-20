@@ -9,6 +9,7 @@ from ktown_defense.infrastructure.models import (
     OpenApiCallLogModel,
 )
 from ktown_defense.api.expedition_routes import recommended_expedition
+from ktown_defense.related_attractions import RelatedAttraction, RelatedAttractionService
 
 
 NOW = datetime(2026, 8, 22, 3, 0, tzinfo=timezone.utc)
@@ -200,6 +201,61 @@ async def test_recommended_expedition_returns_not_found_with_only_two_places(
 
     assert response.status_code == 404
     assert response.json()["code"] == "EXPEDITION_NOT_AVAILABLE"
+
+
+async def test_related_attractions_route_returns_read_only_enrichment(
+    api_client, place_factory
+) -> None:
+    place = await place_factory(
+        name_ko="감천문화마을", source="KTOUR_API", content_id="anchor-related"
+    )
+
+    class StubRelatedService:
+        async def get_for_place(self, **kwargs):
+            assert kwargs["place_id"] == place.id
+            assert kwargs["name_ko"] == "감천문화마을"
+            return (
+                RelatedAttraction(
+                    name_ko="부산시민공원",
+                    related_rank=2,
+                    category="문화시설",
+                ),
+            )
+
+    api_client._transport.app.state.related_attraction_service = StubRelatedService()
+    response = await api_client.get(f"/api/v1/places/{place.id}/related-attractions")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "placeId": str(place.id),
+        "items": [{
+            "nameKo": "부산시민공원",
+            "relatedRank": 2,
+            "distanceKm": None,
+            "category": "문화시설",
+            "imageUrl": None,
+            "source": "KTOUR_RELATED_ATTRACTION",
+        }],
+    }
+
+
+async def test_related_attraction_failure_is_isolated_from_main_expedition(
+    api_client, place_factory
+) -> None:
+    place = await place_factory(name_ko="감천문화마을")
+
+    class FailingClient:
+        def search_related(self, **kwargs):
+            raise RuntimeError("related API unavailable")
+
+    api_client._transport.app.state.related_attraction_service = RelatedAttractionService(
+        service_key="service-key",
+        client_factory=lambda key: FailingClient(),
+    )
+    response = await api_client.get(f"/api/v1/places/{place.id}/related-attractions")
+
+    assert response.status_code == 200
+    assert response.json()["items"] == []
 
 
 def test_recommended_expedition_date_default_is_calculated_per_request() -> None:

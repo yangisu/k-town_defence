@@ -75,7 +75,10 @@ class MembershipApplication:
         )
         if membership is not None:
             if membership.fandom_id != fandom_id:
-                raise ApiError(422, "FANDOM_LOCKED", "이번 시즌 팬덤은 변경할 수 없습니다.")
+                membership.fandom_id = fandom_id
+                membership.updated_at = now
+                await self._session.commit()
+                await self._session.refresh(membership)
             return membership
 
         membership = SeasonMembershipModel(

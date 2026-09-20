@@ -48,7 +48,7 @@ async def test_member_can_select_once_and_read_the_persisted_membership(
     assert selected.json()["lockedAt"] is not None
 
 
-async def test_locked_membership_rejects_a_different_fandom(member_client) -> None:
+async def test_member_can_change_to_a_different_fandom(member_client) -> None:
     await member_client.put(
         "/api/v1/me/season-membership", json={"fandomId": ARMY_ID}
     )
@@ -57,8 +57,8 @@ async def test_locked_membership_rejects_a_different_fandom(member_client) -> No
         "/api/v1/me/season-membership", json={"fandomId": BLINK_ID}
     )
 
-    assert response.status_code == 422
-    assert response.json()["code"] == "FANDOM_LOCKED"
+    assert response.status_code == 200
+    assert response.json()["fandomId"] == BLINK_ID
 
 
 async def test_unknown_fandom_is_rejected(member_client) -> None:

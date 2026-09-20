@@ -1,7 +1,7 @@
 import type { AppTab } from "@/features/app-controller";
 import { getArtistHomeTerritories, previewContent } from "./content";
 import { GAME_RULES, stageForPoints, type MissionAward } from "./game-rules";
-import type { ArtistId, FandomStanding, Locale, PreviewTerritory, StrongholdStage, TerritoryId } from "./types";
+import type { ArtistId, FandomStanding, Locale, PreviewTerritory, StrongholdStage, TerritoryFilterId, TerritoryId } from "./types";
 
 export const DEMO_SESSION_VERSION = 3;
 export const DEMO_SESSION_KEY = "ktown-team-preview-v3";
@@ -29,6 +29,12 @@ export interface DemoSession {
    * tap instead of choosing again. The active artist is always a member.
    */
   followedArtistIds: ArtistId[];
+  /**
+   * Which slice of the board the reader last asked the map to show. It is part
+   * of where they are, not a setting, so it survives leaving the page and
+   * coming back the same way the chosen territory does.
+   */
+  territoryFilter: TerritoryFilterId;
   selectedTerritoryId: TerritoryId | null;
   activeTab: AppTab;
   selectedExpeditionId: string | null;
@@ -46,6 +52,7 @@ export type DemoSessionAction =
   | { type: "changeProfile"; artistId: ArtistId }
   | { type: "removeArtist"; artistId: ArtistId }
   | { type: "selectTerritory"; territoryId: TerritoryId | null }
+  | { type: "setTerritoryFilter"; filter: TerritoryFilterId }
   | { type: "changeTab"; tab: AppTab }
   | { type: "openExpedition"; expeditionId: string }
   | { type: "openRecommendedExpedition"; expeditionId: string; territoryId: TerritoryId }
@@ -137,6 +144,7 @@ export function createInitialDemoSession(): DemoSession {
     artistConfirmed: false,
     selectedArtistId: null,
     followedArtistIds: [],
+    territoryFilter: "my_fandom",
     selectedTerritoryId: null,
     activeTab: "explore",
     selectedExpeditionId: null,
@@ -237,14 +245,22 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         const followedArtistIds = withArtist(state.followedArtistIds, action.artistId);
         return followedArtistIds === state.followedArtistIds ? state : { ...state, followedArtistIds };
       }
-      const territory = selectProfileTerritory(action.artistId, state.territories);
+      // The territory on screen is wherever the reader last went, and switching
+      // fandom is not a request to be moved. Only a reader who has not chosen
+      // one yet gets a suggestion.
+      const territory = state.selectedTerritoryId
+        ? state.territories.find((candidate) => candidate.id === state.selectedTerritoryId)
+        : selectProfileTerritory(action.artistId, state.territories);
       return {
         ...state,
         artistConfirmed: true,
         selectedArtistId: action.artistId,
         followedArtistIds: withArtist(state.followedArtistIds, action.artistId),
         selectedTerritoryId: territory?.id ?? null,
-        activeTab: state.activeTab === "journey" ? "journey" : "explore",
+        // Switching fandom is not a request to go somewhere: the reader stays
+        // on the page they were reading, now showing it as the new fandom. The
+        // one exception is a route, which this switch has just cleared.
+        activeTab: state.activeTab === "expedition" ? "explore" : state.activeTab,
         selectedExpeditionId: null,
         activeExpeditionId: null,
       };
@@ -281,6 +297,8 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         activeExpeditionId: null,
       };
     }
+    case "setTerritoryFilter":
+      return state.territoryFilter === action.filter ? state : { ...state, territoryFilter: action.filter };
     case "selectTerritory":
       return state.artistConfirmed
         ? { ...state, selectedTerritoryId: action.territoryId, activeTab: "explore", selectedExpeditionId: null }
@@ -318,8 +336,10 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
     }
     case "openRecommendedExpedition": {
       if (!state.artistConfirmed || !state.selectedArtistId) return state;
+      // Opening a route elsewhere ends the one that was running. The screen
+      // asks before it comes to this, and the check-ins already approved stay
+      // where they landed — only the unfinished route is let go.
       const expedition = compatibleExpedition(action.expeditionId, state.selectedArtistId, action.territoryId);
-      if (expedition && state.activeExpeditionId !== null && state.activeExpeditionId !== expedition.id) return state;
       return expedition && expedition.territoryId === action.territoryId
         ? {
             ...state,
@@ -482,6 +502,7 @@ export function isValidDemoSession(value: unknown): value is DemoSession {
     || !isNonNegativeFinite(value.contributedToday)
     || value.contributedToday > GAME_RULES.dailyCap) return false;
 
+  if (!TERRITORY_FILTER_IDS.includes(value.territoryFilter as TerritoryFilterId)) return false;
   if (!Array.isArray(value.followedArtistIds)
     || !value.followedArtistIds.every(isArtistId)
     || new Set(value.followedArtistIds).size !== value.followedArtistIds.length) return false;
@@ -522,9 +543,21 @@ export function parseDemoSession(value: unknown): DemoSession | null {
   // before it existed followed exactly the one fandom it had chosen, and the
   // active fandom is a member by definition. Filling that in beats rejecting a
   // session that is otherwise sound, which would throw away a whole history.
-  const candidate = isRecord(value) ? { ...value, followedArtistIds: rosterOf(value) } : value;
+  const candidate = isRecord(value)
+    ? {
+      ...value,
+      followedArtistIds: rosterOf(value),
+      // A session saved before the filter was remembered was showing the
+      // default, so that is what it comes back as.
+      territoryFilter: TERRITORY_FILTER_IDS.includes(value.territoryFilter as TerritoryFilterId)
+        ? value.territoryFilter
+        : "my_fandom",
+    }
+    : value;
   return isValidDemoSession(candidate) ? candidate : null;
 }
+
+const TERRITORY_FILTER_IDS: readonly TerritoryFilterId[] = ["my_fandom", "contested", "artist_connection", "all"];
 
 function rosterOf(value: Record<string, unknown>) {
   const stored = Array.isArray(value.followedArtistIds) ? value.followedArtistIds.filter(isArtistId) : [];

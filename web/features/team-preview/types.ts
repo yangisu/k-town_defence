@@ -110,3 +110,6 @@ export interface PreviewExpedition {
   transitSummary: LocalizedText;
   estimatedMinutes: number;
 }
+
+/** Which slice of the board the territory list and map are showing. */
+export type TerritoryFilterId = "my_fandom" | "contested" | "artist_connection" | "all";

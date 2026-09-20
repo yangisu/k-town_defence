@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Camera, Check, CircleAlert, Lock, X } from "@/components/ui/icons";
 import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
+import { StageBadge } from "@/components/team-preview/stage-badge";
 import { StrongholdMark } from "@/components/team-preview/stronghold-mark";
 import { previewContent } from "@/features/team-preview/content";
 import type { DemoSession } from "@/features/team-preview/demo-session";
@@ -91,6 +92,15 @@ export function RecordView({
   // went" is only half the record — the other half is who I went as.
   const fandomTag = (artistId: string | undefined) => previewContent.artists
     .find((candidate) => candidate.id === artistId)?.fandomName;
+  // A badge belongs to the fandom, not to the member who happened to earn it:
+  // a stage the fandom holds anywhere is a stage every member wears. The
+  // "highest stage" tile above stays personal — that one is a record.
+  const fandomStageOrder = session.territories.reduce(
+    (highest, territory) => territory.ownerArtistId === session.selectedArtistId
+      ? Math.max(highest, stageOrder[territory.strongholdStage])
+      : highest,
+    -1,
+  );
   const followedArtists = session.followedArtistIds
     .map((artistId) => previewContent.artists.find((candidate) => candidate.id === artistId))
     .filter((candidate): candidate is (typeof previewContent.artists)[number] => candidate !== undefined);
@@ -203,7 +213,7 @@ export function RecordView({
         {growthInfoOpen ? <p className="record-growth-about" id="record-growth-about">{t(locale, "growthAbout")}</p> : null}
         <ol aria-label={t(locale, "recordGrowth")}>
           {stages.map((stage) => {
-            const unlocked = stageOrder[stage] <= summary.highestStageOrder;
+            const unlocked = stageOrder[stage] <= fandomStageOrder;
             return (
               <li key={stage} className={unlocked ? "unlocked" : "locked"}>
                 <StrongholdMark stage={stage} locale={locale} ownerColor={artist?.color} />
@@ -250,11 +260,19 @@ export function RecordView({
         <h2>{t(locale, "recordRewards")}</h2>
         <ul aria-label={t(locale, "recordRewards")}>
           {rewards.map(({ stage, label }) => {
-            const unlocked = stageOrder[stage] <= summary.highestStageOrder;
+            const unlocked = stageOrder[stage] <= fandomStageOrder;
             return (
               <li key={stage} className={unlocked ? "unlocked" : "locked"}>
-                <StrongholdMark stage={stage} locale={locale} ownerColor={artist?.color} />
-                <span>{t(locale, label)}</span>
+                <StageBadge stage={stage} locale={locale} unlocked={unlocked} ownerColor={artist?.color} />
+                {/* A badge belongs to a fandom, so it says which one earned it. */}
+                <span>
+                  {t(locale, label)}
+                  {unlocked && artist ? (
+                    <small className="record-reward-fandom">
+                      {t(locale, "recordBadgeEarnedBy").replace("{fandom}", artist.fandomName)}
+                    </small>
+                  ) : null}
+                </span>
                 <span className={unlocked ? "record-state unlocked" : "record-state"}>
                   {unlocked ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : <Lock size={13} strokeWidth={2.6} aria-hidden="true" />}
                   <span className="sr-only">{t(locale, unlocked ? "recordUnlocked" : "recordLocked")}</span>

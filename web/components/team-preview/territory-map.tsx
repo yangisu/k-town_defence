@@ -62,11 +62,34 @@ const markerLabels = Object.fromEntries(previewContent.artists.map((artist) => [
  * only lines worth reading are the ones this product draws, and Korea stands
  * out by its own stronger ground rather than by washing its neighbours out.
  */
+/**
+ * The base map paints Korea too, from a far coarser national outline and — in
+ * the fallback style — in #D6C7FF, all but identical to the lilac this map
+ * uses. Its edge therefore showed past ours as a band of the same colour lying
+ * outside our own coastline, which reads exactly like our fill leaking into
+ * the sea. Korea is ours to draw, so it is cut from every base fill; a feature
+ * without a country code keeps its fill, so the rest of the world is untouched.
+ */
+const notKorea: ExpressionSpecification = [
+  "all",
+  ["!=", ["get", "ADM0_A3"], "KOR"],
+  ["!=", ["get", "iso_3166_1_alpha_3"], "KOR"],
+  ["!=", ["get", "iso_3166_1"], "KR"],
+] as ExpressionSpecification;
+
 function neutraliseBaseMap(map: MapLibreMap) {
   if (typeof map.getStyle !== "function") return;
   const style = map.getStyle();
   for (const layer of style?.layers ?? []) {
     if (layer.id.startsWith("preview-") || layer.id.startsWith("my-location")) continue;
+    if (layer.type === "fill") {
+      try {
+        map.setFilter?.(layer.id, notKorea);
+      } catch {
+        // A style may reject the expression; its fill simply stays as it was.
+      }
+      continue;
+    }
     if (typeof map.setLayoutProperty !== "function") return;
     if (layer.type !== "line" && layer.type !== "symbol") continue;
     try {

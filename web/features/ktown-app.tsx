@@ -11,7 +11,7 @@ import { DemoBrandTransition } from "@/components/demo-entry/demo-brand-transiti
 import { hasSeenBrandWelcome, markBrandWelcomeSeen } from "@/features/team-preview/brand-welcome";
 import { TutorialOverlay } from "@/components/team-preview/tutorial-overlay";
 import type { GuideStep } from "@/features/team-preview/guide-steps";
-import { hasSeenTutorial, markTutorialSeen } from "@/features/team-preview/tutorial-seen";
+import { forgetTutorial, hasSeenTutorial, markTutorialSeen } from "@/features/team-preview/tutorial-seen";
 import { ObjectiveStrip } from "@/components/team-preview/objective-strip";
 import { TerritoryView } from "@/components/team-preview/territory-view";
 import { PreviewExpeditionView } from "@/components/team-preview/expedition-view";
@@ -101,6 +101,9 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   };
 
   const resetDemo = () => {
+    // Resetting asks for the demo from the top, greeting included.
+    forgetTutorial(window.localStorage);
+    setGuideChecked(false);
     session.reset();
     setDrawerOpen(false);
     setResetOpen(false);
@@ -306,6 +309,10 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
   ));
   const { dispatch, hydrated, state } = session;
   const signOut = useCallback(() => {
+    // The guide greets a first run, and the flag that suppresses it lives in
+    // this browser rather than on the account — so signing out has to clear it,
+    // or whoever logs in here next inherits a greeting someone else dismissed.
+    forgetTutorial(window.localStorage);
     window.location.href = "/api/auth/signout";
   }, []);
 

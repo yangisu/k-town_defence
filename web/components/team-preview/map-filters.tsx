@@ -5,13 +5,10 @@ import { previewContent } from "@/features/team-preview/content";
 import { t, type CopyKey } from "@/features/team-preview/i18n";
 import { isContestedTerritory } from "@/features/team-preview/territory-rules";
 import { orderContestedTerritories } from "@/features/team-preview/territory-summary";
-import type { ArtistId, Locale, PreviewTerritory } from "@/features/team-preview/types";
+import type { ArtistId, Locale, PreviewTerritory, TerritoryFilterId } from "@/features/team-preview/types";
 
-export type TerritoryFilter =
-  | "my_fandom"
-  | "contested"
-  | "artist_connection"
-  | "all";
+// The union itself lives with the session state that now remembers it.
+export type TerritoryFilter = TerritoryFilterId;
 
 export const TERRITORY_FILTERS: readonly { id: TerritoryFilter; labelKey: CopyKey }[] = [
   { id: "my_fandom", labelKey: "mapMyFandom" },

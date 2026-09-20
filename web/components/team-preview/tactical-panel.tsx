@@ -7,6 +7,7 @@ import { previewContent } from "@/features/team-preview/content";
 import { t } from "@/features/team-preview/i18n";
 import type { DemoSession } from "@/features/team-preview/demo-session";
 import { useDemoSession } from "@/features/team-preview/demo-session-context";
+import { useModalFocus } from "@/components/ui/use-modal-focus";
 import type {
   ArtistConnection,
   ArtistProfile,
@@ -196,6 +197,10 @@ export function TacticalPanel({
   const [awardHelpOpen, setAwardHelpOpen] = useState(false);
   const [impactHelpOpen, setImpactHelpOpen] = useState(false);
   const [slide, setSlide] = useState<"next" | "previous" | null>(null);
+  const [switchOpen, setSwitchOpen] = useState(false);
+  const switchDialogRef = useRef<HTMLDivElement>(null);
+  const switchTitleRef = useRef<HTMLHeadingElement>(null);
+  useModalFocus(switchOpen, switchDialogRef, switchTitleRef, () => setSwitchOpen(false));
   const locale: Locale = session.locale;
   const copy = panelCopy[locale];
   const standings = orderedStandings(territory);
@@ -218,6 +223,14 @@ export function TacticalPanel({
   const expeditionSelectedOwns = expeditionTerritory.ownerArtistId === artist.id;
   const sourceUrl = connection?.sourceUrls[0] ?? territory.sourceUrls[0];
   const blockedByOtherRoute = session.activeExpeditionId !== null && session.activeExpeditionId !== expedition.id;
+  const runningExpedition = previewContent.expeditions.find((candidate) => candidate.id === session.activeExpeditionId);
+  const runningTerritoryName = session.territories
+    .find((candidate) => candidate.id === runningExpedition?.territoryId)?.name[locale] ?? "—";
+  const openThisRoute = () => demoSession.dispatch({
+    type: "openRecommendedExpedition",
+    expeditionId: expedition.id,
+    territoryId: expedition.territoryId,
+  });
   const actionLabel = session.completedExpeditionIds.includes(expedition.id)
     ? copy.finished
     : session.activeExpeditionId === expedition.id
@@ -451,14 +464,27 @@ export function TacticalPanel({
         <p><strong>{copy.rankImpact}</strong>: #{rank.currentRank}{rank.currentRank === rank.projectedRank ? ` · ${copy.rankHold}` : ` → #${rank.projectedRank}`}</p>
       </section>
 
-      <button data-guide="start-expedition" className="primary-button" type="button" disabled={blockedByOtherRoute} onClick={() => demoSession.dispatch({
-        type: "openRecommendedExpedition",
-        expeditionId: expedition.id,
-        territoryId: expedition.territoryId,
-      })}>
+      {/* A route running elsewhere used to lock this button, which left the
+          reader to work out where they had to go to unlock it. They can start
+          here; the question just makes sure they meant to leave the other. */}
+      <button data-guide="start-expedition" className="primary-button" type="button" onClick={() => {
+        if (blockedByOtherRoute) return setSwitchOpen(true);
+        openThisRoute();
+      }}>
         {actionLabel}
       </button>
-      {blockedByOtherRoute ? <p className="tactical-blocked-note" role="note">{copy.blockedNote}</p> : null}
+      {switchOpen ? (
+        <div className="reset-dialog-overlay">
+          <div className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="switch-route-title" ref={switchDialogRef}>
+            <h2 id="switch-route-title" tabIndex={-1} ref={switchTitleRef}>{t(locale, "switchRouteTitle")}</h2>
+            <p>{t(locale, "switchRouteBody").replace("{territory}", runningTerritoryName)}</p>
+            <div className="reset-dialog-actions">
+              <button type="button" onClick={() => setSwitchOpen(false)}>{t(locale, "switchRouteCancel")}</button>
+              <button type="button" onClick={() => { setSwitchOpen(false); openThisRoute(); }}>{t(locale, "switchRouteConfirm")}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       </div>
     </aside>
   );

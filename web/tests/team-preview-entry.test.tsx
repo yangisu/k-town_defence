@@ -332,7 +332,9 @@ it("switches artists without carrying the previous artist's expedition route", a
   await user.click(screen.getByRole("radio", { name: /aespa.*MY/i }));
   await user.click(screen.getByRole("button", { name: "이 팬덤 추가" }));
   await user.click(within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole("button", { name: "영토 지도" }));
-  expect(await screen.findByRole("complementary", { name: "수원 전술 패널" })).toBeVisible();
+  // The map stays where the reader last went, now read as the new fandom —
+  // switching fandom is not a request to be moved somewhere else.
+  expect(await screen.findByRole("complementary", { name: "부산 전술 패널" })).toBeVisible();
 
   // The new profile inherits no route, so the tab starts empty again.
   await user.click(screen.getAllByRole("button", { name: "원정" })[0]);
@@ -341,8 +343,9 @@ it("switches artists without carrying the previous artist's expedition route", a
 
   await user.click(screen.getByRole("button", { name: "영토 지도로" }));
   await user.click(within(screen.getByRole("complementary", { name: /(전술 패널|tactical panel)$/ })).getByRole("button", { name: "원정 시작" }));
-  expect(await screen.findByRole("heading", { name: "수원 지역 원정" })).toBeVisible();
-  // Whether or not the new fandom is tied to Suwon, the note is what marks
+  // Busan is where the reader still is, and MY has no route of its own there.
+  expect(await screen.findByRole("heading", { name: "부산 지역 원정" })).toBeVisible();
+  // Whether or not the new fandom is tied to Busan, the note is what marks
   // this route as the region's public one.
   expect(screen.getByText("공식 관광 출처 기반 공공 원정")).toBeVisible();
 });

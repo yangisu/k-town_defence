@@ -34,6 +34,7 @@ interface TerritoryMapProps {
 }
 
 const boundarySourceId = "preview-territory-boundaries";
+const nationSourceId = "preview-nation";
 const strongholdSourceId = "preview-strongholds";
 const connectionSourceId = "preview-artist-connections";
 const myLocationSourceId = "my-location";
@@ -63,17 +64,33 @@ const markerLabels = Object.fromEntries(previewContent.artists.map((artist) => [
 /**
  * The base map is scenery, not the subject. Its borders and labels go, since
  * the only lines worth reading are the territories this product draws, but
- * its colours stay — a blue sea and coloured land read better than grey —
- * pulled a little towards grey so the fandom colours still lead.
+ * its colours stay — a blue sea reads better than a grey one — but washed
+ * far towards white, so the country this game is played in leads.
  */
-function softenHex(hex: string, towardsGrey = 0.28) {
+function softenHex(hex: string, towardsWhite = 0.5) {
   const value = hex.trim().replace("#", "");
   const full = value.length === 3 ? value.split("").map((part) => part + part).join("") : value;
   if (full.length !== 6 || /[^0-9a-f]/i.test(full)) return null;
   const channels = [0, 2, 4].map((offset) => Number.parseInt(full.slice(offset, offset + 2), 16));
-  const grey = channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
-  const mixed = channels.map((channel) => Math.round(channel + (grey - channel) * towardsGrey));
+  const mixed = channels.map((channel) => Math.round(channel + (255 - channel) * towardsWhite));
   return `#${mixed.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** A style may hand its colours over as a bare hex or buried in an
+ *  expression — a country palette keyed off a property, say — so walk it. */
+function softenPaintValue(value: unknown): unknown {
+  if (typeof value === "string") return softenHex(value) ?? undefined;
+  if (Array.isArray(value)) {
+    let changed = false;
+    const walked = value.map((item) => {
+      const next = softenPaintValue(item);
+      if (next === undefined) return item;
+      changed = true;
+      return next;
+    });
+    return changed ? walked : undefined;
+  }
+  return undefined;
 }
 
 function neutraliseBaseMap(map: MapLibreMap) {
@@ -91,8 +108,9 @@ function neutraliseBaseMap(map: MapLibreMap) {
       const property = layer.type === "background" ? "background-color" : layer.type === "fill" ? "fill-color" : null;
       if (!property) continue;
       const current = map.getPaintProperty(layer.id, property);
-      const softened = typeof current === "string" ? softenHex(current) : null;
-      if (softened) map.setPaintProperty(layer.id, property, softened);
+      const softened = softenPaintValue(current);
+      // A paint value is whatever the style put there; MapLibre validates it.
+      if (softened !== undefined) map.setPaintProperty(layer.id, property, softened as never);
     } catch {
       // A style may not accept every property; the rest still softens.
     }
@@ -333,6 +351,12 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
       if (!active) return;
       styleLoaded = true;
       neutraliseBaseMap(map);
+      // The country this game is played in: a pale ground under the fandom
+      // colours, and the only white outline on the map.
+      map.addSource(nationSourceId, {
+        type: "geojson",
+        data: "/data/korea-outline.geojson",
+      });
       map.addSource(boundarySourceId, {
         type: "geojson",
         // MapLibre drops a feature id it cannot read as a number, which left
@@ -357,6 +381,25 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         data: myLocationCollection(myPositionRef.current),
       });
 
+      map.addLayer({
+        id: "preview-nation-fill",
+        type: "fill",
+        source: nationSourceId,
+        paint: { "fill-color": "#f2edff", "fill-opacity": 1 },
+      });
+      map.addLayer({
+        id: "preview-nation-edge",
+        type: "line",
+        source: nationSourceId,
+        // A white line on a pale sea needs something to sit against.
+        paint: { "line-color": "#c9c2e2", "line-width": 5, "line-blur": 1.5, "line-opacity": 0.8 },
+      });
+      map.addLayer({
+        id: "preview-nation-outline",
+        type: "line",
+        source: nationSourceId,
+        paint: { "line-color": "#ffffff", "line-width": 2.4 },
+      });
       map.addLayer({
         id: territoryLayerId,
         type: "fill",

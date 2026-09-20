@@ -827,3 +827,23 @@ it("promotes the territory id so the owner colours and highlight resolve", async
   expect(source?.promoteId).toBe("id");
   expect(mapHarness.instances[0].sourceSpecs.get("preview-strongholds")?.promoteId).toBe("id");
 });
+
+it("draws the country this game is played in, and only its outline in white", async () => {
+  render(
+    <TerritoryMap
+      mapConfig={config}
+      session={createInitialDemoSession()}
+      selectedTerritoryId={null}
+      onSelectTerritory={() => undefined}
+    />,
+  );
+  mapHarness.instances[0].emit("load");
+
+  const layers = mapHarness.instances[0].layers;
+  const ground = layers.find((layer) => layer.id === "preview-nation-fill");
+  const outline = layers.find((layer) => layer.id === "preview-nation-outline");
+  expect(ground).toMatchObject({ type: "fill", source: "preview-nation" });
+  expect(outline).toMatchObject({ type: "line", paint: { "line-color": "#ffffff" } });
+  // The ground sits under everything this product draws on top of it.
+  expect(layers.indexOf(ground!)).toBeLessThan(layers.findIndex((layer) => layer.id === "preview-territory-fill"));
+});

@@ -80,6 +80,7 @@ export function RecordView({
   const [seasonInfoOpen, setSeasonInfoOpen] = useState(false);
   const [growthInfoOpen, setGrowthInfoOpen] = useState(false);
   const [openCheckIn, setOpenCheckIn] = useState<{ index: number } | null>(null);
+  const [openReward, setOpenReward] = useState<StrongholdStage | null>(null);
   const detailRef = useRef<HTMLDivElement>(null);
   const detailTitleRef = useRef<HTMLHeadingElement>(null);
   const summary = recordSummary(session);
@@ -274,28 +275,42 @@ export function RecordView({
             const unlocked = sources.length > 0;
             return (
               <li key={stage} className={unlocked ? "unlocked" : "locked"}>
-                <StageBadge stage={stage} locale={locale} unlocked={unlocked} ownerColor={artist?.color} />
-                {/* A badge is earned in a place, by a fandom, so each way it
-                    was earned is its own tag rather than one summary line. */}
-                <span>
-                  {t(locale, label)}
-                  {sources.length > 0 ? (
-                    <span className="record-reward-sources">
-                      {sources.map((source) => (
-                        <small
-                          key={source.key}
-                          style={source.color ? { "--artist-color": source.color } as CSSProperties : undefined}
-                        >
-                          {source.fandomName} {source.territoryName}
-                        </small>
-                      ))}
-                    </span>
-                  ) : null}
-                </span>
+                {/* Where a badge came from is detail, so the row keeps it
+                    folded and opens on a press. No caret: the row is the
+                    control, and a badge not yet earned has nothing to open. */}
+                {unlocked ? (
+                  <button
+                    type="button"
+                    className="record-reward-open"
+                    aria-expanded={openReward === stage}
+                    onClick={() => setOpenReward((current) => (current === stage ? null : stage))}
+                  >
+                    <StageBadge stage={stage} locale={locale} unlocked ownerColor={artist?.color} />
+                    <span>{t(locale, label)}</span>
+                  </button>
+                ) : (
+                  <span className="record-reward-open">
+                    <StageBadge stage={stage} locale={locale} unlocked={false} ownerColor={artist?.color} />
+                    <span>{t(locale, label)}</span>
+                  </span>
+                )}
                 <span className={unlocked ? "record-state unlocked" : "record-state"}>
                   {unlocked ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : <Lock size={13} strokeWidth={2.6} aria-hidden="true" />}
                   <span className="sr-only">{t(locale, unlocked ? "recordUnlocked" : "recordLocked")}</span>
                 </span>
+                {/* Each fandom and place that earned it, one tag apiece. */}
+                {openReward === stage ? (
+                  <span className="record-reward-sources">
+                    {sources.map((source) => (
+                      <small
+                        key={source.key}
+                        style={source.color ? { "--artist-color": source.color } as CSSProperties : undefined}
+                      >
+                        {source.fandomName} {source.territoryName}
+                      </small>
+                    ))}
+                  </span>
+                ) : null}
               </li>
             );
           })}

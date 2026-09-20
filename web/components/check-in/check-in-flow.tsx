@@ -39,6 +39,7 @@ const demoCopy = {
     pill: "데모 체크인", title: "현장 체크인", close: "체크인 닫기", approved: "체크인 승인 완료",
     visitApproved: "방문이 승인됐어요.", visit: "방문 기본", dwellBonus: "체류 보너스", localSpend: "로컬 소비",
     accommodation: "숙박", strongholdBonus: "거점 버프", validPoints: "유효 포인트", territoryShare: "지역 점유율", stronghold: "거점",
+    cappedNote: "오늘 얻을 수 있는 포인트 상한에 도달해서 이번 방문은 점수로 쌓이지 않았어요. 방문 기록은 그대로 남습니다.",
     fandomRank: "팬덤 순위", personalRank: "내 기여 순위", continue: "여행 계속하기",
     intro: "데모 인증을 진행해 주세요.", gpsTitle: "현재 위치 3회", gpsDone: "GPS 위치 확인 완료",
     photoTitle: "현장 사진", photoPrompt: "원본 사진을 비공개 검토용으로 업로드", photoDone: "현장 사진 확인 완료", dwellTitle: "체류 시간", dwellDone: "체류 45분 확인",
@@ -51,6 +52,7 @@ const demoCopy = {
     pill: "Demo check-in", title: "On-site check-in", close: "Close check-in", approved: "Check-in approved",
     visitApproved: "visit approved.", visit: "Visit base", dwellBonus: "Dwell bonus", localSpend: "Local spend",
     accommodation: "Accommodation", strongholdBonus: "Stronghold buff", validPoints: "Valid points", territoryShare: "Territory share", stronghold: "Stronghold",
+    cappedNote: "Today's point limit is already reached, so this visit earned none. The visit itself is still recorded.",
     fandomRank: "Fandom rank", personalRank: "My contribution rank", continue: "Continue trip",
     intro: "Run demo verification to simulate the evidence sequence.", gpsTitle: "Three GPS positions", gpsDone: "GPS position verified",
     photoTitle: "On-site photo", photoPrompt: "Upload the original photo for private review", photoDone: "On-site photo verified", dwellTitle: "Dwell time", dwellDone: "Dwell 45 minutes verified",
@@ -252,6 +254,8 @@ export function CheckInFlow({
                   </div>
                 ) : null}
                 {award ? <p className="result-total"><strong>{demoLabels.validPoints} +{award.cappedPoints}P</strong></p> : null}
+                {/* A visit worth nothing needs its reason, or it reads as a fault. */}
+                {award && award.cappedPoints === 0 ? <p className="result-capped" role="note">{demoLabels.cappedNote}</p> : null}
                 {impact ? (
                   <div className="mission-impact" role="status" aria-live="polite" aria-label={demoLabels.impactSummary}>
                     <p>{impact.territoryName} {demoLabels.territoryShare} · {impact.territoryShareBefore.toFixed(1)}% → {impact.territoryShareAfter.toFixed(1)}%</p>

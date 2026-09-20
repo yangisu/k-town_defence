@@ -192,7 +192,12 @@ export function applyCheckInImpact(state: DemoSession, expeditionId: string, pla
     Math.max(Number.isFinite(award.cappedPoints) ? award.cappedPoints : 0, 0),
     Math.max(GAME_RULES.dailyCap - state.contributedToday, 0),
   );
-  if (!expedition || !place || place.territoryId !== expedition.territoryId || !expedition.stopIds.includes(place.id) || actualApplied <= 0) return state;
+  // A check-in worth nothing is still a check-in. The daily cap limits what a
+  // visit is worth, not whether it happened, and dropping the record left the
+  // stop looking un-visited with no reason given — which is what a traveller
+  // meets on their second stop in Yeongwol, where the 1.8x multiplier spends
+  // most of the cap on the first one.
+  if (!expedition || !place || place.territoryId !== expedition.territoryId || !expedition.stopIds.includes(place.id)) return state;
 
   const territories = state.territories.map((territory) => {
     if (territory.id !== expedition.territoryId) return territory;

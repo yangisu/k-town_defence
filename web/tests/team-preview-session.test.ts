@@ -11,7 +11,7 @@ import {
   selectProfileTerritory,
 } from "@/features/team-preview/demo-session";
 import type { MissionAward } from "@/features/team-preview/game-rules";
-import { calculateMissionAward, stageForPoints } from "@/features/team-preview/game-rules";
+import { calculateMissionAward, GAME_RULES, stageForPoints } from "@/features/team-preview/game-rules";
 import { previewContent } from "@/features/team-preview/content";
 import { selectRecommendedExpedition } from "@/features/team-preview/expedition-selection";
 
@@ -537,4 +537,49 @@ it("restores a session saved before the filter was remembered", () => {
   delete legacy.territoryFilter;
 
   expect(parseDemoSession(legacy)?.territoryFilter).toBe("my_fandom");
+});
+
+// Yeongwol's 1.8x multiplier spends most of the daily cap on its first stop,
+// which left the second worth nothing — and a check-in worth nothing used to
+// be dropped whole, so the stop stayed un-visited and the route never
+// finished. The cap limits what a visit is worth, not whether it happened.
+it("records a check-in that earns nothing against the daily cap", () => {
+  let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "yeongwol" });
+  const route = previewContent.expeditions.find((candidate) => candidate.id === "yeongwol-regional-support-expedition")!;
+  state = demoSessionReducer(state, { type: "openExpedition", expeditionId: route.id });
+  // Spend the day's allowance on the first stop.
+  state = demoSessionReducer(state, {
+    type: "completeCheckIn", expeditionId: route.id, placeId: route.stopIds[0], award: award(GAME_RULES.dailyCap),
+  });
+  expect(state.contributedToday).toBe(GAME_RULES.dailyCap);
+
+  state = demoSessionReducer(state, {
+    type: "completeCheckIn", expeditionId: route.id, placeId: route.stopIds[1], award: award(0),
+  });
+
+  expect(state.approvedCheckIns).toHaveLength(2);
+  expect(state.approvedCheckIns[1]?.awardedPoints).toBe(0);
+  expect(state.completedExpeditionIds).toContain(route.id);
+});
+
+// Every territory has to be walkable end to end, whatever its multiplier.
+it("completes the recommended route in every territory", () => {
+  for (const territory of previewContent.territories) {
+    let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+    state = demoSessionReducer(state, { type: "selectTerritory", territoryId: territory.id });
+    const recommended = selectRecommendedExpedition("bts", territory.id);
+    expect(recommended, territory.id).not.toBeNull();
+    state = demoSessionReducer(state, {
+      type: "openRecommendedExpedition",
+      expeditionId: recommended!.expedition.id,
+      territoryId: recommended!.territoryId,
+    });
+    for (const placeId of recommended!.expedition.stopIds) {
+      state = demoSessionReducer(state, {
+        type: "completeCheckIn", expeditionId: recommended!.expedition.id, placeId, award: award(560),
+      });
+    }
+    expect(state.completedExpeditionIds, territory.id).toContain(recommended!.expedition.id);
+  }
 });

@@ -110,7 +110,19 @@ export function CheckInFlow({
           if (active) dispatch({ type: "sessionCreated", sessionId: session.id });
         });
       })
-      .catch(() => { if (active) dispatch({ type: "issue", issue: "network_failed" }); });
+      // A place the live catalog has never heard of is not a network fault,
+      // and calling it one sent people to check their signal over a catalog
+      // that simply has not been synced.
+      .catch((error: unknown) => {
+        if (!active) return;
+        const code = error instanceof Error ? error.message : "";
+        dispatch({
+          type: "issue",
+          issue: code === "LIVE_PLACE_NOT_FOUND" || code === "PREVIEW_PLACE_NOT_FOUND"
+            ? "place_unavailable"
+            : "network_failed",
+        });
+      });
     return () => { active = false; };
   }, [place.id, service]);
 
@@ -328,6 +340,7 @@ export function CheckInFlow({
             ) : null}
 
             {evidenceIssue ? <StateMessage tone="warning" title="증거를 수집하지 못했어요">{evidenceIssue}</StateMessage> : null}
+            {state.issue === "place_unavailable" ? <StateMessage tone="warning" title="이 장소는 아직 체크인할 수 없어요">서버의 관광지 목록에서 이 장소를 찾지 못했습니다. 관광 데이터 동기화가 끝난 뒤 다시 시도해 주세요.</StateMessage> : null}
             {state.issue === "network_failed" ? <StateMessage tone="warning" title={mode === "integrated" ? "체크인 저장에 실패했어요" : demoLabels.saveFailed}>{mode === "integrated" ? "네트워크 연결을 확인하고 다시 시도해 주세요." : demoLabels.saveFailedBody}</StateMessage> : null}
             {mode === "integrated" && progress.gpsCount < 3 ? (
               <button className="primary-button" disabled={state.sessionId.startsWith("pending-") || busy} onClick={() => void collectLocation()}>

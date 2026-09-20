@@ -410,7 +410,10 @@ it("pages the panel with a horizontal swipe but leaves vertical drags alone", as
   expect(screen.getByRole("complementary", { name: "성남 전술 패널" })).toBeVisible();
 });
 
-it("blocks another territory's expedition until the running one ends", async () => {
+// A route running elsewhere used to lock this button, leaving the reader to
+// work out where they had to go to unlock it. They can start here; the question
+// only makes sure they meant to leave the other one behind.
+it("asks before moving a running expedition to another territory", async () => {
   const user = userEvent.setup();
   renderPreviewWithArtist({ selectedArtistId: "blackpink", selectedTerritoryId: "gunpo" });
 
@@ -420,8 +423,19 @@ it("blocks another territory's expedition until the running one ends", async () 
     .getByRole("button", { name: "다음 영토" }));
 
   const seongnam = await screen.findByRole("complementary", { name: "성남 전술 패널" });
-  expect(within(seongnam).getByRole("button", { name: "다른 원정 진행 중" })).toBeDisabled();
-  expect(within(seongnam).getByText("진행 중인 원정을 종료해야 다른 지역 원정을 시작할 수 있어요.")).toBeVisible();
+  const start = within(seongnam).getByRole("button", { name: "다른 원정 진행 중" });
+  expect(start).toBeEnabled();
+
+  await user.click(start);
+  const dialog = await screen.findByRole("dialog", { name: "진행 중인 원정을 두고 옮길까요?" });
+  expect(dialog).toHaveTextContent("군포 원정이 진행 중이에요");
+
+  await user.click(within(dialog).getByRole("button", { name: "여기서 시작" }));
+  await waitFor(() => {
+    const saved = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as DemoSession;
+    expect(saved.selectedTerritoryId).toBe("seongnam");
+    expect(saved.activeExpeditionId).toBe("seongnam-regional-support-expedition");
+  });
 });
 
 it("keeps the filters in the map action row and the camera reset out of it without a map", async () => {

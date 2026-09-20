@@ -237,7 +237,12 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         const followedArtistIds = withArtist(state.followedArtistIds, action.artistId);
         return followedArtistIds === state.followedArtistIds ? state : { ...state, followedArtistIds };
       }
-      const territory = selectProfileTerritory(action.artistId, state.territories);
+      // The territory on screen is wherever the reader last went, and switching
+      // fandom is not a request to be moved. Only a reader who has not chosen
+      // one yet gets a suggestion.
+      const territory = state.selectedTerritoryId
+        ? state.territories.find((candidate) => candidate.id === state.selectedTerritoryId)
+        : selectProfileTerritory(action.artistId, state.territories);
       return {
         ...state,
         artistConfirmed: true,
@@ -321,8 +326,10 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
     }
     case "openRecommendedExpedition": {
       if (!state.artistConfirmed || !state.selectedArtistId) return state;
+      // Opening a route elsewhere ends the one that was running. The screen
+      // asks before it comes to this, and the check-ins already approved stay
+      // where they landed — only the unfinished route is let go.
       const expedition = compatibleExpedition(action.expeditionId, state.selectedArtistId, action.territoryId);
-      if (expedition && state.activeExpeditionId !== null && state.activeExpeditionId !== expedition.id) return state;
       return expedition && expedition.territoryId === action.territoryId
         ? {
             ...state,

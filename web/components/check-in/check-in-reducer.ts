@@ -1,6 +1,6 @@
 export type CheckInStatus = "collecting" | "paused" | "ready_to_submit" | "submitting" | "submitted_pending" | "approved" | "review_required" | "rejected" | "expired" | "cancelled";
 export type GpsKind = "start" | "middle" | "end";
-export type CheckInIssue = "low_accuracy" | "outside_geofence" | "photo_failed" | "network_failed" | null;
+export type CheckInIssue = "low_accuracy" | "outside_geofence" | "photo_failed" | "network_failed" | "place_unavailable" | null;
 
 export interface DemoEvidence {
   simulatedDwellMinutes: number;

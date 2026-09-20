@@ -9,10 +9,16 @@ export interface FilterOption {
   label: string;
 }
 
+const MIN_LIST_HEIGHT = 260;
+
 interface Anchor {
-  top: number;
+  /** Set when the list hangs below the trigger, which is the usual case. */
+  top?: number;
+  /** Set instead when there is more room above, so it opens upward. */
+  bottom?: number;
   left: number;
   width: number;
+  maxHeight: number;
 }
 
 /**
@@ -39,9 +45,25 @@ export function FilterSelect({ label, options, value, onChange }: {
 
   useLayoutEffect(() => {
     if (!open) return;
+    // Fixed to the viewport, the list cannot scroll with the page, so near the
+    // bottom its last options used to sit below the fold with no way to reach
+    // them. It takes whichever side has more room and scrolls within it.
     const place = () => {
       const rect = triggerRef.current?.getBoundingClientRect();
-      if (rect) setAnchor({ top: rect.bottom + 8, left: rect.left, width: rect.width });
+      if (!rect) return;
+      const gap = 8;
+      const margin = 12;
+      const below = window.innerHeight - rect.bottom - gap - margin;
+      const above = rect.top - gap - margin;
+      const openUp = below < MIN_LIST_HEIGHT && above > below;
+      setAnchor({
+        ...(openUp
+          ? { bottom: window.innerHeight - rect.top + gap }
+          : { top: rect.bottom + gap }),
+        left: rect.left,
+        width: rect.width,
+        maxHeight: Math.max(MIN_LIST_HEIGHT, openUp ? above : below),
+      });
     };
     place();
     window.addEventListener("resize", place);
@@ -103,7 +125,7 @@ export function FilterSelect({ label, options, value, onChange }: {
       aria-label={label}
       tabIndex={-1}
       ref={listRef}
-      style={{ top: anchor.top, left: anchor.left, width: anchor.width }}
+      style={{ top: anchor.top, bottom: anchor.bottom, left: anchor.left, width: anchor.width, maxHeight: anchor.maxHeight }}
       onKeyDown={onListKeyDown}
     >
       {options.map((option, index) => (

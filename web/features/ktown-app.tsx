@@ -211,6 +211,9 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
           onConfirm={() => {
             session.dispatch({ type: "removeArtist", artistId: leavingArtistId });
             setLeavingArtistId(null);
+            // Nothing left to manage, so the drawer closes onto the picker the
+            // reducer has already put behind it.
+            if (session.state.followedArtistIds.length <= 1) setDrawerOpen(false);
           }}
         />,
         document.body,
@@ -252,14 +255,20 @@ function LeaveFandomDialog({ locale, artistId, isLastFandom, dialogRef, titleRef
   return (
     <div className="reset-dialog-overlay">
       <div className="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="leave-fandom-title" ref={dialogRef}>
+        {/* Removing the only fandom left is not "leave this one", it is
+            "follow nobody", and it lands back on the artist picker. The
+            question says that rather than making the reader infer it. */}
         <h2 id="leave-fandom-title" tabIndex={-1} ref={titleRef}>
-          {t(locale, "recordRemoveConfirmTitle").replace("{fandom}", fandomName)}
+          {isLastFandom
+            ? t(locale, "recordRemoveAllTitle")
+            : t(locale, "recordRemoveConfirmTitle").replace("{fandom}", fandomName)}
         </h2>
-        <p>{t(locale, "recordRemoveConfirmBody")}</p>
-        {isLastFandom ? <p>{t(locale, "recordRemoveConfirmLast")}</p> : null}
+        <p>{t(locale, isLastFandom ? "recordRemoveAllBody" : "recordRemoveConfirmBody")}</p>
         <div className="reset-dialog-actions">
           <button type="button" onClick={onCancel}>{t(locale, "recordRemoveCancel")}</button>
-          <button type="button" onClick={onConfirm}>{t(locale, "recordRemoveConfirmAction")}</button>
+          <button type="button" onClick={onConfirm}>
+            {t(locale, isLastFandom ? "recordRemoveAllAction" : "recordRemoveConfirmAction")}
+          </button>
         </div>
       </div>
     </div>

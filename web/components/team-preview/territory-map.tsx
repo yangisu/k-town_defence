@@ -440,14 +440,19 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         id: "preview-nation-edge",
         type: "line",
         source: nationSourceId,
-        // A white line on a pale sea needs something to sit against.
-        paint: { "line-color": "#8f7fd4", "line-width": 3.4, "line-blur": 1.4, "line-opacity": 0.55 },
+        // A white line on a pale sea needs something to sit against, but a
+        // blurred 3.4px halo under a 1.4px line spread a soft band a couple of
+        // pixels out over the water on both sides, and on an inlet the two
+        // sides of the haze met — which reads as an outline that misses the
+        // coast. It is a keyline now: no blur, and narrow enough that the white
+        // line above covers all but a hairline of it.
+        paint: { "line-color": "#8f7fd4", "line-width": 3.2, "line-blur": 0, "line-opacity": 0.45 },
       });
       map.addLayer({
         id: "preview-nation-outline",
         type: "line",
         source: nationSourceId,
-        paint: { "line-color": "#ffffff", "line-width": 1.4 },
+        paint: { "line-color": "#ffffff", "line-width": 1.9 },
       });
       map.addLayer({
         id: "preview-territory-outline",

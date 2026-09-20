@@ -63,7 +63,6 @@ export function RankingView({ locale, fandoms, territories, selectedArtistId, on
   const ranked = rankFandoms(fandoms);
   const selected = ranked.find((row) => row.artistId === selectedArtistId) ?? null;
   const goal = rankingGoal(ranked, selectedArtistId);
-  const maximumStrongholds = Math.max(...ranked.map((row) => row.strongholds), 1);
   const contested = territories
     .filter(isContestedTerritory)
     .map((territory) => {
@@ -115,13 +114,20 @@ export function RankingView({ locale, fandoms, territories, selectedArtistId, on
         <section className="ranking-goal" aria-label={`${t(locale, "myFandom")} · ${selected.fandomName}`}>
           <div>
             <span>{t(locale, "myFandom")} · {selected.fandomName}</span>
-            <strong>
-              {goal.kind === "defend_first"
-                ? t(locale, "rankingDefendingFirst")
-                : locale === "ko"
-                  ? `거점 ${goal.strongholdGap}${t(locale, "rankingStrongholdUnit")} ${t(locale, "rankingGainStrongholds")}`
-                  : `${goal.strongholdGap} ${t(locale, "rankingGainStrongholds")}`}
-            </strong>
+            {/* "Two more strongholds" is an instruction with no stake in it.
+                Naming what it buys — a place in the ranking — is the point. */}
+            {goal.kind === "defend_first"
+              ? <strong>{t(locale, "rankingDefendingFirst")}</strong>
+              : (
+                <>
+                  <small>{t(locale, "rankingUntilRankChange")}</small>
+                  <strong>
+                    {locale === "ko"
+                      ? `거점 ${goal.strongholdGap}${t(locale, "rankingStrongholdUnit")} ${t(locale, "rankingGainStrongholds")}`
+                      : `${goal.strongholdGap} ${t(locale, "rankingGainStrongholds")}`}
+                  </strong>
+                </>
+              )}
           </div>
           <progress
             aria-label={t(locale, "rankingGoalProgress")}
@@ -152,10 +158,12 @@ export function RankingView({ locale, fandoms, territories, selectedArtistId, on
                     <span>{formatPoints(locale, row.validPoints)}</span>
                     <span>{t(locale, trendKeys[row.trend])}</span>
                   </div>
-                  <div className="ranking-stronghold-bar">
-                    <span>{t(locale, "rankingStrongholds")} {row.strongholds}{t(locale, "rankingStrongholdUnit")}</span>
-                    <progress aria-label={`${t(locale, "rankingStrongholds")}: ${row.fandomName}`} aria-valuemin={0} aria-valuemax={maximumStrongholds} aria-valuenow={row.strongholds} value={row.strongholds} max={maximumStrongholds} />
-                  </div>
+                  {/* The bar measured a count against the largest holding,
+                      which is not a number anyone plays toward. The count is
+                      the fact; the row wears the fandom's colour instead. */}
+                  <p className="ranking-row-strongholds">
+                    {t(locale, "rankingStrongholds")} {row.strongholds}{t(locale, "rankingStrongholdUnit")}
+                  </p>
                 </li>
               );
             })}

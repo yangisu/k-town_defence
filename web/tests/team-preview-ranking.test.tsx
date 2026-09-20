@@ -86,8 +86,10 @@ it("keeps selected-fandom text at AA contrast while preserving artist-color rank
 
   expect(contrastRatio(resolvedPaletteColor(foregroundToken), resolvedPaletteColor("--paper"))).toBeGreaterThanOrEqual(4.5);
   expect(selectedLabel).not.toContain("--artist-color");
-  expect(rankingCss).toMatch(/\.ranking-leaderboardli\.selected\{[^}]*border-color:var\(--artist-color\)/);
-  expect(rankingCss).toMatch(/\.ranking-stronghold-barprogress\{[^}]*accent-color:var\(--artist-color\)/);
+  // The fandom colour carries the row itself now, not a bar inside it.
+  expect(rankingCss).toMatch(/\.ranking-leaderboardli\{[^}]*border-left:4pxsolidvar\(--artist-color\)/);
+  expect(rankingCss).toMatch(/\.ranking-leaderboardli\.selected\{[^}]*border-left-color:var\(--artist-color\)/);
+  expect(rankingCss).not.toContain(".ranking-stronghold-bar");
 });
 
 for (const locale of ["ko", "en"] as const) {
@@ -130,8 +132,10 @@ for (const locale of ["ko", "en"] as const) {
     expect(rows).toHaveLength(3);
     expect(rows[0]).toHaveTextContent(`${copy.artist} · ARMY`);
     expect(rows[0]).toHaveAttribute("aria-current", "true");
-    expect(within(rows[0]).getByRole("progressbar", { name: /strongholds|거점/i })).toHaveAttribute("aria-valuemax", "4");
-    expect(within(rows[2]).getByRole("progressbar", { name: /strongholds|거점/i })).toHaveAttribute("aria-valuenow", "1");
+    // A stronghold count reads as a count, not as a share of the largest holding.
+    expect(within(rows[0]).queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(rows[0]).toHaveTextContent(/4/);
+    expect(rows[2]).toHaveTextContent(/1/);
 
     const contested = screen.getByRole("list", { name: copy.contested });
     const territoryAction = within(contested).getByRole("button", { name: copy.inspect });

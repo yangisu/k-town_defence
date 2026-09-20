@@ -9,7 +9,7 @@ import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { TerritoryList } from "@/components/team-preview/territory-list";
 import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
 import { ChevronRight, LocateFixed, Maximize, RotateCcw, X } from "@/components/ui/icons";
-import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
+import { previewContent } from "@/features/team-preview/content";
 import type { DemoSession } from "@/features/team-preview/demo-session";
 import { t } from "@/features/team-preview/i18n";
 import { useLiveLocation, type LiveLocationPosition } from "@/features/map/use-live-location";
@@ -31,6 +31,8 @@ interface TerritoryMapProps {
   /** The map reports where the pick came from: a polygon on the map needs the
    *  list and card brought to the reader, a list card does not. */
   onSelectTerritory: (territoryId: TerritoryId, source?: "map" | "list") => void;
+  /** Clicking the map past every territory, which puts the selection down. */
+  onClearSelection?: () => void;
 }
 
 const boundarySourceId = "preview-territory-boundaries";
@@ -251,7 +253,7 @@ function ownerBoundaryCollection(collection: { type: string; features: unknown[]
   };
 }
 
-export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, listedTerritories: requestedTerritories, activeFilter = "all", selectedTerritoryId, onSelectTerritory }: TerritoryMapProps) {
+export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, listedTerritories: requestedTerritories, activeFilter = "all", selectedTerritoryId, onSelectTerritory, onClearSelection }: TerritoryMapProps) {
   const listedTerritories = requestedTerritories ?? session.territories;
   const usesListedTerritories = requestedTerritories !== undefined;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -259,6 +261,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
   const sessionRef = useRef(session);
   const selectedTerritoryIdRef = useRef(selectedTerritoryId);
   const onSelectTerritoryRef = useRef(onSelectTerritory);
+  const onClearSelectionRef = useRef(onClearSelection);
   const listedTerritoriesRef = useRef(listedTerritories);
   const recentreTokenRef = useRef(0);
   const hoveredTerritoryRef = useRef<string | null>(null);
@@ -283,8 +286,9 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
     sessionRef.current = session;
     selectedTerritoryIdRef.current = selectedTerritoryId;
     onSelectTerritoryRef.current = onSelectTerritory;
+    onClearSelectionRef.current = onClearSelection;
     listedTerritoriesRef.current = listedTerritories;
-  }, [listedTerritories, onSelectTerritory, selectedTerritoryId, session]);
+  }, [listedTerritories, onClearSelection, onSelectTerritory, selectedTerritoryId, session]);
 
   useEffect(() => {
     myPositionRef.current = myPosition;
@@ -358,6 +362,12 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
       // colours, and the only white outline on the map.
       map.addSource(nationSourceId, {
         type: "geojson",
+        // The coastline is one shape shared by two sources, and MapLibre
+        // simplifies each source on its own: the same coordinates came out of
+        // tiling with different vertices dropped, so the national outline and
+        // the region edges drawn on top of it visibly disagreed. Pinning
+        // tolerance to 0 on both keeps every vertex, so they trace one line.
+        tolerance: 0,
         data: "/data/korea-outline.geojson",
       });
       map.addSource(boundarySourceId, {
@@ -366,6 +376,9 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         // every ["id"] expression — fill colour, opacity, the selected
         // highlight — falling through to its default.
         promoteId: "id",
+        // Simplified apart from the national outline, these edges drifted off
+        // the coast they are cut from — see the note on the nation source.
+        tolerance: 0,
         data: boundaryCollectionRef.current
           ? ownerBoundaryCollection(boundaryCollectionRef.current, sessionRef.current.territories)
           : "/data/preview-territories.geojson",
@@ -600,6 +613,23 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
           hoveredTerritoryRef.current = null;
         });
       }
+
+      // Clicking past every territory puts the selection down. Without this
+      // the map had no way back: once anything was picked, something always
+      // wore the selected fill and the map never returned to rest.
+      map.on("click", (event) => {
+        const pickable = pickableLayerIds.filter((layerId) => map.getLayer(layerId));
+        const hits = map.queryRenderedFeatures?.(event.point, { layers: pickable }) ?? [];
+        if (hits.length === 0) onClearSelectionRef.current?.();
+      });
+
+      // A pick flies the camera while the pointer stays still, so the feature
+      // under it changes with no mousemove to report it. Let the move end the
+      // hover rather than leaving it lit on a territory nobody is aiming at.
+      map.on("moveend", () => {
+        setHovered(map, hoveredTerritoryRef.current, false);
+        hoveredTerritoryRef.current = null;
+      });
     });
 
     return () => {

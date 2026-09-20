@@ -5,6 +5,8 @@ type Handler = (event: { features?: { id?: string; properties?: Record<string, u
 
 const harness = vi.hoisted(() => ({
   layerHandlers: new Map<string, Handler[]>(),
+  mapHandlers: new Map<string, ((event: unknown) => void)[]>(),
+  renderedFeatures: [] as unknown[],
   loadHandlers: [] as (() => void)[],
   fitBounds: vi.fn(),
   flyTo: vi.fn(),
@@ -22,6 +24,8 @@ vi.mock("maplibre-gl", () => {
         harness.layerHandlers.set(key, [...(harness.layerHandlers.get(key) ?? []), handler]);
       } else if (event === "load" && typeof layerOrHandler === "function") {
         harness.loadHandlers.push(layerOrHandler as () => void);
+      } else if (typeof layerOrHandler === "function") {
+        harness.mapHandlers.set(event, [...(harness.mapHandlers.get(event) ?? []), layerOrHandler as (event: unknown) => void]);
       }
       return this;
     }
@@ -31,6 +35,7 @@ vi.mock("maplibre-gl", () => {
     addLayer(layer: { id: string }) { this.layers.push(layer); return this; }
     getLayer(id: string) { return this.layers.find((layer) => layer.id === id); }
     getStyle() { return { layers: this.layers }; }
+    queryRenderedFeatures() { return harness.renderedFeatures; }
     getPaintProperty() { return undefined; }
     setLayoutProperty() { return this; }
     getCanvas() { return this.canvas; }
@@ -61,6 +66,8 @@ function clickOnMap(layerId: string, feature: { id?: string; properties?: Record
 
 beforeEach(() => {
   harness.layerHandlers.clear();
+  harness.mapHandlers.clear();
+  harness.renderedFeatures.length = 0;
   harness.loadHandlers.length = 0;
   harness.fitBounds.mockClear();
   window.localStorage.clear();
@@ -91,13 +98,39 @@ it("selects a territory the current filter hides, straight from its marker", asy
 
   clickOnMap("preview-stronghold-symbols", { id: hidden.id, properties: { id: hidden.id } });
 
-  // The filter widens to All so a card exists, that card reads as selected,
-  // and the tactical card opens on the territory that was picked.
-  await waitFor(() => expect(screen.getByRole("button", { name: "전체" })).toHaveAttribute("aria-pressed", "true"));
-  expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
-    .getByRole("button", { name: new RegExp(`^${hiddenName}`) })).toHaveAttribute("aria-pressed", "true");
+  // The picked territory joins the list so a card exists and reads as
+  // selected, and the reader's filter is left exactly as they set it — widening
+  // it to All used to lift every dimmed region on the map along with it.
+  await waitFor(() => expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
+    .getByRole("button", { name: new RegExp(`^${hiddenName}`) })).toHaveAttribute("aria-pressed", "true"));
+  expect(screen.getByRole("button", { name: "내 팬덤" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "전체" })).toHaveAttribute("aria-pressed", "false");
   expect(await screen.findByRole("complementary", { name: `${hiddenName} 전술 패널` })).toBeVisible();
   expect(previewContent.territories.length).toBeGreaterThan(0);
+});
+
+// The map used to have no way back: once anything was picked, some territory
+// always wore the selected fill, and the reader could not return it to rest.
+it("puts the selection down when the map is clicked past every territory", async () => {
+  clickOnMap("preview-stronghold-symbols", { id: "daegu", properties: { id: "daegu" } });
+  expect(await screen.findByRole("complementary", { name: "대구 전술 패널" })).toBeVisible();
+
+  harness.renderedFeatures.length = 0;
+  for (const handler of harness.mapHandlers.get("click") ?? []) handler({ point: { x: 4, y: 4 } });
+
+  await waitFor(() => expect(screen.queryByRole("complementary", { name: "대구 전술 패널" })).not.toBeInTheDocument());
+  expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
+    .getByRole("button", { name: /^대구/ })).toHaveAttribute("aria-pressed", "false");
+});
+
+it("keeps the selection when the click lands on a territory", async () => {
+  clickOnMap("preview-stronghold-symbols", { id: "daegu", properties: { id: "daegu" } });
+  expect(await screen.findByRole("complementary", { name: "대구 전술 패널" })).toBeVisible();
+
+  harness.renderedFeatures.push({ id: "daegu" });
+  for (const handler of harness.mapHandlers.get("click") ?? []) handler({ point: { x: 4, y: 4 } });
+
+  expect(await screen.findByRole("complementary", { name: "대구 전술 패널" })).toBeVisible();
 });
 
 it("moves the map to a territory picked through a connection pin", async () => {

@@ -33,7 +33,7 @@ interface MapHarness {
   canvas: { style: { cursor: string } };
   scrollZoom: { enable: ReturnType<typeof vi.fn>; disable: ReturnType<typeof vi.fn> };
   featureStates: { id: unknown; state: unknown }[];
-  sourceSpecs: Map<string, { promoteId?: string; data?: unknown }>;
+  sourceSpecs: Map<string, { promoteId?: string; tolerance?: number; data?: unknown }>;
 }
 
 const mapHarness = vi.hoisted(() => ({ instances: [] as MapHarness[] }));
@@ -75,7 +75,7 @@ vi.mock("maplibre-gl", () => {
     canvas = { style: { cursor: "" } };
     getCanvas() { return this.canvas; }
     addControl() { return this; }
-    sourceSpecs = new Map<string, { promoteId?: string; data?: unknown }>();
+    sourceSpecs = new Map<string, { promoteId?: string; tolerance?: number; data?: unknown }>();
     addSource(id: string, specification?: { data?: unknown; promoteId?: string }) {
       this.sources.set(id, { setData: vi.fn(), initialData: specification?.data });
       this.sourceSpecs.set(id, specification ?? {});
@@ -843,6 +843,13 @@ it("promotes the territory id so the owner colours and highlight resolve", async
   const source = mapHarness.instances[0].sourceSpecs.get("preview-territory-boundaries");
   expect(source?.promoteId).toBe("id");
   expect(mapHarness.instances[0].sourceSpecs.get("preview-strongholds")?.promoteId).toBe("id");
+
+  // The coastline belongs to two sources at once, and MapLibre simplifies each
+  // one separately: identical coordinates tiled into different vertices, so the
+  // national outline and the region edges above it drew apart. Both keep every
+  // vertex, so the two trace the same line.
+  expect(source?.tolerance).toBe(0);
+  expect(mapHarness.instances[0].sourceSpecs.get("preview-nation")?.tolerance).toBe(0);
 });
 
 it("draws the country this game is played in, and only its outline in white", async () => {

@@ -262,12 +262,14 @@ it.each([
     : {
         busan: "Busan", daegu: "Daegu", gwangju: "Gwangju", gunpo: "Gunpo", seongnam: "Seongnam", geoje: "Geoje", suwon: "Suwon", gyeongju: "Gyeongju", daejeon: "Daejeon", seoul: "Seoul", yongin: "Yongin", goyang: "Goyang", incheon: "Incheon", jeju: "Jeju", ulsan: "Ulsan", siheung: "Siheung", cheonan: "Cheonan", pohang: "Pohang", wonju: "Wonju", chuncheon: "Chuncheon", uijeongbu: "Uijeongbu", namyangju: "Namyangju", yeongwol: "Yeongwol",
       };
+  // Gwangju is the selected territory, so it joins the end of any filter that
+  // does not already list it — picking on the map no longer widens the filter.
   const expectedTerritoryIds = [
     ["wonju", "gwangju"],
-    ["wonju", "chuncheon", "yongin", "gunpo", "cheonan", "daejeon", "busan", "ulsan"],
+    ["wonju", "chuncheon", "yongin", "gunpo", "cheonan", "daejeon", "busan", "ulsan", "gwangju"],
     // ONEDOOR's researched ties are LEEHAN's Busan and SUNGHO's Wonju. The
     // Gwangju and Suwon entries had no article behind them and are gone.
-    ["busan", "wonju"],
+    ["busan", "wonju", "gwangju"],
     // Gwangju and Suwon fall back into plain order now that ONEDOOR has no
     // researched tie to either.
     ["busan", "wonju", "gunpo", "daejeon", "yongin", "ulsan", "cheonan", "chuncheon", "yeongwol", "geoje", "gyeongju", "goyang", "gwangju", "namyangju", "daegu", "seoul", "seongnam", "suwon", "siheung", "uijeongbu", "incheon", "jeju", "pohang"],

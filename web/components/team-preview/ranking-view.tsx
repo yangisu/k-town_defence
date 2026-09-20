@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { Trophy } from "@/components/ui/icons";
 import { previewContent } from "@/features/team-preview/content";
 import { rankFandoms } from "@/features/team-preview/game-rules";
 import { t } from "@/features/team-preview/i18n";
@@ -82,13 +83,27 @@ export function RankingView({ locale, fandoms, territories, selectedArtistId, on
       <h1 className="preview-page-title">{t(locale, "navRanking")}</h1>
 
       <ol className="ranking-podium" aria-label={t(locale, "rankingPodium")}>
-        {ranked.slice(0, 3).map((row) => {
+        {/* A podium, so the standing is read from the shape before the number:
+            the name and its trophy ride on a plinth whose height is the place.
+            The DOM stays in rank order for screen readers and phones; only the
+            wide layout reorders it to 2–1–3. */}
+        {ranked.slice(0, 3).map((row, index) => {
           const artist = artistFor(row.artistId);
           return (
-            <li key={row.artistId} className="ranking-podium-card" style={{ "--artist-color": artist?.color ?? "var(--purple)" } as CSSProperties}>
-              <span className="ranking-rank">{t(locale, "fandomRankPosition").replace("{rank}", String(row.rank))}</span>
-              <strong><FandomIdentity locale={locale} artistId={row.artistId} fandomName={row.fandomName} /></strong>
-              <span className="ranking-card-fandom-color" aria-label={`${row.fandomName} color`} />
+            <li
+              key={row.artistId}
+              className={`ranking-podium-card place-${index + 1}`}
+              style={{ "--artist-color": artist?.color ?? "var(--purple)" } as CSSProperties}
+            >
+              <div className="podium-crest">
+                <strong><FandomIdentity locale={locale} artistId={row.artistId} fandomName={row.fandomName} /></strong>
+                <Trophy size={index === 0 ? 30 : 24} strokeWidth={1.9} aria-hidden="true" />
+              </div>
+              {/* The numeral says the place; spelling it out beside itself was
+                  the same fact twice, so the phrase moves to the label. */}
+              <div className="podium-plinth" aria-label={t(locale, "fandomRankPosition").replace("{rank}", String(row.rank))}>
+                <b>{row.rank}</b>
+              </div>
               <dl>
                 <div><dt>{t(locale, "rankingStrongholds")}</dt><dd>{row.strongholds}{t(locale, "rankingStrongholdUnit")}</dd></div>
                 <div><dt>{t(locale, "rankingPoints")}</dt><dd>{formatPoints(locale, row.validPoints)}</dd></div>

@@ -108,7 +108,9 @@ for (const locale of ["ko", "en"] as const) {
     const podium = screen.getByRole("list", { name: /podium|포디움/i });
     const podiumCards = within(podium).getAllByRole("listitem");
     expect(podiumCards).toHaveLength(3);
-    expect(podiumCards[0]).toHaveTextContent(copy.firstRank);
+    // The plinth shows the numeral; the spelled-out place is its label, so
+    // the fact is announced once rather than printed twice beside itself.
+    expect(within(podiumCards[0]).getByLabelText(copy.firstRank)).toHaveTextContent("1");
     expect(podiumCards[0]).toHaveTextContent(`${copy.artist} · ARMY`);
     expect(podiumCards[0]).toHaveTextContent("4");
     expect(podiumCards[0]).toHaveTextContent("8,000P");

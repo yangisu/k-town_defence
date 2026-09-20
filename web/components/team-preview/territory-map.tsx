@@ -188,6 +188,21 @@ function visibleLayerFilters(territories: readonly PreviewTerritory[]) {
  * stay background. A territory the filter hides keeps the faintest tint, so
  * the country still reads as a whole.
  */
+/** Hover lifts a territory: brighter fill, firmer edge, a glow around it. */
+function setHovered(map: MapLibreMap, territoryId: string | null, hover: boolean) {
+  if (!territoryId || typeof map.setFeatureState !== "function") return;
+  try {
+    map.setFeatureState({ source: boundarySourceId, id: territoryId }, { hover });
+  } catch {
+    // The source may not hold that feature yet; the next move sets it.
+  }
+}
+
+
+function hoverable(base: ExpressionSpecification | number, hovered: number): ExpressionSpecification {
+  return ["case", ["boolean", ["feature-state", "hover"], false], hovered, base] as ExpressionSpecification;
+}
+
 function filterOpacityExpression(territories: readonly PreviewTerritory[], selectedArtistId: string | null): ExpressionSpecification {
   return [
     "match",
@@ -227,6 +242,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
   const onSelectTerritoryRef = useRef(onSelectTerritory);
   const listedTerritoriesRef = useRef(listedTerritories);
   const recentreTokenRef = useRef(0);
+  const hoveredTerritoryRef = useRef<string | null>(null);
   const cameraSelectionRef = useRef(selectedTerritoryId);
   const [mapError, setMapError] = useState(false);
   const [listExpanded, setListExpanded] = useState(false);
@@ -368,13 +384,31 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         paint: { "line-color": "#ffffff", "line-width": 1.4 },
       });
       map.addLayer({
+        id: "preview-territory-glow",
+        type: "line",
+        source: boundarySourceId,
+        // The halo a lifted button casts, in the territory's own colour.
+        paint: {
+          "line-color": ["get", "ownerColor"],
+          "line-width": hoverable(0, 12),
+          "line-blur": 6,
+          "line-opacity": hoverable(0, 0.4),
+          "line-width-transition": { duration: 180, delay: 0 },
+          "line-opacity-transition": { duration: 180, delay: 0 },
+        },
+      });
+      map.addLayer({
         id: territoryLayerId,
         type: "fill",
         source: boundarySourceId,
         // A filter key set to undefined makes MapLibre reject the whole layer, so
         // spread it in only when the page is not already listing the territories.
         ...(usesListedTerritories ? {} : { filter: visibleLayerFilters(sessionRef.current.territories).boundaries }),
-        paint: { "fill-color": ownerColorExpression(sessionRef.current.territories), "fill-opacity": filterOpacityExpression(listedTerritoriesRef.current, sessionRef.current.selectedArtistId) },
+        paint: {
+          "fill-color": ownerColorExpression(sessionRef.current.territories),
+          "fill-opacity": hoverable(filterOpacityExpression(listedTerritoriesRef.current, sessionRef.current.selectedArtistId), 0.92),
+          "fill-opacity-transition": { duration: 180, delay: 0 },
+        },
       });
       map.addLayer({
         id: selectedLayerId,
@@ -390,8 +424,14 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         // A filter key set to undefined makes MapLibre reject the whole layer, so
         // spread it in only when the page is not already listing the territories.
         ...(usesListedTerritories ? {} : { filter: visibleLayerFilters(sessionRef.current.territories).boundaries }),
-        // Quiet enough that white stays the country's own line.
-        paint: { "line-color": "#16231d", "line-width": 0.6, "line-opacity": 0.22 },
+        // Quiet until a reader aims at it, then a firm edge under the cursor.
+        paint: {
+          "line-color": ["get", "ownerColor"],
+          "line-width": hoverable(0.6, 3),
+          "line-opacity": hoverable(0.22, 1),
+          "line-width-transition": { duration: 180, delay: 0 },
+          "line-opacity-transition": { duration: 180, delay: 0 },
+        },
       });
       map.addLayer({
         id: "preview-selected-fandom-outline",
@@ -519,11 +559,21 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
             onSelectTerritoryRef.current(territoryId, "map");
           }
         });
-        map.on("mouseenter", layerId, () => {
+        map.on("mousemove", layerId, (event) => {
           map.getCanvas().style.cursor = "pointer";
+          const feature = event.features?.[0];
+          const territoryId = String(
+            feature?.properties?.territoryId ?? feature?.id ?? feature?.properties?.id ?? "",
+          );
+          if (!territoryId || territoryId === hoveredTerritoryRef.current) return;
+          setHovered(map, hoveredTerritoryRef.current, false);
+          setHovered(map, territoryId, true);
+          hoveredTerritoryRef.current = territoryId;
         });
         map.on("mouseleave", layerId, () => {
           map.getCanvas().style.cursor = "";
+          setHovered(map, hoveredTerritoryRef.current, false);
+          hoveredTerritoryRef.current = null;
         });
       }
     });

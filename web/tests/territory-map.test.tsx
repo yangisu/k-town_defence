@@ -31,6 +31,7 @@ interface MapHarness {
   emit: (event: string, value?: MapEvent) => void;
   emitLayer: (event: string, layer: string, value?: MapEvent) => void;
   canvas: { style: { cursor: string } };
+  featureStates: { id: unknown; state: unknown }[];
   sourceSpecs: Map<string, { promoteId?: string; data?: unknown }>;
 }
 
@@ -81,6 +82,8 @@ vi.mock("maplibre-gl", () => {
     addLayer(layer: Record<string, unknown>) { this.layers.push(layer); return this; }
     getLayer(id: string) { return this.layers.find((layer) => layer.id === id); }
     getStyle() { return { layers: this.layers }; }
+    featureStates: { id: unknown; state: unknown }[] = [];
+    setFeatureState(target: { id: unknown }, state: unknown) { this.featureStates.push({ id: target.id, state }); return this; }
     getPaintProperty() { return undefined; }
     setLayoutProperty() { return this; }
 
@@ -782,8 +785,10 @@ it("picks a territory from its stronghold marker and points the cursor at it", a
   map.emitLayer("click", "preview-stronghold-symbols", { features: [{ id: "busan" }] });
   expect(onSelectTerritory).toHaveBeenCalledWith("busan", "map");
 
-  map.emitLayer("mouseenter", "preview-stronghold-symbols");
+  map.emitLayer("mousemove", "preview-stronghold-symbols", { features: [{ id: "busan" }] });
   expect(map.canvas.style.cursor).toBe("pointer");
+  // Hover is a feature state, which is what the paint expressions read.
+  expect(map.featureStates).toContainEqual({ id: "busan", state: { hover: true } });
   map.emitLayer("mouseleave", "preview-stronghold-symbols");
   expect(map.canvas.style.cursor).toBe("");
 });

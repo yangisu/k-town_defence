@@ -87,10 +87,14 @@ ID property. Every output feature has that value both as its GeoJSON feature
 
 ## Clipping to the national boundary (2026-09-20)
 
-The regions come from ADM1/ADM2, whose coastlines are drawn at a different
-fidelity from ADM0, so eight coastal regions — Jeju, Pohang, Gyeongju, Geoje,
-Busan, Ulsan, Incheon and Siheung — painted past the country's own outline.
-Each region is now intersected with `korea-outline.geojson` (geoBoundaries
-gbOpen KOR ADM0, pinned revision `9469f09`) and rounded back to the four
-decimal places the file already used. No region moves; they only stop at the
-coast. The upstream downloads are unchanged and still the licensed source.
+The regions come from ADM1 and ADM2, whose coastlines are drawn at different
+fidelities, so eight coastal regions — Jeju, Pohang, Gyeongju, Geoje, Busan,
+Ulsan, Incheon and Siheung — painted past the country's own outline.
+
+ is the ADM1 download from the same pinned revision
+() dissolved into one shape, so the coast a region is cut against
+is the coast those regions were drawn on — an ADM0 outline from Natural Earth
+draws its islands differently and left Incheon's in the sea. Each region is
+intersected with it and rounded back to the four decimal places the file
+already used. No region moves; they only stop at the coast, and the upstream
+downloads remain the licensed source.

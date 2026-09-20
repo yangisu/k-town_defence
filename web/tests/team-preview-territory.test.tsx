@@ -370,11 +370,13 @@ it("hides the pager while a single territory is listed", async () => {
 
   await user.click(screen.getByRole("button", { name: "전체" }));
 
-  // Past a dozen territories the dots give way to a plain position readout.
+  // A long filter keeps the dots and shows a window around where the reader
+  // is, rather than swapping to a bare count.
   const widened = await screen.findByRole("complementary", { name: "남양주 전술 패널" });
   expect(within(widened).getByRole("button", { name: "다음 영토" })).toBeInTheDocument();
-  expect(within(widened).queryByRole("button", { name: /번째 영토 보기$/ })).not.toBeInTheDocument();
-  expect(within(widened).getByRole("status")).toHaveTextContent(/^\d+ \/ 23$/);
+  const dots = within(widened).getAllByRole("button", { name: /번째 영토 보기$/ });
+  expect(dots).toHaveLength(9);
+  expect(dots.filter((dot) => dot.getAttribute("aria-current") === "true")).toHaveLength(1);
 });
 
 it("pages the panel with a horizontal swipe but leaves vertical drags alone", async () => {

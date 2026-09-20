@@ -250,6 +250,11 @@ export function TacticalPanel({
     [copy.rankImpact, copy.impactHelpRank],
   ];
 
+  // Up to nine dots, centred on where the reader is.
+  const pagerSpan = Math.min(pageCount, 9);
+  const pagerStart = Math.max(0, Math.min(pageIndex - Math.floor(pagerSpan / 2), pageCount - pagerSpan));
+  const pagerWindow = Array.from({ length: pagerSpan }, (_, offset) => pagerStart + offset);
+
   const page = (next: number) => {
     if (next < 0 || next >= pageCount || next === pageIndex) return;
     // The body re-keys on the territory, so the class picks the slide direction.
@@ -296,26 +301,23 @@ export function TacticalPanel({
             <ArrowLeft size={18} strokeWidth={2.4} aria-hidden="true" />
           </button>
           <div className="tactical-pager-status">
-            {pageCount <= 12 ? (
-              <ul className="tactical-pager-dots">
-                {Array.from({ length: pageCount }, (_, position) => (
-                  <li key={position}>
-                    <button
-                      type="button"
-                      aria-label={locale === "ko"
-                        ? `${pageCount}개 중 ${position + 1}번째 영토 보기`
-                        : `Show territory ${position + 1} of ${pageCount}`}
-                      aria-current={position === pageIndex ? "true" : undefined}
-                      onClick={() => page(position)}
-                    />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="tactical-pager-count" role="status">
-                <b>{pageIndex + 1}</b> / {pageCount}
-              </p>
-            )}
+            {/* Dots at any length: a long filter shows a window around the
+                current territory rather than swapping to a bare count. */}
+            <ul className="tactical-pager-dots">
+              {pagerWindow.map((position) => (
+                <li key={position}>
+                  <button
+                    type="button"
+                    className={Math.abs(position - pageIndex) > 3 ? "edge" : undefined}
+                    aria-label={locale === "ko"
+                      ? `${pageCount}개 중 ${position + 1}번째 영토 보기`
+                      : `Show territory ${position + 1} of ${pageCount}`}
+                    aria-current={position === pageIndex ? "true" : undefined}
+                    onClick={() => page(position)}
+                  />
+                </li>
+              ))}
+            </ul>
           </div>
           <button type="button" aria-label={copy.nextTerritory} disabled={pageIndex >= pageCount - 1} onClick={() => page(pageIndex + 1)}>
             <ArrowRight size={18} strokeWidth={2.4} aria-hidden="true" />

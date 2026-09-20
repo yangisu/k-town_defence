@@ -286,7 +286,9 @@ it("draws the phone filter as its own listbox rather than an OS select", () => {
   expect(compactCss).toMatch(/\.filter-select-trigger\{[^}]*min-height:46px/);
   // It reads as a control of the same family as the tag row it replaces.
   expect(compactCss).toMatch(/\.filter-select-trigger\{[^}]*border-radius:999px/);
-  expect(compactCss).toContain(".filter-select-list{position:absolute;");
+  // The sheet is portalled out of the map's clipped box, so it is positioned
+  // against the viewport rather than its parent.
+  expect(compactCss).toContain(".filter-select-list{position:fixed;");
   expect(compactCss).not.toContain(".map-filters-selectselect{");
 });
 

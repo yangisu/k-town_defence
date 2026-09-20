@@ -60,6 +60,36 @@ const markerLabels = Object.fromEntries(previewContent.artists.map((artist) => [
  * the largest ring's bounding box instead, which sits under the body of the
  * shape a reader sees.
  */
+/**
+ * The base map is scenery, not the subject: the fandom colours have to carry
+ * the meaning. Grey every layer the style ships with and drop its borders and
+ * labels, so the only colour and the only lines on screen are the territories
+ * this product draws.
+ */
+function neutraliseBaseMap(map: MapLibreMap) {
+  if (typeof map.getStyle !== "function") return;
+  const style = map.getStyle();
+  for (const layer of style?.layers ?? []) {
+    if (layer.id.startsWith("preview-") || layer.id.startsWith("my-location")) continue;
+    const id = layer.id.toLowerCase();
+    const water = id.includes("water") || id.includes("ocean") || id.includes("sea") || id.includes("marine");
+    try {
+      if (typeof map.setPaintProperty !== "function" || typeof map.setLayoutProperty !== "function") return;
+      if (layer.type === "background") {
+        map.setPaintProperty(layer.id, "background-color", "#eceae4");
+      } else if (layer.type === "fill") {
+        map.setPaintProperty(layer.id, "fill-color", water ? "#dfe1e3" : "#e6e4de");
+        map.setPaintProperty(layer.id, "fill-outline-color", water ? "#dfe1e3" : "#e6e4de");
+      } else {
+        // Borders, roads and labels all belong to the scenery.
+        map.setLayoutProperty(layer.id, "visibility", "none");
+      }
+    } catch {
+      // A style may not accept every property; the rest still greys out.
+    }
+  }
+}
+
 function shapeCentres(collection: { features: unknown[] }) {
   const centres = new Map<string, { longitude: number; latitude: number }>();
   for (const feature of collection.features) {
@@ -293,6 +323,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
     map.on("load", () => {
       if (!active) return;
       styleLoaded = true;
+      neutraliseBaseMap(map);
       map.addSource(boundarySourceId, {
         type: "geojson",
         // MapLibre drops a feature id it cannot read as a number, which left

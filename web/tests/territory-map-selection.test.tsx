@@ -30,6 +30,8 @@ vi.mock("maplibre-gl", () => {
     getSource(id: string) { return this.sources.get(id); }
     addLayer(layer: { id: string }) { this.layers.push(layer); return this; }
     getLayer(id: string) { return this.layers.find((layer) => layer.id === id); }
+    getStyle() { return { layers: this.layers }; }
+    setLayoutProperty() { return this; }
     getCanvas() { return this.canvas; }
     setFilter() { return this; }
     setPaintProperty() { return this; }

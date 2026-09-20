@@ -283,7 +283,9 @@ it("draws the phone filter as its own listbox rather than an OS select", () => {
   // A bare <select> hands the list to the OS, which looks nothing like the
   // page around it.
   expect(previewSource).toContain("FilterSelect");
-  expect(compactCss).toMatch(/\.filter-select-trigger\{[^}]*min-height:44px/);
+  expect(compactCss).toMatch(/\.filter-select-trigger\{[^}]*min-height:46px/);
+  // It reads as a control of the same family as the tag row it replaces.
+  expect(compactCss).toMatch(/\.filter-select-trigger\{[^}]*border-radius:999px/);
   expect(compactCss).toContain(".filter-select-list{position:absolute;");
   expect(compactCss).not.toContain(".map-filters-selectselect{");
 });

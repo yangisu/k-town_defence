@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { ChevronRight } from "@/components/ui/icons";
+import { Check, ChevronRight } from "@/components/ui/icons";
 
 export interface FilterOption {
   id: string;
@@ -78,8 +78,9 @@ export function FilterSelect({ label, options, value, onChange }: {
         aria-label={`${label}: ${selected?.label ?? ""}`}
         onClick={() => setOpen((current) => !current)}
       >
-        <span>{selected?.label}</span>
-        <ChevronRight size={16} strokeWidth={2.6} aria-hidden="true" />
+        <span className="filter-select-label">{label}</span>
+        <span className="filter-select-value">{selected?.label}</span>
+        <ChevronRight className="filter-select-caret" size={16} strokeWidth={2.6} aria-hidden="true" />
       </button>
       {open ? (
         <ul
@@ -101,7 +102,8 @@ export function FilterSelect({ label, options, value, onChange }: {
                 onPointerEnter={() => setActive(index)}
                 onClick={() => take(option.id)}
               >
-                {option.label}
+                <span>{option.label}</span>
+                {option.id === value ? <Check size={15} strokeWidth={3} aria-hidden="true" /> : null}
               </button>
             </li>
           ))}

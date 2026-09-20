@@ -74,17 +74,23 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px soli
 /* Territory workspace layout repair */
 .territory-view>.preview-page-title{margin-top:4px;font-size:clamp(24px,3.2vw,38px);line-height:1.15}.map-filters{margin:0;padding:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px}.map-filters-select{display:none;position:relative;min-width:0}
 .filter-select{position:relative;min-width:0}
-.filter-select-trigger{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:44px;padding:0 13px;border:1px solid var(--line);border-radius:13px;background:var(--white);color:var(--ink);font:inherit;font-size:13px;font-weight:850;letter-spacing:-.01em;cursor:pointer;box-shadow:0 1px 0 rgba(22,35,29,.04);transition:border-color .16s ease,box-shadow .16s ease}
+/* A menu, not four buttons in a row: the trigger shows what it filters and
+   what is chosen, and the sheet under it reads as one surface. */
+.filter-select-trigger{display:flex;align-items:center;gap:8px;width:100%;min-height:46px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:var(--white);color:var(--ink);font:inherit;cursor:pointer;box-shadow:0 1px 2px rgba(22,35,29,.05);transition:border-color .16s ease,box-shadow .16s ease}
 .filter-select-trigger:hover{border-color:#aab6af}
-.filter-select-trigger:focus-visible,.filter-select-list button:focus-visible{outline:3px solid var(--purple);outline-offset:2px}
-.filter-select-trigger>svg{flex:none;transition:transform .2s ease}
-.filter-select-trigger[aria-expanded="true"]>svg{transform:rotate(90deg)}
-.filter-select-list{position:absolute;z-index:8;top:calc(100% + 6px);left:0;right:0;margin:0;padding:6px;list-style:none;border:1px solid var(--line);border-radius:15px;background:var(--white);box-shadow:0 18px 40px rgba(22,35,29,.16);animation:filter-select-open .16s ease-out}
-@media(prefers-reduced-motion:reduce){.filter-select-list{animation:none}.filter-select-trigger>svg{transition:none}}
-@keyframes filter-select-open{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-.filter-select-list button{display:flex;align-items:center;width:100%;min-height:42px;padding:0 11px;border:0;border-radius:11px;background:transparent;color:var(--ink);font:inherit;font-size:13px;font-weight:800;text-align:left;cursor:pointer}
-.filter-select-list button.active{background:var(--paper-2)}
-.filter-select-list button[aria-selected="true"]{background:var(--lime)}.map-filters button{min-height:40px;padding:0 15px;border:1px solid var(--line);border-radius:999px;background:var(--white);color:var(--muted);font-weight:800;cursor:pointer}.map-filters button[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:white}.territory-summary{margin-top:10px}.preview-territory-map{min-height:24rem}.tactical-connection>div:has(>p){display:block}.tactical-connection>div:has(>p)>p{margin-bottom:0}
+.filter-select-trigger[aria-expanded="true"]{border-color:var(--ink);box-shadow:0 0 0 3px rgba(22,35,29,.08)}
+.filter-select-trigger:focus-visible,.filter-select-list>li>button:focus-visible{outline:3px solid var(--purple);outline-offset:2px}
+.filter-select-label{flex:none;color:var(--muted);font-size:11px;font-weight:800;letter-spacing:-.01em}
+.filter-select-value{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;font-size:14px;font-weight:850;letter-spacing:-.015em}
+.filter-select-caret{flex:none;color:var(--muted);transform:rotate(90deg);transition:transform .2s ease}
+.filter-select-trigger[aria-expanded="true"] .filter-select-caret{transform:rotate(-90deg);color:var(--ink)}
+.filter-select-list{position:absolute;z-index:8;top:calc(100% + 8px);left:0;right:0;margin:0;padding:6px;list-style:none;border:1px solid var(--line);border-radius:18px;background:var(--white);box-shadow:0 20px 44px rgba(22,35,29,.18);animation:filter-select-open .16s ease-out}
+@media(prefers-reduced-motion:reduce){.filter-select-list{animation:none}.filter-select-caret{transition:none}}
+@keyframes filter-select-open{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.filter-select-list>li>button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:46px;padding:0 12px;border:0;border-radius:13px;background:transparent;color:var(--ink);font:inherit;font-size:14px;font-weight:800;text-align:left;cursor:pointer}
+.filter-select-list>li>button>svg{flex:none;color:var(--purple)}
+.filter-select-list>li>button.active{background:var(--paper-2)}
+.filter-select-list>li>button[aria-selected="true"]{color:var(--purple);font-weight:900}.map-filters button{min-height:40px;padding:0 15px;border:1px solid var(--line);border-radius:999px;background:var(--white);color:var(--muted);font-weight:800;cursor:pointer}.map-filters button[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:white}.territory-summary{margin-top:10px}.preview-territory-map{min-height:24rem}.tactical-connection>div:has(>p){display:block}.tactical-connection>div:has(>p)>p{margin-bottom:0}
 .objective-strip span,.tactical-panel>header span{color:#684be5}.preview-territory-list .territory-owner,.preview-territory-list button>small,.tactical-award dt{color:#56615b}.bottom-nav button{color:#56615b}
 @media(min-width:768px){.preview-territory-map{flex:2 1 auto;min-height:26rem;height:auto}.tactical-panel{position:static;top:auto;max-height:none;overflow:visible}.territory-view{padding-top:18px}}
 @media(min-width:1200px){}

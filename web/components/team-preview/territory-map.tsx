@@ -80,7 +80,7 @@ function shapeCentres(collection: { features: unknown[] }) {
   return centres;
 }
 
-function pointCollection(territories: readonly PreviewTerritory[], availableLogoIds: ReadonlySet<string> = new Set(), centres: ReadonlyMap<string, { longitude: number; latitude: number }> = new Map()) {
+function pointCollection(territories: readonly PreviewTerritory[], availableLogoIds: ReadonlySet<string> = new Set(), centres: ReadonlyMap<string, { longitude: number; latitude: number }> = new Map(), selectedArtistId: string | null = null) {
   return {
     type: "FeatureCollection" as const,
     features: territories.map((territory) => ({
@@ -93,6 +93,8 @@ function pointCollection(territories: readonly PreviewTerritory[], availableLogo
         artistLabel: markerLabels[territory.ownerArtistId] ?? territory.ownerArtistId.slice(0, 2).toUpperCase(),
         logoId: availableLogoIds.has(territory.ownerArtistId) ? `artist-logo-${territory.ownerArtistId}` : "",
         stage: territory.strongholdStage,
+        // Zoomed out, markers overlap; ours has to win that pile-up.
+        mine: territory.ownerArtistId === selectedArtistId ? 1 : 0,
       },
       geometry: {
         type: "Point" as const,
@@ -271,7 +273,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         const map = mapRef.current;
         if (map) {
           updateGeoJsonSource(map, boundarySourceId, ownerBoundaryCollection(boundaryCollectionRef.current, sessionRef.current.territories));
-          updateGeoJsonSource(map, strongholdSourceId, pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current));
+          updateGeoJsonSource(map, strongholdSourceId, pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current, sessionRef.current.selectedArtistId));
           updateGeoJsonSource(map, connectionSourceId, connectionCollection(sessionRef.current, shapeCentresRef.current));
         }
       })
@@ -323,7 +325,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
       map.addSource(strongholdSourceId, {
         type: "geojson",
         promoteId: "id",
-        data: pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current),
+        data: pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current, sessionRef.current.selectedArtistId),
       });      map.addSource(expeditionSourceId, {
         type: "geojson",
         data: expeditionCollection(sessionRef.current, selectedTerritoryIdRef.current),
@@ -360,14 +362,18 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         // A filter key set to undefined makes MapLibre reject the whole layer, so
         // spread it in only when the page is not already listing the territories.
         ...(usesListedTerritories ? {} : { filter: visibleLayerFilters(sessionRef.current.territories).boundaries }),
-        paint: { "line-color": "#fffef9", "line-width": 0.8, "line-opacity": 0.5 },
+        // Every border needs separating, but quietly: white is reserved for
+        // the reader's own territories.
+        paint: { "line-color": "#16231d", "line-width": 0.6, "line-opacity": 0.22 },
       });
       map.addLayer({
         id: "preview-selected-fandom-outline",
         type: "line",
         source: boundarySourceId,
         filter: ["==", ["get", "ownerArtistId"], sessionRef.current.selectedArtistId ?? ""],
-        paint: { "line-color": ["get", "ownerColor"], "line-width": 2.5 },
+        // White belongs to the reader's own fandom, which is what tells them
+        // at a glance which territories are theirs.
+        paint: { "line-color": "#fffef9", "line-width": 2.6 },
       });
       map.addLayer({
         id: selectedOutlineLayerId,
@@ -380,7 +386,8 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         id: "preview-expedition-line",
         type: "line",
         source: expeditionSourceId,
-        paint: { "line-color": "#fffef9", "line-width": 2.6 },
+        // The route between an expedition's stops, not a border.
+        paint: { "line-color": "#ff6b35", "line-width": 4, "line-dasharray": [1.5, 1] },
       });      map.addLayer({
         id: "preview-artist-connection-pins",
         type: "circle",
@@ -396,6 +403,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         id: "preview-stronghold-symbols",
         type: "circle",
         source: strongholdSourceId,
+        layout: { "circle-sort-key": ["get", "mine"] },
         paint: {
           "circle-color": ["get", "ownerColor"],
           "circle-radius": strongholdRadiusExpression,
@@ -409,6 +417,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         type: "symbol",
         source: strongholdSourceId,
         layout: {
+          "symbol-sort-key": ["-", 0, ["get", "mine"]],
           "icon-image": ["get", "logoId"],
           "icon-size": ["match", ["get", "stage"], "seed", 0.12, "tree", 0.18, "landmark", 0.24, 0.12],
           "icon-allow-overlap": true,
@@ -444,7 +453,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
           if (!active || map.hasImage(logoId)) return;
           map.addImage(logoId, image.data);
           availableLogoIdsRef.current.add(artist.id);
-          updateGeoJsonSource(map, strongholdSourceId, pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current));
+          updateGeoJsonSource(map, strongholdSourceId, pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current, sessionRef.current.selectedArtistId));
         }).catch(() => undefined);
       }
 
@@ -487,7 +496,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    updateGeoJsonSource(map, strongholdSourceId, pointCollection(session.territories, availableLogoIdsRef.current, shapeCentresRef.current));
+    updateGeoJsonSource(map, strongholdSourceId, pointCollection(session.territories, availableLogoIdsRef.current, shapeCentresRef.current, session.selectedArtistId));
     if (boundaryCollectionRef.current) {
       updateGeoJsonSource(map, boundarySourceId, ownerBoundaryCollection(boundaryCollectionRef.current, session.territories));
     }

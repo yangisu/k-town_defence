@@ -633,7 +633,8 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
   expect(map.layers.find((layer) => layer.id === "preview-selected-fandom-outline")?.filter)
     .toEqual(["==", ["get", "ownerArtistId"], "bts"]);
   expect(map.layers.find((layer) => layer.id === "preview-selected-fandom-outline")?.paint)
-    .toEqual({ "line-color": ["get", "ownerColor"], "line-width": 2.5 });
+    // White is reserved for the reader's own territories.
+    .toEqual({ "line-color": "#fffef9", "line-width": 2.6 });
   expect(map.layers.find((layer) => layer.id === "preview-territory-selected"))
     .toMatchObject({ type: "fill", paint: { "fill-color": ["get", "ownerColor"], "fill-opacity": 0.38 } });
   expect(map.layers.find((layer) => layer.id === "preview-territory-selected-outline"))

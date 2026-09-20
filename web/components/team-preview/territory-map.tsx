@@ -35,7 +35,6 @@ interface TerritoryMapProps {
 
 const boundarySourceId = "preview-territory-boundaries";
 const strongholdSourceId = "preview-strongholds";
-const missionSourceId = "preview-missions";
 const expeditionSourceId = "preview-selected-expedition";
 const connectionSourceId = "preview-artist-connections";
 const myLocationSourceId = "my-location";
@@ -56,7 +55,32 @@ const ownerColors = Object.fromEntries(previewContent.artists.map((artist) => [a
 const strongholdRadiusExpression: ExpressionSpecification = ["match", ["get", "stage"], "seed", 7, "tree", 11, "landmark", 16, 7];
 const markerLabels = Object.fromEntries(previewContent.artists.map((artist) => [artist.id, artist.markerLabel]));
 
-function pointCollection(territories: readonly PreviewTerritory[], availableLogoIds: ReadonlySet<string> = new Set()) {
+/**
+ * The data's centroid is a representative point, not the middle of the shape
+ * that gets drawn, so markers drifted off their territory. Take the centre of
+ * the largest ring's bounding box instead, which sits under the body of the
+ * shape a reader sees.
+ */
+function shapeCentres(collection: { features: unknown[] }) {
+  const centres = new Map<string, { longitude: number; latitude: number }>();
+  for (const feature of collection.features) {
+    const candidate = feature as {
+      id?: string | number;
+      properties?: { id?: string };
+      geometry?: { type?: string; coordinates?: unknown };
+    };
+    const id = String(candidate.id ?? candidate.properties?.id ?? "");
+    const bounds = territoryBounds(feature);
+    if (!id || !bounds) continue;
+    centres.set(id, {
+      longitude: (bounds[0][0] + bounds[1][0]) / 2,
+      latitude: (bounds[0][1] + bounds[1][1]) / 2,
+    });
+  }
+  return centres;
+}
+
+function pointCollection(territories: readonly PreviewTerritory[], availableLogoIds: ReadonlySet<string> = new Set(), centres: ReadonlyMap<string, { longitude: number; latitude: number }> = new Map()) {
   return {
     type: "FeatureCollection" as const,
     features: territories.map((territory) => ({
@@ -72,7 +96,10 @@ function pointCollection(territories: readonly PreviewTerritory[], availableLogo
       },
       geometry: {
         type: "Point" as const,
-        coordinates: [territory.centroid.longitude, territory.centroid.latitude],
+        coordinates: (() => {
+          const centre = centres.get(territory.id) ?? territory.centroid;
+          return [centre.longitude, centre.latitude];
+        })(),
       },
     })),
   };
@@ -90,7 +117,7 @@ function ownerColorExpression(territories: readonly PreviewTerritory[]): Express
   ] as ExpressionSpecification;
 }
 
-function connectionCollection(session: DemoSession) {
+function connectionCollection(session: DemoSession, centres: ReadonlyMap<string, { longitude: number; latitude: number }> = new Map()) {
   const artistId = session.artistConfirmed ? session.selectedArtistId : null;
   const artist = previewContent.artists.find((candidate) => candidate.id === artistId);
   return {
@@ -103,25 +130,10 @@ function connectionCollection(session: DemoSession) {
           type: "Feature" as const,
           id: connection.id,
           properties: { id: connection.id, artistId: artist.id, territoryId: territory.id, artistColor: artist.color },
-          geometry: { type: "Point" as const, coordinates: [territory.centroid.longitude, territory.centroid.latitude] },
+          geometry: { type: "Point" as const, coordinates: [(centres.get(territory.id) ?? territory.centroid).longitude, (centres.get(territory.id) ?? territory.centroid).latitude] },
         } : null;
       })
       .filter((feature) => feature !== null) : [],
-  };
-}
-
-function missionCollection() {
-  return {
-    type: "FeatureCollection" as const,
-    features: previewContent.places.map((place) => ({
-      type: "Feature" as const,
-      id: place.id,
-      properties: { id: place.id, territoryId: place.territoryId },
-      geometry: {
-        type: "Point" as const,
-        coordinates: [place.coordinates.longitude, place.coordinates.latitude],
-      },
-    })),
   };
 }
 
@@ -163,16 +175,21 @@ function visibleLayerFilters(territories: readonly PreviewTerritory[]) {
   const territoryIds = territories.map((territory) => territory.id);
   return {
     boundaries: ["in", ["id"], ["literal", territoryIds]] as const,
-    missions: ["in", ["get", "territoryId"], ["literal", territoryIds]] as const,
   };
 }
 
+/**
+ * Every territory wears its owner's colour. Ours is laid on thickly so the
+ * fandom's holdings read at a glance; everyone else's is washed out enough to
+ * stay background. A territory the filter hides keeps the faintest tint, so
+ * the country still reads as a whole.
+ */
 function filterOpacityExpression(territories: readonly PreviewTerritory[], selectedArtistId: string | null): ExpressionSpecification {
   return [
     "match",
     ["id"],
-    ...territories.flatMap((territory) => [territory.id, territory.ownerArtistId === selectedArtistId ? 0.28 : 0.16]),
-    0.06,
+    ...territories.flatMap((territory) => [territory.id, territory.ownerArtistId === selectedArtistId ? 0.62 : 0.3]),
+    0.1,
   ] as ExpressionSpecification;
 }
 
@@ -236,6 +253,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
 
   const [boundsByTerritoryId, setBoundsByTerritoryId] = useState<Map<string, [[number, number], [number, number]]>>(new Map());
   const boundaryCollectionRef = useRef<{ type: string; features: unknown[] } | null>(null);
+  const shapeCentresRef = useRef<ReadonlyMap<string, { longitude: number; latitude: number }>>(new Map());
   const availableLogoIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
@@ -245,12 +263,17 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
       .then((collection: { features?: unknown[] } | null) => {
         if (!active || !collection?.features) return;
         boundaryCollectionRef.current = { type: "FeatureCollection", features: collection.features };
+        shapeCentresRef.current = shapeCentres(boundaryCollectionRef.current);
         setBoundsByTerritoryId(new Map(collection.features.map((feature) => {
           const candidate = feature as { id?: string | number; properties?: { id?: string } };
           return [String(candidate.id ?? candidate.properties?.id ?? ""), territoryBounds(feature)] as const;
         }).filter((entry): entry is readonly [string, [[number, number], [number, number]]] => entry[1] !== null)));
         const map = mapRef.current;
-        if (map) updateGeoJsonSource(map, boundarySourceId, ownerBoundaryCollection(boundaryCollectionRef.current, sessionRef.current.territories));
+        if (map) {
+          updateGeoJsonSource(map, boundarySourceId, ownerBoundaryCollection(boundaryCollectionRef.current, sessionRef.current.territories));
+          updateGeoJsonSource(map, strongholdSourceId, pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current));
+          updateGeoJsonSource(map, connectionSourceId, connectionCollection(sessionRef.current, shapeCentresRef.current));
+        }
       })
       .catch(() => undefined);
     return () => { active = false; };
@@ -295,19 +318,14 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
       });
       map.addSource(strongholdSourceId, {
         type: "geojson",
-        data: pointCollection(sessionRef.current.territories),
-      });
-      map.addSource(missionSourceId, {
-        type: "geojson",
-        data: missionCollection(),
-      });
-      map.addSource(expeditionSourceId, {
+        data: pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current),
+      });      map.addSource(expeditionSourceId, {
         type: "geojson",
         data: expeditionCollection(sessionRef.current, selectedTerritoryIdRef.current),
       });
       map.addSource(connectionSourceId, {
         type: "geojson",
-        data: connectionCollection(sessionRef.current),
+        data: connectionCollection(sessionRef.current, shapeCentresRef.current),
       });
       map.addSource(myLocationSourceId, {
         type: "geojson",
@@ -337,7 +355,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         // A filter key set to undefined makes MapLibre reject the whole layer, so
         // spread it in only when the page is not already listing the territories.
         ...(usesListedTerritories ? {} : { filter: visibleLayerFilters(sessionRef.current.territories).boundaries }),
-        paint: { "line-color": "#fffef9", "line-width": 1.4 },
+        paint: { "line-color": "#fffef9", "line-width": 0.8, "line-opacity": 0.5 },
       });
       map.addLayer({
         id: "preview-selected-fandom-outline",
@@ -357,23 +375,8 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         id: "preview-expedition-line",
         type: "line",
         source: expeditionSourceId,
-        paint: { "line-color": "#ff6b35", "line-width": 4, "line-dasharray": [1.5, 1] },
-      });
-      map.addLayer({
-        id: "preview-mission-points",
-        type: "circle",
-        source: missionSourceId,
-        // A filter key set to undefined makes MapLibre reject the whole layer, so
-        // spread it in only when the page is not already listing the territories.
-        ...(usesListedTerritories ? {} : { filter: visibleLayerFilters(sessionRef.current.territories).missions }),
-        paint: {
-          "circle-color": "#dfff59",
-          "circle-radius": 4,
-          "circle-stroke-color": "#16231d",
-          "circle-stroke-width": 1.5,
-        },
-      });
-      map.addLayer({
+        paint: { "line-color": "#fffef9", "line-width": 2.6 },
+      });      map.addLayer({
         id: "preview-artist-connection-pins",
         type: "circle",
         source: connectionSourceId,
@@ -436,7 +439,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
           if (!active || map.hasImage(logoId)) return;
           map.addImage(logoId, image.data);
           availableLogoIdsRef.current.add(artist.id);
-          updateGeoJsonSource(map, strongholdSourceId, pointCollection(sessionRef.current.territories, availableLogoIdsRef.current));
+          updateGeoJsonSource(map, strongholdSourceId, pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current));
         }).catch(() => undefined);
       }
 
@@ -448,7 +451,6 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         "preview-stronghold-symbols",
         "preview-stronghold-identities",
         "preview-artist-connection-pins",
-        "preview-mission-points",
       ];
       for (const layerId of pickableLayerIds) {
         if (!map.getLayer(layerId)) continue;
@@ -480,11 +482,11 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    updateGeoJsonSource(map, strongholdSourceId, pointCollection(session.territories, availableLogoIdsRef.current));
+    updateGeoJsonSource(map, strongholdSourceId, pointCollection(session.territories, availableLogoIdsRef.current, shapeCentresRef.current));
     if (boundaryCollectionRef.current) {
       updateGeoJsonSource(map, boundarySourceId, ownerBoundaryCollection(boundaryCollectionRef.current, session.territories));
     }
-    updateGeoJsonSource(map, connectionSourceId, connectionCollection(session));
+    updateGeoJsonSource(map, connectionSourceId, connectionCollection(session, shapeCentresRef.current));
     if (map.getLayer(territoryLayerId)) {
       map.setPaintProperty(territoryLayerId, "fill-color", ownerColorExpression(session.territories));
     }
@@ -494,9 +496,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
     if (!usesListedTerritories) {
       const filters = visibleLayerFilters(session.territories);
       if (map.getLayer(territoryLayerId)) map.setFilter(territoryLayerId, filters.boundaries);
-      if (map.getLayer("preview-territory-outline")) map.setFilter("preview-territory-outline", filters.boundaries);
-      if (map.getLayer("preview-mission-points")) map.setFilter("preview-mission-points", filters.missions);
-    }
+      if (map.getLayer("preview-territory-outline")) map.setFilter("preview-territory-outline", filters.boundaries);    }
   }, [session, usesListedTerritories]);
 
   useEffect(() => {

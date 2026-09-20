@@ -324,7 +324,7 @@ it("keeps GeoJSON feature IDs identical to preview territory IDs", () => {
   })).toBe(true);
 });
 
-it("keeps configured boundary, click, and mission layers equivalent to the filtered territory list", () => {
+it("keeps configured boundary and click layers equivalent to the filtered territory list", () => {
   const onSelectTerritory = vi.fn();
   const completeSession = createInitialDemoSession();
   const yeongwolSession = {
@@ -346,14 +346,11 @@ it("keeps configured boundary, click, and mission layers equivalent to the filte
   const map = mapHarness.instances[0];
   map.emit("load");
   const yeongwolBoundaryFilter = ["in", ["id"], ["literal", ["yeongwol"]]];
-  const yeongwolMissionFilter = ["in", ["get", "territoryId"], ["literal", ["yeongwol"]]];
 
   expect(map.layers.find((layer) => layer.id === "preview-territory-fill")?.filter)
     .toEqual(yeongwolBoundaryFilter);
   expect(map.layers.find((layer) => layer.id === "preview-territory-outline")?.filter)
     .toEqual(yeongwolBoundaryFilter);
-  expect(map.layers.find((layer) => layer.id === "preview-mission-points")?.filter)
-    .toEqual(yeongwolMissionFilter);
 
   map.emitLayer("click", "preview-territory-fill", { features: [{ id: "busan" }] });
   expect(onSelectTerritory).not.toHaveBeenCalled();
@@ -377,10 +374,8 @@ it("keeps configured boundary, click, and mission layers equivalent to the filte
   );
 
   const busanBoundaryFilter = ["in", ["id"], ["literal", ["busan"]]];
-  const busanMissionFilter = ["in", ["get", "territoryId"], ["literal", ["busan"]]];
   expect(map.setFilter).toHaveBeenCalledWith("preview-territory-fill", busanBoundaryFilter);
   expect(map.setFilter).toHaveBeenCalledWith("preview-territory-outline", busanBoundaryFilter);
-  expect(map.setFilter).toHaveBeenCalledWith("preview-mission-points", busanMissionFilter);
 });
 
 it("encodes owner fandom colors and selected-artist connection pins in configured MapLibre data", () => {
@@ -670,11 +665,12 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
   const allOpacity = map.setPaintProperty.mock.calls
     .filter(([layer, property]) => layer === "preview-territory-fill" && property === "fill-opacity")
     .at(-1)?.[2];
+  // Ours is laid on thickly, everyone else's stays background.
   expect(allOpacity).toEqual(expect.arrayContaining([
-    "busan", 0.28,
-    "daegu", 0.28,
-    "yeongwol", 0.28,
-    "gwangju", 0.16,
+    "busan", 0.62,
+    "daegu", 0.62,
+    "yeongwol", 0.62,
+    "gwangju", 0.3,
   ]));
 
   const initialInnerWidth = window.innerWidth;

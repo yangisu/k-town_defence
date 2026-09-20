@@ -84,3 +84,13 @@ ID property. Every output feature has that value both as its GeoJSON feature
 | uijeongbu | Uijeongbu-si | ADM2 | 91817680B6871011244235 |
 | namyangju | Namyangju-si | ADM2 | 91817680B38772026787440 |
 | yeongwol | Yeongwol-gun | ADM2 | 91817680B79863718076959 |
+
+## Clipping to the national boundary (2026-09-20)
+
+The regions come from ADM1/ADM2, whose coastlines are drawn at a different
+fidelity from ADM0, so eight coastal regions — Jeju, Pohang, Gyeongju, Geoje,
+Busan, Ulsan, Incheon and Siheung — painted past the country's own outline.
+Each region is now intersected with `korea-outline.geojson` (geoBoundaries
+gbOpen KOR ADM0, pinned revision `9469f09`) and rounded back to the four
+decimal places the file already used. No region moves; they only stop at the
+coast. The upstream downloads are unchanged and still the licensed source.

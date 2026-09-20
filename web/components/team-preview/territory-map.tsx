@@ -56,55 +56,21 @@ const strongholdRadiusExpression: ExpressionSpecification = ["match", ["get", "s
 const markerLabels = Object.fromEntries(previewContent.artists.map((artist) => [artist.id, artist.markerLabel]));
 
 /**
- * The world stays on the map, but only as setting: its colours are washed
- * halfway to white and its borders and labels are hidden, so the only lines
- * and the strongest colours belong to the country this game is played in.
+ * The world keeps its own colours — only its borders and labels go, since the
+ * only lines worth reading are the ones this product draws, and Korea stands
+ * out by its own stronger ground rather than by washing its neighbours out.
  */
-function softenHex(hex: string, towardsWhite = 0.74) {
-  const value = hex.trim().replace("#", "");
-  const full = value.length === 3 ? value.split("").map((part) => part + part).join("") : value;
-  if (full.length !== 6 || /[^0-9a-f]/i.test(full)) return null;
-  const channels = [0, 2, 4].map((offset) => Number.parseInt(full.slice(offset, offset + 2), 16));
-  const mixed = channels.map((channel) => Math.round(channel + (255 - channel) * towardsWhite));
-  return `#${mixed.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
-}
-
-/** A style may hand its colours over as a bare hex or buried in an
- *  expression — a country palette keyed off a property, say — so walk it. */
-function softenPaintValue(value: unknown): unknown {
-  if (typeof value === "string") return softenHex(value) ?? undefined;
-  if (Array.isArray(value)) {
-    let changed = false;
-    const walked = value.map((item) => {
-      const next = softenPaintValue(item);
-      if (next === undefined) return item;
-      changed = true;
-      return next;
-    });
-    return changed ? walked : undefined;
-  }
-  return undefined;
-}
-
 function neutraliseBaseMap(map: MapLibreMap) {
   if (typeof map.getStyle !== "function") return;
   const style = map.getStyle();
   for (const layer of style?.layers ?? []) {
     if (layer.id.startsWith("preview-") || layer.id.startsWith("my-location")) continue;
-    if (typeof map.setPaintProperty !== "function" || typeof map.setLayoutProperty !== "function") return;
+    if (typeof map.setLayoutProperty !== "function") return;
+    if (layer.type !== "line" && layer.type !== "symbol") continue;
     try {
-      if (layer.type === "line" || layer.type === "symbol") {
-        // Country borders and place labels belong to the scenery.
-        map.setLayoutProperty(layer.id, "visibility", "none");
-        continue;
-      }
-      const property = layer.type === "background" ? "background-color" : layer.type === "fill" ? "fill-color" : null;
-      if (!property) continue;
-      const softened = softenPaintValue(map.getPaintProperty(layer.id, property));
-      // A paint value is whatever the style put there; MapLibre validates it.
-      if (softened !== undefined) map.setPaintProperty(layer.id, property, softened as never);
+      map.setLayoutProperty(layer.id, "visibility", "none");
     } catch {
-      // A style may not accept every property; the rest still softens.
+      // A style may not accept every property; the rest still clears.
     }
   }
 }
@@ -508,7 +474,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         paint: {
           "text-color": "#16231d",
           "text-halo-color": "#fffef9",
-          "text-halo-width": 1.6,
+          "text-halo-width": 0.9,
         },
       });
       map.addLayer({

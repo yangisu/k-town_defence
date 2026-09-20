@@ -81,8 +81,11 @@ it("renders a sourced public artist stop followed only by neutral nearby recomme
   expect(within(nearbyStop).queryByText("BTS")).not.toBeInTheDocument();
 
   const standings = screen.getByRole("region", { name: "부산 영토 현황" });
-  expect(within(standings).getByText(/ARMY.*920P/)).toBeVisible();
-  expect(within(standings).getByText(/BLINK.*840P/)).toBeVisible();
+  // The ranking lists each fandom on its own row now.
+  expect(within(standings).getByText("ARMY")).toBeVisible();
+  expect(within(standings).getByText("920P")).toBeVisible();
+  expect(within(standings).getByText("BLINK")).toBeVisible();
+  expect(within(standings).getByText("840P")).toBeVisible();
   // The standings sit beside the expedition title so the route and the
   // territory it contests are read as one unit.
   expect(standings.closest(".expedition-hero")).not.toBeNull();

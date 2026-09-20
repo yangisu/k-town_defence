@@ -10,6 +10,7 @@ import { previewContent } from "@/features/team-preview/content";
 import { useDemoSession } from "@/features/team-preview/demo-session-context";
 import type { DemoSession } from "@/features/team-preview/demo-session";
 import { calculateMissionAward, rankFandoms, type MissionAward } from "@/features/team-preview/game-rules";
+import { TerritoryStandings } from "@/components/team-preview/territory-standings";
 import { t } from "@/features/team-preview/i18n";
 import type { Locale, PreviewMissionPlace, StrongholdStage } from "@/features/team-preview/types";
 import type { CheckInImpact, CheckInResult, CheckInService, Place } from "@/lib/domain";
@@ -255,13 +256,13 @@ export function PreviewExpeditionView({
           </div>
           <p className="hero-total"><strong>{labels.total} {totalAward.toLocaleString()}P</strong></p>
         </div>
-        <aside className="battle-card" role="region" aria-label={`${territory.name[locale]} ${labels.standings}`}>
-          <span className="eyebrow">{labels.standings}</span>
-          <ul>
-            {orderedStandings.map((standing) => (
-              <li key={standing.artistId}>{standing.fandomName} · {standing.validPoints}P</li>
-            ))}
-          </ul>
+        <aside className="battle-card">
+          <TerritoryStandings
+            territory={territory}
+            locale={locale}
+            selectedArtistId={session.state.selectedArtistId}
+            defaultOpen
+          />
           <p>{territory.balanceReason[locale]}</p>
         </aside>
       </section>

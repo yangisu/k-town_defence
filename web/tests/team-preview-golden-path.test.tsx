@@ -79,7 +79,7 @@ it("completes the personalized BTS territory journey and persists its profile an
   expect(within(linkedStop).getByText("BTS")).toBeVisible();
   expect(within(linkedStop).getByRole("link", { name: "부산아시아드주경기장 출처" }))
     .toHaveAttribute("href", "https://weverse.io/bts/notice/3595");
-  expect(within(screen.getByRole("region", { name: "부산 영토 현황" })).getByText(/ARMY.*920P/)).toBeVisible();
+  expect(within(screen.getByRole("region", { name: "부산 영토 현황" })).getByText("920P")).toBeVisible();
 
   await user.click(within(linkedStop).getByRole("button", { name: "부산아시아드주경기장 체크인" }));
   const checkIn = await screen.findByRole("dialog", { name: "현장 체크인" });
@@ -183,7 +183,7 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   expect(within(linkedStop).getByText("BTS")).toBeVisible();
   expect(within(linkedStop).getByRole("link", { name: "Busan Asiad Main Stadium source" }))
     .toHaveAttribute("href", "https://weverse.io/bts/notice/3595");
-  expect(within(screen.getByRole("region", { name: "Busan territory standings" })).getByText(/ARMY.*920P/)).toBeVisible();
+  expect(within(screen.getByRole("region", { name: "Busan Territory standings" })).getByText("920P")).toBeVisible();
   expect(screen.queryByRole("link", { name: "아티스트 연결 출처" })).not.toBeInTheDocument();
 
   await user.click(within(linkedStop).getByRole("button", { name: "Busan Asiad Main Stadium check in" }));

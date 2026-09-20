@@ -405,6 +405,19 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         paint: { "fill-color": ["get", "ownerColor"], "fill-opacity": 0.38 },
       });
       map.addLayer({
+        id: "preview-nation-edge",
+        type: "line",
+        source: nationSourceId,
+        // A white line on a pale sea needs something to sit against.
+        paint: { "line-color": "#8f7fd4", "line-width": 3.4, "line-blur": 1.4, "line-opacity": 0.55 },
+      });
+      map.addLayer({
+        id: "preview-nation-outline",
+        type: "line",
+        source: nationSourceId,
+        paint: { "line-color": "#ffffff", "line-width": 1.4 },
+      });
+      map.addLayer({
         id: "preview-territory-outline",
         type: "line",
         source: boundarySourceId,
@@ -445,19 +458,6 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
           "circle-stroke-color": "#fffef9",
           "circle-stroke-width": 2,
         },
-      });
-      map.addLayer({
-        id: "preview-nation-edge",
-        type: "line",
-        source: nationSourceId,
-        // A white line on a pale sea needs something to sit against.
-        paint: { "line-color": "#8f7fd4", "line-width": 3.4, "line-blur": 1.4, "line-opacity": 0.55 },
-      });
-      map.addLayer({
-        id: "preview-nation-outline",
-        type: "line",
-        source: nationSourceId,
-        paint: { "line-color": "#ffffff", "line-width": 1.4 },
       });
       map.addLayer({
         id: "preview-stronghold-symbols",

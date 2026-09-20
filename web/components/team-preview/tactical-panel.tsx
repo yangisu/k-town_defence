@@ -16,6 +16,7 @@ import type {
   TerritoryStanding,
 } from "@/features/team-preview/types";
 import { StrongholdMark } from "@/components/team-preview/stronghold-mark";
+import { TerritoryStandings } from "@/components/team-preview/territory-standings";
 
 const panelCopy = {
   ko: {
@@ -352,6 +353,8 @@ export function TacticalPanel({
           </dd>
         </div>
       </dl>
+
+      <TerritoryStandings territory={territory} locale={locale} selectedArtistId={artist.id} />
 
       <section data-guide="tactical-connection" className="tactical-connection">
         <a

@@ -648,3 +648,21 @@ it("holds the page still while the tactical card pages to another territory", as
   expect(scrollIntoView).not.toHaveBeenCalled();
   expect(screen.getByRole("complementary", { name: /전술 패널$/ })).toBeVisible();
 });
+
+it("opens the territory standings and marks only the reader's own fandom", async () => {
+  const user = userEvent.setup();
+  renderPreviewWithArtist();
+
+  const panel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
+  const standings = within(panel).getByRole("region", { name: "부산 영토 현황" });
+  const toggle = within(standings).getByRole("button", { name: /영토 현황/ });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+  await user.click(toggle);
+
+  // Every fandom in the territory is listed with its own points, ranked.
+  const rows = within(standings).getAllByRole("listitem");
+  expect(rows.length).toBeGreaterThan(1);
+  expect(rows[0]).toHaveTextContent("ARMY");
+  expect(rows.filter((row) => row.className.includes("mine"))).toHaveLength(1);
+});

@@ -56,10 +56,36 @@ const strongholdRadiusExpression: ExpressionSpecification = ["match", ["get", "s
 const markerLabels = Object.fromEntries(previewContent.artists.map((artist) => [artist.id, artist.markerLabel]));
 
 /**
- * The map is about one country, so the base style keeps only its sea: every
- * land, border and label it ships with is hidden, and Korea is drawn from our
- * own data on top. Nothing else competes for the reader's eye.
+ * The world stays on the map, but only as setting: its colours are washed
+ * halfway to white and its borders and labels are hidden, so the only lines
+ * and the strongest colours belong to the country this game is played in.
  */
+function softenHex(hex: string, towardsWhite = 0.5) {
+  const value = hex.trim().replace("#", "");
+  const full = value.length === 3 ? value.split("").map((part) => part + part).join("") : value;
+  if (full.length !== 6 || /[^0-9a-f]/i.test(full)) return null;
+  const channels = [0, 2, 4].map((offset) => Number.parseInt(full.slice(offset, offset + 2), 16));
+  const mixed = channels.map((channel) => Math.round(channel + (255 - channel) * towardsWhite));
+  return `#${mixed.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** A style may hand its colours over as a bare hex or buried in an
+ *  expression — a country palette keyed off a property, say — so walk it. */
+function softenPaintValue(value: unknown): unknown {
+  if (typeof value === "string") return softenHex(value) ?? undefined;
+  if (Array.isArray(value)) {
+    let changed = false;
+    const walked = value.map((item) => {
+      const next = softenPaintValue(item);
+      if (next === undefined) return item;
+      changed = true;
+      return next;
+    });
+    return changed ? walked : undefined;
+  }
+  return undefined;
+}
+
 function neutraliseBaseMap(map: MapLibreMap) {
   if (typeof map.getStyle !== "function") return;
   const style = map.getStyle();
@@ -67,19 +93,18 @@ function neutraliseBaseMap(map: MapLibreMap) {
     if (layer.id.startsWith("preview-") || layer.id.startsWith("my-location")) continue;
     if (typeof map.setPaintProperty !== "function" || typeof map.setLayoutProperty !== "function") return;
     try {
-      if (layer.type === "background") {
-        map.setPaintProperty(layer.id, "background-color", "#e9f2fa");
+      if (layer.type === "line" || layer.type === "symbol") {
+        // Country borders and place labels belong to the scenery.
+        map.setLayoutProperty(layer.id, "visibility", "none");
         continue;
       }
-      const id = layer.id.toLowerCase();
-      const sea = id.includes("water") || id.includes("ocean") || id.includes("sea");
-      if (layer.type === "fill" && sea) {
-        map.setPaintProperty(layer.id, "fill-color", "#e9f2fa");
-        continue;
-      }
-      map.setLayoutProperty(layer.id, "visibility", "none");
+      const property = layer.type === "background" ? "background-color" : layer.type === "fill" ? "fill-color" : null;
+      if (!property) continue;
+      const softened = softenPaintValue(map.getPaintProperty(layer.id, property));
+      // A paint value is whatever the style put there; MapLibre validates it.
+      if (softened !== undefined) map.setPaintProperty(layer.id, property, softened as never);
     } catch {
-      // A style may not accept every property; the rest still clears.
+      // A style may not accept every property; the rest still softens.
     }
   }
 }
@@ -300,6 +325,8 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
       container: containerRef.current,
       style: mapStyleUrl(mapConfig),
       center: [127.8, 36.3],
+      // The game is played in one country, so the view stays over it.
+      maxBounds: [[122.5, 31.5], [133.5, 40.2]],
       zoom: 6.2,
       // A finger belongs to the page until it is put on the map, but a mouse
       // wheel should just zoom — a narrow window is not a touch screen.
@@ -358,20 +385,20 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         id: "preview-nation-fill",
         type: "fill",
         source: nationSourceId,
-        paint: { "fill-color": "#efe9ff", "fill-opacity": 1 },
+        paint: { "fill-color": "#e4d9ff", "fill-opacity": 1 },
       });
       map.addLayer({
         id: "preview-nation-edge",
         type: "line",
         source: nationSourceId,
         // A white line on a pale sea needs something to sit against.
-        paint: { "line-color": "#c9c2e2", "line-width": 5, "line-blur": 1.5, "line-opacity": 0.8 },
+        paint: { "line-color": "#b9afdc", "line-width": 3, "line-blur": 1.2, "line-opacity": 0.7 },
       });
       map.addLayer({
         id: "preview-nation-outline",
         type: "line",
         source: nationSourceId,
-        paint: { "line-color": "#ffffff", "line-width": 2.4 },
+        paint: { "line-color": "#ffffff", "line-width": 1.4 },
       });
       map.addLayer({
         id: territoryLayerId,
@@ -396,7 +423,8 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         // A filter key set to undefined makes MapLibre reject the whole layer, so
         // spread it in only when the page is not already listing the territories.
         ...(usesListedTerritories ? {} : { filter: visibleLayerFilters(sessionRef.current.territories).boundaries }),
-        paint: { "line-color": "#fffef9", "line-width": 1.4 },
+        // Quiet enough that white stays the country's own line.
+        paint: { "line-color": "#16231d", "line-width": 0.6, "line-opacity": 0.22 },
       });
       map.addLayer({
         id: "preview-selected-fandom-outline",

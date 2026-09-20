@@ -140,8 +140,15 @@ it.each([
   ["tree" as const, "나무 배지", "랜드마크 배지", "잠김"],
   ["landmark" as const, "랜드마크 배지", "랜드마크 배지", "획득"],
 ])("unlocks rewards through the %s stronghold transition", (stage, unlocked, other, otherState) => {
+  // A badge follows the fandom's own strongholds, not one member's check-ins,
+  // so the reward is driven by the stage of the territory ARMY holds.
   const completed = completedEnglishSession();
-  render(<RecordView locale="ko" session={{ ...completed, approvedCheckIns: [{ ...completed.approvedCheckIns[0], strongholdStage: stage }] }} onExploreTerritories={vi.fn()} />);
+  const territories = completed.territories.map((territory) => (
+    territory.ownerArtistId === "bts"
+      ? { ...territory, strongholdStage: stage }
+      : { ...territory, ownerArtistId: "blackpink" as const }
+  ));
+  render(<RecordView locale="ko" session={{ ...completed, territories }} onExploreTerritories={vi.fn()} />);
 
   const rewards = screen.getByRole("list", { name: "획득 보상" });
   expect(within(rewards).getByText(unlocked).closest("li")).toHaveTextContent("획득");

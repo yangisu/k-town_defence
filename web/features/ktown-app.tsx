@@ -21,6 +21,7 @@ import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { MembershipProvider, useMembership } from "@/features/membership/membership-context";
 import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/demo-session-context";
+import type { DemoSession as DemoSessionState } from "@/features/team-preview/demo-session";
 import { previewContent } from "@/features/team-preview/content";
 import { createRemoteDemoSessionStore } from "@/features/team-preview/remote-session-store";
 import { t } from "@/features/team-preview/i18n";
@@ -29,7 +30,15 @@ import type { AppServices, CheckInService } from "@/lib/domain";
 import type { MapConfig } from "@/lib/map-config";
 import { createServices, type ServiceMode } from "@/lib/service-factory";
 
-function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo" }: { services: AppServices; mapConfig: MapConfig | null; profileLocked?: boolean; mode?: ServiceMode }) {
+function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", onChangeFandom }: {
+  services: AppServices;
+  mapConfig: MapConfig | null;
+  profileLocked?: boolean;
+  mode?: ServiceMode;
+  /** Integrated mode changes a fandom through the season membership rather
+   *  than the local session, and the API may refuse mid-season. */
+  onChangeFandom?: (artistId: NonNullable<DemoSessionState["selectedArtistId"]>) => void;
+}) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -40,8 +49,10 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const signOut = useDemoSignOut();
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
 
+  const canChangeArtist = !profileLocked || Boolean(onChangeFandom);
   const chooseArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
-    session.dispatch({ type: "changeProfile", artistId });
+    if (onChangeFandom) onChangeFandom(artistId);
+    else session.dispatch({ type: "changeProfile", artistId });
     setDrawerOpen(false);
   };
   const confirmArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
@@ -125,7 +136,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
             locale={session.state.locale}
             fandomName={selectedArtist?.fandomName ?? null}
             fandomColor={selectedArtist?.color ?? null}
-            onChangeArtist={profileLocked ? undefined : () => setDrawerOpen(true)}
+            onChangeArtist={canChangeArtist ? () => setDrawerOpen(true) : undefined}
           />
         ) : null}
       >
@@ -160,13 +171,13 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
             locale={session.state.locale}
             session={session.state}
             onExploreTerritories={() => session.dispatch({ type: "changeTab", tab: "explore" })}
-            onChangeArtist={profileLocked ? undefined : () => setDrawerOpen(true)}
+            onChangeArtist={canChangeArtist ? () => setDrawerOpen(true) : undefined}
             onSignOut={signOut ?? undefined}
             onReset={() => setResetOpen(true)}
             onReplayGuide={() => setGuideOpen(true)}
           />
         ) : null}
-        {!profileLocked ? (
+        {canChangeArtist ? (
           <ArtistDrawer
             open={drawerOpen}
             locale={session.state.locale}
@@ -238,6 +249,14 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
     });
   }, [dispatch, hydrated, membership.fandoms, membership.membership, state.artistConfirmed, state.selectedArtistId]);
 
+  // A fandom belongs to the season membership here, not to the local session,
+  // so changing one goes to the API — which may refuse it mid-season.
+  const changeFandom = useCallback((artistId: NonNullable<DemoSessionState["selectedArtistId"]>) => {
+    const artist = previewContent.artists.find((candidate) => candidate.id === artistId);
+    const fandom = membership.fandoms.find((candidate) => candidate.name === artist?.fandomName);
+    if (fandom) void membership.selectFandom(fandom.id);
+  }, [membership]);
+
   if (welcoming) {
     return <DemoBrandTransition onComplete={() => {
       markBrandWelcomeSeen(window.sessionStorage);
@@ -247,7 +266,13 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
 
   return (
     <DemoSignOutProvider value={signOut}>
-      <DemoProduct services={uiServices} mapConfig={mapConfig} profileLocked mode="integrated" />
+      <DemoProduct
+        services={uiServices}
+        mapConfig={mapConfig}
+        profileLocked
+        mode="integrated"
+        onChangeFandom={changeFandom}
+      />
     </DemoSignOutProvider>
   );
 }

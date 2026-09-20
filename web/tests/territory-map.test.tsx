@@ -604,10 +604,10 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => geoJson }));
   const expectedOwnerColors = {
     busan: "#7c5ce0", daegu: "#7c5ce0", gwangju: "#59a85f", gunpo: "#f25da5", seongnam: "#f25da5",
-    geoje: "#d66d55", suwon: "#4c66d6", gyeongju: "#d66d55", daejeon: "#d2468d", seoul: "#d960a8",
-    yongin: "#2e9d78", goyang: "#2e9d78", incheon: "#d2468d", jeju: "#d2468d", ulsan: "#f28a45",
+    geoje: "#d66d55", suwon: "#4c66d6", gyeongju: "#d66d55", daejeon: "#e0384a", seoul: "#8e2f6f",
+    yongin: "#2e9d78", goyang: "#2e9d78", incheon: "#e0384a", jeju: "#e0384a", ulsan: "#f28a45",
     siheung: "#f28a45", cheonan: "#3a9edb", pohang: "#3a9edb", wonju: "#59a85f", chuncheon: "#4b9de0",
-    uijeongbu: "#d960a8", namyangju: "#45a9ad", yeongwol: "#7c5ce0",
+    uijeongbu: "#8e2f6f", namyangju: "#45a9ad", yeongwol: "#7c5ce0",
   } as const;
   const session = {
     ...createInitialDemoSession(),
@@ -637,8 +637,8 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
   expect(map.layers.find((layer) => layer.id === "preview-selected-fandom-outline")?.filter)
     .toEqual(["==", ["get", "ownerArtistId"], "bts"]);
   expect(map.layers.find((layer) => layer.id === "preview-selected-fandom-outline")?.paint)
-    // White is reserved for the reader's own territories.
-    .toEqual({ "line-color": "#fffef9", "line-width": 2.6 });
+    // The fandom's own colour marks its territories; white is the coast.
+    .toEqual({ "line-color": ["get", "ownerColor"], "line-width": 1.6 });
   expect(map.layers.find((layer) => layer.id === "preview-territory-selected"))
     .toMatchObject({ type: "fill", paint: { "fill-color": ["get", "ownerColor"], "fill-opacity": 0.38 } });
   expect(map.layers.find((layer) => layer.id === "preview-territory-selected-outline"))

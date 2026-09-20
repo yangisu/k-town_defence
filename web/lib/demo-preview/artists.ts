@@ -9,7 +9,7 @@ export const artists: ArtistProfile[] = [
   { id: "rescene", artistName: { ko: "리센느", en: "RESCENE" }, fandomName: "REMINE", color: "#d66d55", markerLabel: "RS", representativeTerritoryIds: ["geoje", "suwon", "gyeongju"] },
   { id: "cortis", artistName: { ko: "코르티스", en: "CORTIS" }, fandomName: "COER", color: "#4d7cfe", markerLabel: "CT", representativeTerritoryIds: ["daejeon", "suwon", "seoul"] },
   { id: "btob", artistName: { ko: "비투비", en: "BTOB" }, fandomName: "MELODY", color: "#2e9d78", markerLabel: "BTOB", representativeTerritoryIds: ["yongin", "suwon", "goyang"] },
-  { id: "ive", artistName: { ko: "아이브", en: "IVE" }, fandomName: "DIVE", color: "#d2468d", markerLabel: "IVE", representativeTerritoryIds: ["daejeon", "incheon", "jeju"] },
+  { id: "ive", artistName: { ko: "아이브", en: "IVE" }, fandomName: "DIVE", color: "#e0384a", markerLabel: "IVE", representativeTerritoryIds: ["daejeon", "incheon", "jeju"] },
   { id: "kiiikiii", artistName: { ko: "키키", en: "KiiiKiii" }, fandomName: "TiiiKiii", color: "#8b5cf6", markerLabel: "K3", representativeTerritoryIds: ["busan", "seoul"] },
   { id: "riize", artistName: { ko: "라이즈", en: "RIIZE" }, fandomName: "BRIIZE", color: "#f28a45", markerLabel: "RZ", representativeTerritoryIds: ["ulsan", "siheung", "seoul"] },
   { id: "zerobaseone", artistName: { ko: "제로베이스원", en: "ZEROBASEONE" }, fandomName: "ZEROSE", color: "#3a9edb", markerLabel: "ZB1", representativeTerritoryIds: ["cheonan", "pohang", "wonju"] },
@@ -17,7 +17,7 @@ export const artists: ArtistProfile[] = [
   { id: "le-sserafim", artistName: { ko: "르세라핌", en: "LE SSERAFIM" }, fandomName: "FEARNOT", color: "#a964d7", markerLabel: "LSF", representativeTerritoryIds: ["seoul"] },
   { id: "aespa", artistName: { ko: "에스파", en: "aespa" }, fandomName: "MY", color: "#4c66d6", markerLabel: "æ", representativeTerritoryIds: ["suwon", "busan"] },
   { id: "newjeans", artistName: { ko: "뉴진스", en: "NewJeans" }, fandomName: "Bunnies", color: "#4b9de0", markerLabel: "NJ", representativeTerritoryIds: ["chuncheon", "incheon", "seoul"] },
-  { id: "iu", artistName: { ko: "아이유", en: "IU" }, fandomName: "UAENA", color: "#d960a8", markerLabel: "IU", representativeTerritoryIds: ["seoul", "uijeongbu"] },
+  { id: "iu", artistName: { ko: "아이유", en: "IU" }, fandomName: "UAENA", color: "#8e2f6f", markerLabel: "IU", representativeTerritoryIds: ["seoul", "uijeongbu"] },
   { id: "seventeen", artistName: { ko: "세븐틴", en: "SEVENTEEN" }, fandomName: "CARAT", color: "#45a9ad", markerLabel: "SVT", representativeTerritoryIds: ["namyangju"] },
 ];
 

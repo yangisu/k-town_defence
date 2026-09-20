@@ -309,7 +309,8 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
       style: mapStyleUrl(mapConfig),
       center: [127.8, 36.3],
       // The game is played in one country, so the view stays over it.
-      maxBounds: [[122.5, 31.5], [133.5, 40.2]],
+      maxBounds: [[123.5, 32.4], [132.5, 39.4]],
+      minZoom: 5.6,
       zoom: 6.2,
       // A finger belongs to the page until it is put on the map, but a mouse
       // wheel should just zoom — a narrow window is not a touch screen.
@@ -371,28 +372,15 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         paint: { "fill-color": "#ded0ff", "fill-opacity": 1 },
       });
       map.addLayer({
-        id: "preview-nation-edge",
-        type: "line",
-        source: nationSourceId,
-        // A white line on a pale sea needs something to sit against.
-        paint: { "line-color": "#8f7fd4", "line-width": 3.4, "line-blur": 1.4, "line-opacity": 0.55 },
-      });
-      map.addLayer({
-        id: "preview-nation-outline",
-        type: "line",
-        source: nationSourceId,
-        paint: { "line-color": "#ffffff", "line-width": 1.4 },
-      });
-      map.addLayer({
         id: "preview-territory-glow",
         type: "line",
         source: boundarySourceId,
         // The halo a lifted button casts, in the territory's own colour.
         paint: {
           "line-color": ["get", "ownerColor"],
-          "line-width": hoverable(0, 12),
-          "line-blur": 6,
-          "line-opacity": hoverable(0, 0.4),
+          "line-width": hoverable(0, 7),
+          "line-blur": 4,
+          "line-opacity": hoverable(0, 0.26),
           "line-width-transition": { duration: 180, delay: 0 },
           "line-opacity-transition": { duration: 180, delay: 0 },
         },
@@ -406,8 +394,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         ...(usesListedTerritories ? {} : { filter: visibleLayerFilters(sessionRef.current.territories).boundaries }),
         paint: {
           "fill-color": ownerColorExpression(sessionRef.current.territories),
-          "fill-opacity": hoverable(filterOpacityExpression(listedTerritoriesRef.current, sessionRef.current.selectedArtistId), 0.92),
-          "fill-opacity-transition": { duration: 180, delay: 0 },
+          "fill-opacity": filterOpacityExpression(listedTerritoriesRef.current, sessionRef.current.selectedArtistId),
         },
       });
       map.addLayer({
@@ -427,7 +414,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         // Quiet until a reader aims at it, then a firm edge under the cursor.
         paint: {
           "line-color": ["get", "ownerColor"],
-          "line-width": hoverable(0.6, 3),
+          "line-width": hoverable(0.6, 2),
           "line-opacity": hoverable(0.22, 1),
           "line-width-transition": { duration: 180, delay: 0 },
           "line-opacity-transition": { duration: 180, delay: 0 },
@@ -438,9 +425,8 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         type: "line",
         source: boundarySourceId,
         filter: ["==", ["get", "ownerArtistId"], sessionRef.current.selectedArtistId ?? ""],
-        // White belongs to the reader's own fandom, which is what tells them
-        // at a glance which territories are theirs.
-        paint: { "line-color": "#fffef9", "line-width": 2.6 },
+        // The fandom's own colour says "yours"; white is the country's coast.
+        paint: { "line-color": ["get", "ownerColor"], "line-width": 1.6 },
       });
       map.addLayer({
         id: selectedOutlineLayerId,
@@ -459,6 +445,19 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
           "circle-stroke-color": "#fffef9",
           "circle-stroke-width": 2,
         },
+      });
+      map.addLayer({
+        id: "preview-nation-edge",
+        type: "line",
+        source: nationSourceId,
+        // A white line on a pale sea needs something to sit against.
+        paint: { "line-color": "#8f7fd4", "line-width": 3.4, "line-blur": 1.4, "line-opacity": 0.55 },
+      });
+      map.addLayer({
+        id: "preview-nation-outline",
+        type: "line",
+        source: nationSourceId,
+        paint: { "line-color": "#ffffff", "line-width": 1.4 },
       });
       map.addLayer({
         id: "preview-stronghold-symbols",

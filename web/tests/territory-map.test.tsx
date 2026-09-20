@@ -786,3 +786,24 @@ it("picks a territory from its stronghold marker and points the cursor at it", a
   map.emitLayer("mouseleave", "preview-stronghold-symbols");
   expect(map.canvas.style.cursor).toBe("");
 });
+
+it("never hands MapLibre a filter key without a filter", async () => {
+  render(
+    <TerritoryMap
+      mapConfig={config}
+      session={createInitialDemoSession()}
+      listedTerritories={createInitialDemoSession().territories.slice(0, 3)}
+      selectedTerritoryId={null}
+      onSelectTerritory={() => undefined}
+    />,
+  );
+  mapHarness.instances[0].emit("load");
+
+  // `filter: undefined` fails MapLibre's style validation, which drops the
+  // whole layer — the territory fill included, so nothing on the map could be
+  // clicked and no boundary was drawn.
+  for (const layer of mapHarness.instances[0].layers) {
+    if (!("filter" in layer)) continue;
+    expect(Array.isArray(layer.filter), `${layer.id} filter`).toBe(true);
+  }
+});

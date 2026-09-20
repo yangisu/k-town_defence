@@ -318,7 +318,9 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         id: territoryLayerId,
         type: "fill",
         source: boundarySourceId,
-        filter: usesListedTerritories ? undefined : visibleLayerFilters(sessionRef.current.territories).boundaries,
+        // A filter key set to undefined makes MapLibre reject the whole layer, so
+        // spread it in only when the page is not already listing the territories.
+        ...(usesListedTerritories ? {} : { filter: visibleLayerFilters(sessionRef.current.territories).boundaries }),
         paint: { "fill-color": ownerColorExpression(sessionRef.current.territories), "fill-opacity": filterOpacityExpression(listedTerritoriesRef.current, sessionRef.current.selectedArtistId) },
       });
       map.addLayer({
@@ -332,7 +334,9 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         id: "preview-territory-outline",
         type: "line",
         source: boundarySourceId,
-        filter: usesListedTerritories ? undefined : visibleLayerFilters(sessionRef.current.territories).boundaries,
+        // A filter key set to undefined makes MapLibre reject the whole layer, so
+        // spread it in only when the page is not already listing the territories.
+        ...(usesListedTerritories ? {} : { filter: visibleLayerFilters(sessionRef.current.territories).boundaries }),
         paint: { "line-color": "#fffef9", "line-width": 1.4 },
       });
       map.addLayer({
@@ -359,7 +363,9 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         id: "preview-mission-points",
         type: "circle",
         source: missionSourceId,
-        filter: usesListedTerritories ? undefined : visibleLayerFilters(sessionRef.current.territories).missions,
+        // A filter key set to undefined makes MapLibre reject the whole layer, so
+        // spread it in only when the page is not already listing the territories.
+        ...(usesListedTerritories ? {} : { filter: visibleLayerFilters(sessionRef.current.territories).missions }),
         paint: {
           "circle-color": "#dfff59",
           "circle-radius": 4,

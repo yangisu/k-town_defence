@@ -3,6 +3,7 @@
 import { useCallback, useState, useSyncExternalStore, type ReactNode } from "react";
 import { DemoBrandTransition } from "@/components/demo-entry/demo-brand-transition";
 import { DemoLogin } from "@/components/demo-entry/demo-login";
+import { forgetTutorial } from "@/features/team-preview/tutorial-seen";
 import { clearDemoLogin, hasDemoLogin, saveDemoLogin, subscribeToDemoLogin, type DemoLoginStorage } from "@/features/demo-entry/demo-auth";
 import { DemoSignOutProvider } from "@/features/demo-entry/demo-sign-out";
 
@@ -30,6 +31,8 @@ export function DemoEntryGate({ children, storage }: Props) {
   );
   const signOut = useCallback(() => {
     if (resolvedStorage) clearDemoLogin(resolvedStorage);
+    // Signing out hands the next visitor a first run, guide included.
+    if (typeof window !== "undefined") forgetTutorial(window.localStorage);
     setState("login");
   }, [resolvedStorage]);
 

@@ -6,6 +6,7 @@ import { DemoEntryGate } from "@/components/demo-entry/demo-entry-gate";
 import { KTownApp } from "@/features/ktown-app";
 import { DEMO_LOGIN_SESSION_KEY } from "@/features/demo-entry/demo-auth";
 import { useDemoSignOut } from "@/features/demo-entry/demo-sign-out";
+import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
 
 beforeEach(() => window.sessionStorage.clear());
 
@@ -157,4 +158,18 @@ it("logs out from the record tab and keeps demo progress for the next login", as
 
   expect(within(await screen.findByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   expect(screen.queryByRole("heading", { name: "응원할 아티스트를 선택하세요" })).not.toBeInTheDocument();
+});
+
+// The guide is a first-run greeting, but the flag that suppresses it lives in
+// the browser rather than on the account, so the next person to sign in here
+// used to inherit a greeting the last one had already dismissed.
+it("hands the next visitor a first run, guide included", async () => {
+  const user = userEvent.setup();
+  window.sessionStorage.setItem(DEMO_LOGIN_SESSION_KEY, "authenticated");
+  window.localStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
+  render(<DemoEntryGate><SignOutProbe /></DemoEntryGate>);
+
+  await user.click(await screen.findByRole("button", { name: "로그인 화면으로 돌아가기" }));
+
+  expect(window.localStorage.getItem(TUTORIAL_SEEN_KEY)).toBeNull();
 });

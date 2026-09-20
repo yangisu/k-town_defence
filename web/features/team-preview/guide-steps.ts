@@ -90,10 +90,10 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     tab: "explore",
     needsTerritory: true,
     target: "tactical-impact",
-    title: { ko: "배수와 상한", en: "Multipliers and caps" },
+    title: { ko: "지역 배수", en: "Regional multipliers" },
     body: {
-      ko: `인구가 줄어드는 지역일수록 배수가 붙어요. 같은 장소를 반복하면 ${rules.repeatDecay.map((value) => `${Math.round(value * 100)}%`).join(" → ")}로 줄고, 하루 상한은 ${rules.dailyCap.toLocaleString()}P예요.`,
-      en: `Regions losing population carry a bonus multiplier. Repeating one place decays ${rules.repeatDecay.map((value) => `${Math.round(value * 100)}%`).join(" → ")}, and a day contributes at most ${rules.dailyCap.toLocaleString()}P.`,
+      ko: `인구가 줄어드는 지역일수록 배수가 붙어요. 같은 장소를 반복하면 ${rules.repeatDecay.map((value) => `${Math.round(value * 100)}%`).join(" → ")}로 줄어듭니다.`,
+      en: `Regions losing population carry a bonus multiplier. Repeating one place decays ${rules.repeatDecay.map((value) => `${Math.round(value * 100)}%`).join(" → ")}.`,
     },
   },
   {

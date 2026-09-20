@@ -11,7 +11,6 @@ describe("preview game rules", () => {
       balanceMultiplier: 1.8,
       fandomSizeMultiplier: 1,
       repeatCount: 0,
-      contributedToday: 0,
     });
 
     expect(award).toEqual({
@@ -30,22 +29,23 @@ describe("preview game rules", () => {
   it("applies repeat efficiencies of one half on a second visit and zero on a fourth", () => {
     expect(calculateMissionAward({
       visitBase: 100, dwellMinutes: 0, localSpendVerified: false, accommodationVerified: false,
-      balanceMultiplier: 1, fandomSizeMultiplier: 1, repeatCount: 1, contributedToday: 0,
+      balanceMultiplier: 1, fandomSizeMultiplier: 1, repeatCount: 1,
     }).validPoints).toBe(50);
     expect(calculateMissionAward({
       visitBase: 100, dwellMinutes: 0, localSpendVerified: false, accommodationVerified: false,
-      balanceMultiplier: 1, fandomSizeMultiplier: 1, repeatCount: 3, contributedToday: 0,
+      balanceMultiplier: 1, fandomSizeMultiplier: 1, repeatCount: 3,
     }).validPoints).toBe(0);
   });
 
-  it("applies fandom-size multipliers before enforcing the 1200-point daily cap", () => {
+  // A large award is paid out whole — there is no daily ceiling to clip it.
+  it("applies fandom-size multipliers and awards the result in full", () => {
     const award = calculateMissionAward({
       visitBase: 600, dwellMinutes: 40, localSpendVerified: true, accommodationVerified: true,
-      balanceMultiplier: 1, fandomSizeMultiplier: 1.5, repeatCount: 0, contributedToday: 1150,
+      balanceMultiplier: 1, fandomSizeMultiplier: 1.5, repeatCount: 0,
     });
 
     expect(award.validPoints).toBe(1590);
-    expect(award.cappedPoints).toBe(50);
+    expect(award.cappedPoints).toBe(1590);
   });
 
   it.each([
@@ -60,9 +60,7 @@ describe("preview game rules", () => {
       accommodationVerified: false,
       balanceMultiplier: 1,
       fandomSizeMultiplier: 1,
-      repeatCount: 0,
-      contributedToday: 0,
-      ownerStrongholdStage,
+      repeatCount: 0,      ownerStrongholdStage,
     });
 
     expect(award).toMatchObject({ strongholdBonus, validPoints, cappedPoints: validPoints });

@@ -11,7 +11,7 @@ import {
   selectProfileTerritory,
 } from "@/features/team-preview/demo-session";
 import type { MissionAward } from "@/features/team-preview/game-rules";
-import { calculateMissionAward, GAME_RULES, stageForPoints } from "@/features/team-preview/game-rules";
+import { calculateMissionAward, stageForPoints } from "@/features/team-preview/game-rules";
 import { previewContent } from "@/features/team-preview/content";
 import { selectRecommendedExpedition } from "@/features/team-preview/expedition-selection";
 
@@ -286,13 +286,15 @@ describe("demo preview session", () => {
     });
   });
 
-  it("limits a stale award to the remaining daily allowance everywhere it is applied", () => {
-    const nearlyCapped = { ...readySession(), contributedToday: 1190 };
-    const state = approve(nearlyCapped, "busan-1", 100);
+  // A day that has already earned a great deal takes the next award whole:
+  // nothing is held back once a traveller is out on a route.
+  it("applies an award in full however much the day has already earned", () => {
+    const busyDay = { ...readySession(), contributedToday: 1190 };
+    const state = approve(busyDay, "busan-1", 100);
     const busan = state.territories.find((territory) => territory.id === "busan")!;
 
-    expect(busan.standings.find((standing) => standing.artistId === "bts")!.validPoints).toBe(930);
-    expect(state.contributedToday).toBe(1200);
+    expect(busan.standings.find((standing) => standing.artistId === "bts")!.validPoints).toBe(1020);
+    expect(state.contributedToday).toBe(1290);
     expect(state.missionVisitCounts["busan-1"]).toBe(1);
   });
 
@@ -303,9 +305,7 @@ describe("demo preview session", () => {
       version: 2,
       artistConfirmed: true,
       selectedArtistId: "bts",
-      selectedTerritoryId: "busan",
-      contributedToday: 999,
-    };
+      selectedTerritoryId: "busan",    };
 
     expect(loadDemoSession(storageWith(null))).toEqual(initial);
     expect(loadDemoSession(storageWith(""))).toEqual(initial);
@@ -407,7 +407,6 @@ describe("demo preview session", () => {
       balanceMultiplier: 1.8,
       fandomSizeMultiplier: 1,
       repeatCount: 0,
-      contributedToday: 0,
     });
     expect(missionAward.cappedPoints).toBe(468);
 
@@ -580,27 +579,26 @@ it("restores a session saved before the filter was remembered", () => {
   expect(parseDemoSession(legacy)?.territoryFilter).toBe("my_fandom");
 });
 
-// Yeongwol's 1.8x multiplier spends most of the daily cap on its first stop,
-// which left the second worth nothing — and a check-in worth nothing used to
-// be dropped whole, so the stop stayed un-visited and the route never
-// finished. The cap limits what a visit is worth, not whether it happened.
-it("records a check-in that earns nothing against the daily cap", () => {
+// Yeongwol's 1.8x multiplier used to spend a 1200P daily allowance on its
+// first stop, which left the second worth nothing and the route unfinishable.
+// There is no allowance now: every stop pays what it is worth.
+it("pays every stop on a route in full, however large the first one was", () => {
   let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
   state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "yeongwol" });
   const route = previewContent.expeditions.find((candidate) => candidate.id === "yeongwol-regional-support-expedition")!;
   state = demoSessionReducer(state, { type: "openExpedition", expeditionId: route.id });
-  // Spend the day's allowance on the first stop.
   state = demoSessionReducer(state, {
-    type: "completeCheckIn", expeditionId: route.id, placeId: route.stopIds[0], award: award(GAME_RULES.dailyCap),
+    type: "completeCheckIn", expeditionId: route.id, placeId: route.stopIds[0], award: award(1116),
   });
-  expect(state.contributedToday).toBe(GAME_RULES.dailyCap);
+  expect(state.contributedToday).toBe(1116);
 
   state = demoSessionReducer(state, {
-    type: "completeCheckIn", expeditionId: route.id, placeId: route.stopIds[1], award: award(0),
+    type: "completeCheckIn", expeditionId: route.id, placeId: route.stopIds[1], award: award(1116),
   });
 
   expect(state.approvedCheckIns).toHaveLength(2);
-  expect(state.approvedCheckIns[1]?.awardedPoints).toBe(0);
+  expect(state.approvedCheckIns[1]?.awardedPoints).toBe(1116);
+  expect(state.contributedToday).toBe(2232);
   expect(state.completedExpeditionIds).toContain(route.id);
 });
 

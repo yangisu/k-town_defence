@@ -120,9 +120,7 @@ function maximumAward(place: PreviewMissionPlace, multiplier: number, ownerStron
     accommodationVerified: true,
     balanceMultiplier: multiplier,
     fandomSizeMultiplier: 1,
-    repeatCount: 0,
-    contributedToday: 0,
-    ownerStrongholdStage,
+    repeatCount: 0,    ownerStrongholdStage,
   });
 }
 
@@ -379,9 +377,7 @@ export function PreviewExpeditionView({
             visitBase: checkInPlace.visitBase,
             balanceMultiplier: territory.balanceMultiplier,
             fandomSizeMultiplier: 1,
-            repeatCount: session.state.missionVisitCounts[checkInPlace.id] ?? 0,
-            contributedToday: session.state.contributedToday,
-            ownerStrongholdStage,
+            repeatCount: session.state.missionVisitCounts[checkInPlace.id] ?? 0,            ownerStrongholdStage,
           }}
           impact={impact}
           onApproved={applyApprovedAward}

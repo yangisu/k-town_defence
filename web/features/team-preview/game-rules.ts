@@ -7,7 +7,6 @@ export const GAME_RULES = {
   dwell60Minutes: 60,
   localSpend: 100,
   accommodation: 300,
-  dailyCap: 1200,
   repeatDecay: [1, 0.5, 0.25, 0] as const,
   strongholdTreeAt: 1000,
   strongholdLandmarkAt: 3000,
@@ -24,7 +23,6 @@ export interface MissionAwardInput {
   balanceMultiplier: number;
   fandomSizeMultiplier: number;
   repeatCount: number;
-  contributedToday: number;
   ownerStrongholdStage?: StrongholdStage | null;
 }
 
@@ -63,7 +61,11 @@ export function calculateMissionAward(input: MissionAwardInput): MissionAward {
   const subtotal = visit + dwell + localSpend + accommodation + strongholdBonus;
   const multiplier = input.balanceMultiplier * input.fandomSizeMultiplier * repeatMultiplier(input.repeatCount);
   const validPoints = Math.round(subtotal * multiplier);
-  const cappedPoints = Math.max(0, Math.min(validPoints, GAME_RULES.dailyCap - input.contributedToday));
+  // There is no daily ceiling: a visit is worth what it is worth. A cap of
+  // 1200P meant a single stop in a 1.8x region spent almost all of it, and the
+  // next stop on the same route earned nearly nothing for no reason the
+  // traveller could see.
+  const cappedPoints = Math.max(0, validPoints);
 
   return { visit, dwell, localSpend, accommodation, strongholdBonus, subtotal, multiplier, validPoints, cappedPoints };
 }

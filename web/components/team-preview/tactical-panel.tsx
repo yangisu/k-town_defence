@@ -47,7 +47,7 @@ const panelCopy = {
     awardHelpAccommodation: `숙박을 인증하면 ${GAME_RULES.accommodation}P.`,
     awardHelpStronghold: `내 팬덤이 소유한 영토에서만 붙어요. 씨앗 +${GAME_RULES.strongholdVisitBonus}P, 나무부터 체류 보너스가 있으면 +${GAME_RULES.strongholdDwellBonus}P, 랜드마크에서 소비를 인증하면 +${GAME_RULES.strongholdSpendBonus}P가 더해집니다.`,
     awardHelpTotalTerm: "합계 뒤",
-    awardHelpTotal: `지역 배율을 곱하고, 같은 장소를 반복하면 ${GAME_RULES.repeatDecay.join("배 → ")}배로 줄어요. 하루 상한은 ${GAME_RULES.dailyCap.toLocaleString()}P입니다.`,
+    awardHelpTotal: `지역 배율을 곱하고, 같은 장소를 반복하면 ${GAME_RULES.repeatDecay.join("배 → ")}배로 줄어요.`,
     impactTitle: "추천 원정 영향",
     impactHelp: "영향 지표 설명 보기",
     impactHelpBalance: "합계에 곱해지는 지역 배율이에요. 옆 문구는 그 배율이 붙은 근거이고, 방문을 유도할 이유가 있는 지역일수록 높습니다.",
@@ -98,7 +98,7 @@ const panelCopy = {
     awardHelpAccommodation: `Verify an overnight stay for ${GAME_RULES.accommodation}P.`,
     awardHelpStronghold: `Only in territories your fandom owns. Seed adds +${GAME_RULES.strongholdVisitBonus}P, tree adds +${GAME_RULES.strongholdDwellBonus}P once a dwell bonus applies, and landmark adds +${GAME_RULES.strongholdSpendBonus}P with verified spending.`,
     awardHelpTotalTerm: "After the subtotal",
-    awardHelpTotal: `The regional multiplier applies, repeat visits to the same place decay ${GAME_RULES.repeatDecay.join("× → ")}×, and the daily cap is ${GAME_RULES.dailyCap.toLocaleString()}P.`,
+    awardHelpTotal: `The regional multiplier applies, and repeat visits to the same place decay ${GAME_RULES.repeatDecay.join("× → ")}×.`,
     impactTitle: "Recommended expedition impact",
     impactHelp: "What these impact figures mean",
     impactHelpBalance: "The regional multiplier applied to the subtotal. The note beside it is the reason for that multiplier; regions worth steering visits toward carry a higher one.",
@@ -143,9 +143,7 @@ function estimateAward(expedition: PreviewExpedition, territory: PreviewTerritor
     accommodationVerified: true,
     balanceMultiplier: territory.balanceMultiplier,
     fandomSizeMultiplier: 1,
-    repeatCount: firstStop ? (session.missionVisitCounts[firstStop.id] ?? 0) : 0,
-    contributedToday: session.contributedToday,
-    ownerStrongholdStage: territory.ownerArtistId === artistId ? territory.strongholdStage : null,
+    repeatCount: firstStop ? (session.missionVisitCounts[firstStop.id] ?? 0) : 0,    ownerStrongholdStage: territory.ownerArtistId === artistId ? territory.strongholdStage : null,
   });
 }
 

@@ -1,6 +1,6 @@
 import type { AppTab } from "@/features/app-controller";
 import { getArtistHomeTerritories, previewContent } from "./content";
-import { GAME_RULES, stageForPoints, type MissionAward } from "./game-rules";
+import { stageForPoints, type MissionAward } from "./game-rules";
 import type { ArtistId, FandomStanding, Locale, PreviewTerritory, StrongholdStage, TerritoryFilterId, TerritoryId } from "./types";
 
 export const DEMO_SESSION_VERSION = 3;
@@ -198,15 +198,10 @@ export function applyCheckInImpact(state: DemoSession, expeditionId: string, pla
   if (!state.artistConfirmed || artistId === null || territoryId === null || state.selectedExpeditionId !== expeditionId) return state;
   const expedition = compatibleExpedition(expeditionId, artistId, territoryId);
   const place = previewContent.places.find((candidate) => candidate.id === placeId);
-  const actualApplied = Math.min(
-    Math.max(Number.isFinite(award.cappedPoints) ? award.cappedPoints : 0, 0),
-    Math.max(GAME_RULES.dailyCap - state.contributedToday, 0),
-  );
-  // A check-in worth nothing is still a check-in. The daily cap limits what a
-  // visit is worth, not whether it happened, and dropping the record left the
-  // stop looking un-visited with no reason given — which is what a traveller
-  // meets on their second stop in Yeongwol, where the 1.8x multiplier spends
-  // most of the cap on the first one.
+  // Every check-in lands in full. There used to be a 1200P daily ceiling here,
+  // which one stop in a 1.8x region all but exhausted, leaving the next stop on
+  // the same route worth almost nothing for no reason the traveller could see.
+  const actualApplied = Math.max(Number.isFinite(award.cappedPoints) ? award.cappedPoints : 0, 0);
   if (!expedition || !place || place.territoryId !== expedition.territoryId || !expedition.stopIds.includes(place.id)) return state;
 
   const territories = state.territories.map((territory) => {
@@ -521,8 +516,7 @@ export function isValidDemoSession(value: unknown): value is DemoSession {
     || !value.approvedCheckIns.every(isValidApprovedCheckIn)
     || !isRecord(value.missionVisitCounts)
     || !Object.entries(value.missionVisitCounts).every(([placeId, count]) => placeIds.has(placeId) && Number.isInteger(count) && isNonNegativeFinite(count))
-    || !isNonNegativeFinite(value.contributedToday)
-    || value.contributedToday > GAME_RULES.dailyCap) return false;
+    || !isNonNegativeFinite(value.contributedToday)) return false;
 
   if (!TERRITORY_FILTER_IDS.includes(value.territoryFilter as TerritoryFilterId)) return false;
   if (!isRecord(value.disclosures)

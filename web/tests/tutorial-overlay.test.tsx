@@ -121,7 +121,7 @@ it("explains the real scoring numbers rather than placeholders", () => {
   const impact = GUIDE_STEPS.find((step) => step.id === "impact");
   expect(award?.body.ko).toContain(`${GAME_RULES.localSpend}P`);
   expect(award?.body.ko).toContain(`${GAME_RULES.accommodation}P`);
-  expect(impact?.body.ko).toContain(GAME_RULES.dailyCap.toLocaleString());
+  expect(impact?.body.ko).toContain(`${Math.round(GAME_RULES.repeatDecay[1] * 100)}%`);
 });
 
 it("remembers a finished guide so it does not interrupt the next visit", async () => {

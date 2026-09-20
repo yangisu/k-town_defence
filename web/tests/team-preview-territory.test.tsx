@@ -307,7 +307,6 @@ it("explains the point breakdown from the award box help toggle", async () => {
   expect(note).toHaveTextContent(`지역 가게에서 쓴 내역을 인증하면 ${GAME_RULES.localSpend}P`);
   expect(note).toHaveTextContent(`숙박을 인증하면 ${GAME_RULES.accommodation}P`);
   expect(note).toHaveTextContent(`씨앗 +${GAME_RULES.strongholdVisitBonus}P`);
-  expect(note).toHaveTextContent(`하루 상한은 ${GAME_RULES.dailyCap.toLocaleString()}P`);
 
   await user.click(help);
   expect(help).toHaveAttribute("aria-expanded", "false");

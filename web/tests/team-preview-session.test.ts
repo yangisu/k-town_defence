@@ -515,3 +515,26 @@ it("restores a session saved before the roster existed", () => {
 
   expect(parseDemoSession(legacy)?.followedArtistIds).toEqual(["bts"]);
 });
+
+// The filter is part of where the reader is, not a setting they re-apply: it
+// used to snap back to "my fandom" on every trip through an expedition.
+it("remembers the slice of the board the reader asked for", () => {
+  let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  expect(state.territoryFilter).toBe("my_fandom");
+
+  state = demoSessionReducer(state, { type: "setTerritoryFilter", filter: "artist_connection" });
+  state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "busan" });
+  state = demoSessionReducer(state, { type: "openExpedition", expeditionId: "bts-busan-artist-linked-expedition" });
+  state = demoSessionReducer(state, { type: "endExpedition" });
+  state = demoSessionReducer(state, { type: "changeTab", tab: "explore" });
+
+  expect(state.territoryFilter).toBe("artist_connection");
+  expect(state.selectedTerritoryId).toBe("busan");
+});
+
+it("restores a session saved before the filter was remembered", () => {
+  const legacy = { ...demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" }) } as Record<string, unknown>;
+  delete legacy.territoryFilter;
+
+  expect(parseDemoSession(legacy)?.territoryFilter).toBe("my_fandom");
+});

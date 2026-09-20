@@ -16,7 +16,11 @@ export function TerritoryView({ mapConfig }: {
   mapConfig: MapConfig | null;
 }) {
   const session = useDemoSession();
-  const [filter, setFilter] = useState<TerritoryFilter>("my_fandom");
+  // The filter is part of where the reader is, so it lives in the session and
+  // survives leaving this page — it used to snap back to "my fandom" every
+  // time the view remounted, which is every trip through an expedition.
+  const filter = session.state.territoryFilter;
+  const setFilter = (next: TerritoryFilter) => session.dispatch({ type: "setTerritoryFilter", filter: next });
   // Bumped when the map is asked to frame the territory it already has.
   const [recentre, setRecentre] = useState(0);
   const mapRef = useRef<HTMLDivElement>(null);

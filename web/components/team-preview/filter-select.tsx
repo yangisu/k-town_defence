@@ -9,13 +9,11 @@ export interface FilterOption {
   label: string;
 }
 
-const MIN_LIST_HEIGHT = 260;
+const LIST_GAP = 8;
+const LIST_MARGIN = 12;
 
 interface Anchor {
-  /** Set when the list hangs below the trigger, which is the usual case. */
-  top?: number;
-  /** Set instead when there is more room above, so it opens upward. */
-  bottom?: number;
+  top: number;
   left: number;
   width: number;
   maxHeight: number;
@@ -45,24 +43,18 @@ export function FilterSelect({ label, options, value, onChange }: {
 
   useLayoutEffect(() => {
     if (!open) return;
-    // Fixed to the viewport, the list cannot scroll with the page, so near the
-    // bottom its last options used to sit below the fold with no way to reach
-    // them. It takes whichever side has more room and scrolls within it.
+    // The list hangs below its trigger and stays there. It is fixed to the
+    // viewport, so it cannot scroll with the page on its own — the page is
+    // brought to it instead (see the effect below). The cap is only for a
+    // list taller than the screen, which no amount of scrolling would fit.
     const place = () => {
       const rect = triggerRef.current?.getBoundingClientRect();
       if (!rect) return;
-      const gap = 8;
-      const margin = 12;
-      const below = window.innerHeight - rect.bottom - gap - margin;
-      const above = rect.top - gap - margin;
-      const openUp = below < MIN_LIST_HEIGHT && above > below;
       setAnchor({
-        ...(openUp
-          ? { bottom: window.innerHeight - rect.top + gap }
-          : { top: rect.bottom + gap }),
+        top: rect.bottom + LIST_GAP,
         left: rect.left,
         width: rect.width,
-        maxHeight: Math.max(MIN_LIST_HEIGHT, openUp ? above : below),
+        maxHeight: window.innerHeight - LIST_MARGIN * 2,
       });
     };
     place();
@@ -89,6 +81,41 @@ export function FilterSelect({ label, options, value, onChange }: {
   useEffect(() => {
     if (open) listRef.current?.focus();
   }, [open, anchor]);
+
+  // Opened near the foot of the page, the last options sit under the fold, and
+  // a list fixed to the viewport cannot be scrolled to. Bring the page to it:
+  // the page often has no room left to scroll, so the room is made first, and
+  // given back when the list closes. Scrolling moves the trigger, the
+  // placement effect follows it, and the whole list comes into view.
+  const scrolledIntoView = useRef(false);
+  const roomAdded = useRef(false);
+
+  // Giving the room back belongs to closing the list, not to re-placing it:
+  // the placement effect fires on every scroll, so a cleanup keyed to the
+  // anchor tore down the room the moment the scroll it caused began.
+  useEffect(() => {
+    if (!open) return;
+    return () => {
+      if (roomAdded.current) {
+        document.body.style.paddingBottom = "";
+        roomAdded.current = false;
+      }
+      scrolledIntoView.current = false;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || scrolledIntoView.current || !anchor) return;
+    const list = listRef.current;
+    if (!list) return;
+    scrolledIntoView.current = true;
+    const overflow = Math.ceil(list.getBoundingClientRect().bottom - (window.innerHeight - LIST_MARGIN));
+    if (overflow <= 0) return;
+    const existing = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+    document.body.style.paddingBottom = `${existing + overflow}px`;
+    roomAdded.current = true;
+    window.scrollBy({ top: overflow, behavior: "smooth" });
+  }, [anchor, open]);
 
   const take = (id: string) => {
     onChange(id);
@@ -125,7 +152,7 @@ export function FilterSelect({ label, options, value, onChange }: {
       aria-label={label}
       tabIndex={-1}
       ref={listRef}
-      style={{ top: anchor.top, bottom: anchor.bottom, left: anchor.left, width: anchor.width, maxHeight: anchor.maxHeight }}
+      style={{ top: anchor.top, left: anchor.left, width: anchor.width, maxHeight: anchor.maxHeight }}
       onKeyDown={onListKeyDown}
     >
       {options.map((option, index) => (

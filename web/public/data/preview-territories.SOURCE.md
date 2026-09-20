@@ -85,16 +85,27 @@ ID property. Every output feature has that value both as its GeoJSON feature
 | namyangju | Namyangju-si | ADM2 | 91817680B38772026787440 |
 | yeongwol | Yeongwol-gun | ADM2 | 91817680B79863718076959 |
 
-## Clipping to the national boundary (2026-09-20)
+## Rebuild from ADM2 alone (2026-09-20)
 
-The regions come from ADM1 and ADM2, whose coastlines are drawn at different
-fidelities, so eight coastal regions — Jeju, Pohang, Gyeongju, Geoje, Busan,
-Ulsan, Incheon and Siheung — painted past the country's own outline.
+Clipping could not fix the coast. The regions above came from two downloads at
+once, and ADM1 (Natural Earth) and ADM2 (citypopulation.de) draw the same
+shoreline at different fidelities, so a metropolitan region cut against an
+outline built from the other provider kept leaving slivers — Pohang's was still
+visible after three attempts.
 
-`korea-outline.geojson` is the ADM1 download from the same pinned revision
-(`9469f09`) dissolved into one shape, so the coast a region is cut against
-is the coast those regions were drawn on — an ADM0 outline from Natural Earth
-draws its islands differently and left Incheon's in the sea. Each region is
-intersected with it and rounded back to the four decimal places the file
-already used. No region moves; they only stop at the coast, and the upstream
-downloads remain the licensed source.
+Both files are now derived from **ADM2 only**, the one pinned download
+`geoBoundaries-KOR-ADM2.geojson` at revision `9469f09`:
+
+- `korea-outline.geojson` is the union of all 228 ADM2 features.
+- `preview-territories.geojson` rebuilds each of the 23 territories as the union
+  of the ADM2 pieces lying at least half inside its previous polygon — so the
+  eight metropolitan territories that used to be single ADM1 features are now
+  their own districts merged (`seoul` 24, `busan` 13, `daegu` 7, `incheon` 5,
+  `ulsan` 5, `daejeon` 4, `jeju` 2, `gwangju` 1), and the ADM2-sourced
+  territories are unchanged apart from rounding.
+
+Because every edge now comes from one provider, a region's coast *is* the
+national coast: measured area outside the outline is 0.0000% for all 23,
+Incheon included. Coordinates are rounded to the four decimal places the file
+already used. The table above still records which source feature named each
+territory; the ADM1 rows describe that naming, not the current geometry.

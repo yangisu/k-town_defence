@@ -669,7 +669,7 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
     />,
   );
   await waitFor(() => expect(map.fitBounds).toHaveBeenLastCalledWith(
-    [[128.4813, 35.7683], [128.7623, 36.0093]],
+    [[128.4615, 35.7664], [128.7651, 36.0133]],
     { padding: 56, maxZoom: 9, duration: 700 },
   ));
 
@@ -698,7 +698,7 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
     />,
   );
   await waitFor(() => expect(map.fitBounds).toHaveBeenLastCalledWith(
-    [[126.8229, 35.1501], [127.0058, 35.2546]],
+    [[126.8449, 35.1102], [127.0274, 35.2542]],
     { padding: 32, maxZoom: 9, duration: 700 },
   ));
 
@@ -714,7 +714,7 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
     />,
   );
   await waitFor(() => expect(map.fitBounds).toHaveBeenLastCalledWith(
-    [[128.9504, 35.0436], [129.1993, 35.2708]],
+    [[128.9326, 35.0321], [129.2156, 35.3028]],
     { padding: 32, maxZoom: 9, duration: 0 },
   ));
   Object.defineProperty(window, "innerWidth", { configurable: true, value: initialInnerWidth });

@@ -437,7 +437,9 @@ it("labels ranking progress and gives every locked reward a non-color status", (
   for (const reward of lockedRewards) {
     expect(reward).toHaveClass("locked");
     expect(reward).toHaveTextContent("잠김");
-    expect(within(reward).getByRole("img")).toHaveAccessibleName(/거점/);
+    // The reward is a badge, and names itself as one rather than as the
+    // stronghold stage that earns it.
+    expect(within(reward).getByRole("img")).toHaveAccessibleName(/배지/);
   }
 });
 

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Camera, Check, CircleAlert, Lock, X } from "@/components/ui/icons";
 import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
+import { StageBadge } from "@/components/team-preview/stage-badge";
 import { StrongholdMark } from "@/components/team-preview/stronghold-mark";
 import { previewContent } from "@/features/team-preview/content";
 import type { DemoSession } from "@/features/team-preview/demo-session";
@@ -253,7 +254,7 @@ export function RecordView({
             const unlocked = stageOrder[stage] <= summary.highestStageOrder;
             return (
               <li key={stage} className={unlocked ? "unlocked" : "locked"}>
-                <StrongholdMark stage={stage} locale={locale} ownerColor={artist?.color} />
+                <StageBadge stage={stage} locale={locale} unlocked={unlocked} ownerColor={artist?.color} />
                 <span>{t(locale, label)}</span>
                 <span className={unlocked ? "record-state unlocked" : "record-state"}>
                   {unlocked ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : <Lock size={13} strokeWidth={2.6} aria-hidden="true" />}

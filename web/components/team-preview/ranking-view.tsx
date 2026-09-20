@@ -152,7 +152,7 @@ export function RankingView({ locale, fandoms, territories, selectedArtistId, on
                   <span className="ranking-row-rank">#{row.rank}</span>
                   <div className="ranking-row-identity">
                     <strong><FandomIdentity locale={locale} artistId={row.artistId} fandomName={row.fandomName} /></strong>
-                    {isSelected ? <span>{t(locale, "rankingSelected")}</span> : null}
+                    {isSelected ? <span className="sr-only">{t(locale, "rankingSelected")}</span> : null}
                   </div>
                   <div className="ranking-row-stats">
                     <span>{formatPoints(locale, row.validPoints)}</span>

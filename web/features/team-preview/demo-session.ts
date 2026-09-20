@@ -244,7 +244,10 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         selectedArtistId: action.artistId,
         followedArtistIds: withArtist(state.followedArtistIds, action.artistId),
         selectedTerritoryId: territory?.id ?? null,
-        activeTab: state.activeTab === "journey" ? "journey" : "explore",
+        // Switching fandom is not a request to go somewhere: the reader stays
+        // on the page they were reading, now showing it as the new fandom. The
+        // one exception is a route, which this switch has just cleared.
+        activeTab: state.activeTab === "expedition" ? "explore" : state.activeTab,
         selectedExpeditionId: null,
         activeExpeditionId: null,
       };

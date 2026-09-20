@@ -23,8 +23,6 @@ export interface RecommendedExpedition {
   expedition: PreviewExpedition;
 }
 
-const EARTH_RADIUS_KM = 6371.0088;
-const NATIONAL_ANCHOR = { latitude: 36.3, longitude: 127.8 };
 const defaultCatalog: ExpeditionCatalog = {
   territories,
   connections: [...connections, ...expeditionConnections],
@@ -38,28 +36,6 @@ function isHttps(url: string) {
   } catch {
     return false;
   }
-}
-
-function finiteCentroid(territory: PreviewTerritory | undefined) {
-  return territory?.centroid
-    && Number.isFinite(territory.centroid.latitude)
-    && Number.isFinite(territory.centroid.longitude)
-    ? territory.centroid
-    : null;
-}
-
-function haversineKilometers(
-  from: { latitude: number; longitude: number },
-  to: { latitude: number; longitude: number },
-) {
-  const radians = (degrees: number) => degrees * Math.PI / 180;
-  const latitudeDelta = radians(to.latitude - from.latitude);
-  const longitudeDelta = radians(to.longitude - from.longitude);
-  const fromLatitude = radians(from.latitude);
-  const toLatitude = radians(to.latitude);
-  const a = Math.sin(latitudeDelta / 2) ** 2
-    + Math.cos(fromLatitude) * Math.cos(toLatitude) * Math.sin(longitudeDelta / 2) ** 2;
-  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(a));
 }
 
 export function validateArtistPlaceEvidence(place: PreviewMissionPlace) {
@@ -134,31 +110,13 @@ export function selectRecommendedExpedition(
   territoryId: TerritoryId,
   catalog: ExpeditionCatalog = defaultCatalog,
 ): RecommendedExpedition | null {
+  // A fandom tie belongs to the region it is a tie to. This used to fall back
+  // to the reader's nearest other connected territory, which meant standing in
+  // one city and being handed a route through another; a reader looking at a
+  // region now sees their fandom's link only if it is a link to that region.
   const selectedArtistRoute = findRoute(catalog, artistId, territoryId, "artist_linked");
   if (selectedArtistRoute) {
     return { kind: "artist_linked", territoryId: selectedArtistRoute.territoryId, expedition: selectedArtistRoute };
-  }
-
-  const anchorTerritory = catalog.territories.find((territory) => territory.id === territoryId);
-  const anchor = finiteCentroid(anchorTerritory) ?? NATIONAL_ANCHOR;
-  const catalogOrder = new Map(catalog.territories.map((territory, index) => [territory.id, index]));
-  const connectedTerritoryIds = [...new Set(catalog.connections
-    .filter((connection) => connection.artistId === artistId && connection.territoryId !== territoryId)
-    .map((connection) => connection.territoryId))];
-  const connectedTerritories = connectedTerritoryIds
-    .map((id) => catalog.territories.find((territory) => territory.id === id))
-    .filter((territory): territory is PreviewTerritory => finiteCentroid(territory) !== null)
-    .sort((left, right) => {
-      const distance = haversineKilometers(anchor, left.centroid) - haversineKilometers(anchor, right.centroid);
-      return Math.abs(distance) > Number.EPSILON
-        ? distance
-        : (catalogOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER)
-          - (catalogOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER);
-    });
-
-  for (const connectedTerritory of connectedTerritories) {
-    const route = findRoute(catalog, artistId, connectedTerritory.id, "artist_linked");
-    if (route) return { kind: "artist_linked", territoryId: route.territoryId, expedition: route };
   }
 
   const regionalRoute = findRoute(catalog, artistId, territoryId, "regional_support");

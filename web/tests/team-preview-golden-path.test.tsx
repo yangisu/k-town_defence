@@ -69,8 +69,13 @@ it("completes the personalized BTS territory journey and persists its profile an
   await user.click(within(await screen.findByRole("dialog", { name: "원정을 종료할까요?" }))
     .getByRole("button", { name: "원정 종료" }));
   await user.click(screen.getByRole("button", { name: "영토 지도로" }));
-  const restoredGwangjuPanel = await screen.findByRole("complementary", { name: "광주 전술 패널" });
-  await user.click(within(restoredGwangjuPanel).getByRole("button", { name: "원정 시작" }));
+  await screen.findByRole("complementary", { name: "광주 전술 패널" });
+  // Busan's artist-linked route is reached by going to Busan. Gwangju keeps
+  // offering Gwangju's public one however many times it is opened.
+  await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
+    .getByRole("button", { name: /^부산/ }));
+  const busanPanel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
+  await user.click(within(busanPanel).getByRole("button", { name: "원정 시작" }));
   expect(await screen.findByRole("heading", { name: "BTS 부산 공식 공연장 원정" })).toBeVisible();
   expect(screen.getByText("아티스트 연관 장소 중심")).toBeVisible();
   expect(screen.getByText("추천 근거 보기")).toBeVisible();
@@ -174,7 +179,10 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   expect(screen.getByRole("complementary", { name: "Yeongwol tactical panel" })).toBeVisible();
   expect(screen.queryByRole("group", { name: "영토 필터" })).not.toBeInTheDocument();
 
-  await user.click(within(screen.getByRole("complementary", { name: /(전술 패널|tactical panel)$/ })).getByRole("button", { name: "Start expedition" }));
+  // Yeongwol carries the balance multiplier but no BTS tie, so the artist-linked
+  // route is found where it lives: Busan.
+  await user.click(within(territoryList).getByRole("button", { name: /^Busan/ }));
+  await user.click(within(screen.getByRole("complementary", { name: "Busan tactical panel" })).getByRole("button", { name: "Start expedition" }));
   expect(await screen.findByRole("heading", { name: "BTS Busan official concert venue expedition" })).toBeVisible();
   expect(screen.getByText("Artist-linked places first")).toBeVisible();
   expect(screen.getByText("Why this is recommended")).toBeVisible();
@@ -276,7 +284,10 @@ it("returns an empty season dashboard to Explore without resetting the confirmed
   });
 });
 
-it("shows Gwangju regional support before opening the nearest eligible BTS-linked expedition", async () => {
+// Gwangju holds a sourced j-hope tie and no route of its own. Both facts are
+// told at once: the story on its panel, and its own public route on offer —
+// Busan's artist-linked route stays in Busan, where a reader goes to find it.
+it("tells Gwangju's connection story while keeping it on Gwangju's public route", async () => {
   const user = userEvent.setup();
   window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({
     ...createInitialDemoSession(),
@@ -301,6 +312,18 @@ it("shows Gwangju regional support before opening the nearest eligible BTS-linke
   expect(within(gwangjuPanel).getByText(/지역 연결 스토리 · 제이홉/)).toBeVisible();
 
   await user.click(within(gwangjuPanel).getByRole("button", { name: "원정 시작" }));
+  expect(await screen.findByRole("heading", { name: "광주 지역 원정" })).toBeVisible();
+  expect(screen.queryByRole("listitem", { name: "부산아시아드주경기장" })).not.toBeInTheDocument();
+
+  // The same tie is exactly what Busan offers, because Busan is where it is.
+  await user.click(screen.getByRole("button", { name: "원정 종료" }));
+  await user.click(within(await screen.findByRole("dialog", { name: "원정을 종료할까요?" }))
+    .getByRole("button", { name: "원정 종료" }));
+  await user.click(screen.getByRole("button", { name: "영토 지도로" }));
+  await user.click(within(await screen.findByRole("list", { name: "지도와 같은 영토 목록" }))
+    .getByRole("button", { name: /^부산/ }));
+  const busanPanel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
+  await user.click(within(busanPanel).getByRole("button", { name: "원정 시작" }));
   expect(await screen.findByRole("heading", { name: "BTS 부산 공식 공연장 원정" })).toBeVisible();
   expect(screen.getByText("아티스트 연관 장소 중심")).toBeVisible();
   const linkedStop = screen.getByRole("listitem", { name: "부산아시아드주경기장" });

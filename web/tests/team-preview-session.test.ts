@@ -171,11 +171,11 @@ describe("demo preview session", () => {
     expect(localized.locale).toBe("ko");
   });
 
-  it("opens a nearest connected route atomically with its actual territory", () => {
+  it("opens the route recommended for the region being looked at", () => {
     let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
-    state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "gwangju" });
+    state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "busan" });
 
-    const recommendation = selectRecommendedExpedition("bts", "gwangju");
+    const recommendation = selectRecommendedExpedition("bts", "busan");
     expect(recommendation).toMatchObject({
       kind: "artist_linked",
       territoryId: "busan",
@@ -193,6 +193,18 @@ describe("demo preview session", () => {
       selectedTerritoryId: "busan",
       selectedExpeditionId: "bts-busan-artist-linked-expedition",
       activeTab: "expedition",
+    });
+  });
+
+  // Gwangju is a BTS-connected territory with no artist-linked route of its
+  // own, and it stays on its own public route rather than borrowing Busan's.
+  it("keeps a region on its public route instead of another region's tie", () => {
+    const recommendation = selectRecommendedExpedition("bts", "gwangju");
+
+    expect(recommendation).toMatchObject({
+      kind: "regional_support",
+      territoryId: "gwangju",
+      expedition: { id: "gwangju-regional-support-expedition" },
     });
   });
 

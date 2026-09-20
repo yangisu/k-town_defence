@@ -26,12 +26,25 @@ describe("team preview content", () => {
       .toEqual(expectedArtists);
   });
 
-  it("gives every artist a sourced regional story without requiring an artist-branded route", () => {
-    for (const artist of previewContent.artists) {
-      const connections = previewContent.connections.filter((item) => item.artistId === artist.id);
-      expect(connections.length, artist.id).toBeGreaterThanOrEqual(1);
-      expect(connections.every((item) => item.sourceUrls.length > 0)).toBe(true);
-      expect(connections.flatMap((item) => item.sourceUrls).every((url) => url.startsWith("https://"))).toBe(true);
+  // An artist without a researched regional tie has none, and the catalog says
+  // so rather than filling the gap with a label profile page. What every
+  // connection that does exist must have is the article behind it.
+  it("carries an https source for every regional story it does claim", () => {
+    expect(previewContent.connections.length).toBeGreaterThan(0);
+    for (const connection of previewContent.connections) {
+      expect(connection.sourceUrls.length, connection.id).toBeGreaterThanOrEqual(1);
+      expect(connection.sourceUrls.every((url) => url.startsWith("https://")), connection.id).toBe(true);
+      expect(connection.sources.every((source) => source.claimSpecific), connection.id).toBe(true);
+      expect(connection.sources.map((source) => source.url), connection.id).toEqual(connection.sourceUrls);
+    }
+  });
+
+  it("points every regional story at a territory that exists", () => {
+    const territoryIds = new Set(previewContent.territories.map((territory) => territory.id));
+    const artistIds = new Set(previewContent.artists.map((artist) => artist.id));
+    for (const connection of previewContent.connections) {
+      expect(territoryIds.has(connection.territoryId), connection.id).toBe(true);
+      expect(artistIds.has(connection.artistId), connection.id).toBe(true);
     }
   });
 
@@ -164,14 +177,16 @@ describe("team preview content", () => {
       .toBe(true);
   });
 
-  it("sources every declared representative territory", () => {
+  // A fandom's home territories are a game-balance roster; a connection is an
+  // evidence claim. Tying the two together forced one to be invented whenever
+  // the other changed, so they are kept apart and each checked on its own.
+  it("keeps every home territory on the board", () => {
+    const territoryIds = new Set(previewContent.territories.map((territory) => territory.id));
     for (const artist of previewContent.artists) {
-      const connectedTerritoryIds = new Set(
-        previewContent.connections
-          .filter((connection) => connection.artistId === artist.id)
-          .map((connection) => connection.territoryId),
-      );
-      expect(connectedTerritoryIds, artist.id).toEqual(new Set(artist.representativeTerritoryIds));
+      expect(artist.representativeTerritoryIds.length, artist.id).toBeGreaterThanOrEqual(1);
+      for (const territoryId of artist.representativeTerritoryIds) {
+        expect(territoryIds.has(territoryId), `${artist.id}/${territoryId}`).toBe(true);
+      }
     }
   });
 

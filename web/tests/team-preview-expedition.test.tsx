@@ -92,18 +92,21 @@ it("renders a sourced public artist stop followed only by neutral nearby recomme
   expect(standings.closest(".expedition-hero")).toContainElement(screen.getByRole("heading", { level: 1 }));
 });
 
+// Gwangju carries a sourced j-hope tie but no route of its own, and the two
+// facts stay separate: the story is told where it belongs, and the route the
+// reader is offered is Gwangju's own public one, not Busan's.
 it.each([
   [
     "ko",
     ["ARMY", "현재 소유", "지역 연결 스토리 · 제이홉"],
-    "BTS 부산 공식 공연장 원정",
-    "아티스트 연관 장소 중심",
+    "광주 지역 원정",
+    "지역의 공공 관광 코스",
   ],
   [
     "en",
     ["ARMY", "Current owner", "Regional connection story · j-hope"],
-    "BTS Busan official concert venue expedition",
-    "Artist-linked places first",
+    "Gwangju regional expedition",
+    "Public tourism route in this region",
   ],
 ] as const)("separates %s identity, ownership, story, and fallback evidence roles", async (locale, roles, title, disclosure) => {
   const user = userEvent.setup();
@@ -124,8 +127,10 @@ it.each([
 
   expect(await screen.findByRole("heading", { name: title })).toBeVisible();
   expect(screen.getByText(disclosure)).toBeVisible();
-  expect(screen.queryByText(locale === "ko" ? "BTS 광주 원정" : "BTS Gwangju expedition")).not.toBeInTheDocument();
-  expect(screen.queryByText(locale === "ko" ? "지역의 공공 관광 코스" : "Public tourism route in this region")).not.toBeInTheDocument();
+  // Busan's tie is Busan's, however close the fandom's other territories are.
+  expect(screen.queryByRole("heading", { name: locale === "ko" ? "BTS 부산 공식 공연장 원정" : "BTS Busan official concert venue expedition" }))
+    .not.toBeInTheDocument();
+  expect(screen.queryByText(locale === "ko" ? "아티스트 연관 장소 중심" : "Artist-linked places first")).not.toBeInTheDocument();
 });
 
 it("rejects an expedition that belongs to a different selected artist", async () => {

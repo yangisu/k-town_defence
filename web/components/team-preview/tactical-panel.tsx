@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type CSSProperties, type TouchEvent } from "react";
-import { ArrowLeft, ArrowRight, ChevronRight, CircleAlert, ExternalLink } from "@/components/ui/icons";
+import { ArrowLeft, ArrowRight, CircleAlert, ExternalLink } from "@/components/ui/icons";
 import { calculateMissionAward, GAME_RULES, rankFandoms, stageForPoints } from "@/features/team-preview/game-rules";
 import { previewContent } from "@/features/team-preview/content";
 import { t } from "@/features/team-preview/i18n";
@@ -366,15 +366,21 @@ export function TacticalPanel({
         >
           <ExternalLink size={16} strokeWidth={2.2} aria-hidden="true" />
         </a>
-        {expedition.artistId === null ? (
-          <>
-            <strong>{copy.regionalSupport}</strong>
-            <p>{copy.publicRoute}</p>
-          </>
-        ) : connection ? (
+        {/* The reader's fandom tie to *this* region and the route on offer are
+            two different things. The tie used to be hidden whenever the route
+            was a public one, which silenced it in every region that has a
+            documented link but no route of its own. It leads now, and the note
+            about the route follows it. */}
+        {connection ? (
           <>
             <strong>{copy.regionalStory} · {connection.memberName[locale]}</strong>
             <p>{connection.story[locale]}</p>
+            {expedition.artistId === null ? <p className="tactical-route-note">{copy.publicRoute}</p> : null}
+          </>
+        ) : expedition.artistId === null ? (
+          <>
+            <strong>{copy.regionalSupport}</strong>
+            <p>{copy.publicRoute}</p>
           </>
         ) : (
           <>

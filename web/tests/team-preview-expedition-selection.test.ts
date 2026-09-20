@@ -225,63 +225,48 @@ describe("evidence-first expedition selection", () => {
     expect(validateRecommendedRoute({ ...support, connectionId: "bts-busan-connection" }, catalog.places, "bts", catalog.connections)).toBe(false);
   });
 
-  it("breaks equal-distance connected-territory ties by territory catalog order", () => {
-    const firstA = artistPlace({ id: "a-direct", territoryId: "candidate-a", artistConnectionId: "bts-candidate-a-connection" });
-    const firstB = artistPlace({ id: "b-direct", territoryId: "candidate-b", artistConnectionId: "bts-candidate-b-connection" });
-    const nearbyA = nearbyPlace({ id: "a-nearby", territoryId: "candidate-a" });
-    const nearbyB = nearbyPlace({ id: "b-nearby", territoryId: "candidate-b" });
+  // Selection used to rank a fandom's other connected territories by distance
+  // and hand back the nearest one, so a reader looking at Gwangju could be sent
+  // to Busan. A tie belongs to the region it is a tie to, and nowhere else.
+  it("never offers a connected route from a territory the reader is not looking at", () => {
+    const elsewhereFirst = artistPlace({
+      id: "elsewhere-direct",
+      territoryId: "elsewhere",
+      artistConnectionId: "bts-elsewhere-connection",
+    });
+    const elsewhereNearby = nearbyPlace({ id: "elsewhere-nearby", territoryId: "elsewhere" });
+    const selectedNearbyA = nearbyPlace({ id: "selected-nearby-a", territoryId: "selected" });
+    const selectedNearbyB = nearbyPlace({ id: "selected-nearby-b", territoryId: "selected" });
     const catalog = {
-      territories: [
-        territory("selected", 0, 0),
-        territory("candidate-b", 0, -1),
-        territory("candidate-a", 0, 1),
-      ],
-      connections: [connection("candidate-a"), connection("candidate-b")],
-      places: [firstA, nearbyA, firstB, nearbyB],
+      territories: [territory("selected", 0, 0), territory("elsewhere", 0, 0.1)],
+      connections: [connection("elsewhere")],
+      places: [elsewhereFirst, elsewhereNearby, selectedNearbyA, selectedNearbyB],
       expeditions: [
-        route("candidate-a-route", "candidate-a", [firstA.id, nearbyA.id]),
-        route("candidate-b-route", "candidate-b", [firstB.id, nearbyB.id]),
+        route("elsewhere-route", "elsewhere", [elsewhereFirst.id, elsewhereNearby.id]),
+        {
+          ...route("selected-support", "selected", [selectedNearbyA.id, selectedNearbyB.id]),
+          artistId: null,
+          connectionId: null,
+        },
       ],
-    };
+    } as unknown as Parameters<typeof selectRecommendedExpedition>[2];
 
-    expect(selectRecommendedExpedition("bts", "selected", catalog)?.territoryId).toBe("candidate-b");
+    // Even from right next door, the neighbour's route stays the neighbour's.
+    expect(selectRecommendedExpedition("bts", "selected", catalog))
+      .toMatchObject({ kind: "regional_support", territoryId: "selected" });
+    // Standing in that region, the same tie is exactly what the reader gets.
+    expect(selectRecommendedExpedition("bts", "elsewhere", catalog))
+      .toMatchObject({ kind: "artist_linked", territoryId: "elsewhere" });
   });
 
-  it("uses the national anchor when the selected territory has no centroid", () => {
-    const nearNational = artistPlace({
-      id: "near-national-direct",
-      territoryId: "near-national",
-      artistConnectionId: "bts-near-national-connection",
-    });
-    const farFromNational = artistPlace({
-      id: "far-national-direct",
-      territoryId: "far-national",
-      artistConnectionId: "bts-far-national-connection",
-    });
-    const nearNationalNearby = nearbyPlace({ id: "near-national-nearby", territoryId: "near-national" });
-    const farNationalNearby = nearbyPlace({ id: "far-national-nearby", territoryId: "far-national" });
-    const catalog = {
-      territories: [
-        { ...territory("selected", 0, 0), centroid: undefined },
-        territory("far-national", 34, 129.5),
-        territory("near-national", 36.4, 127.8),
-      ],
-      connections: [connection("far-national"), connection("near-national")],
-      places: [farFromNational, farNationalNearby, nearNational, nearNationalNearby],
-      expeditions: [
-        route("far-national-route", "far-national", [farFromNational.id, farNationalNearby.id]),
-        route("near-national-route", "near-national", [nearNational.id, nearNationalNearby.id]),
-      ],
-    };
-    const missingSelectedCentroid = {
-      ...catalog,
-    };
+  it("gives a reader with no tie to the region its public route, and nothing when there is none", () => {
+    const catalog = syntheticCatalog();
 
-    expect(selectRecommendedExpedition(
-      "bts",
-      "selected",
-      missingSelectedCentroid as unknown as Parameters<typeof selectRecommendedExpedition>[2],
-    )).toMatchObject({ kind: "artist_linked", territoryId: "near-national" });
+    expect(selectRecommendedExpedition("blackpink", "gwangju", catalog))
+      .toMatchObject({ kind: "regional_support", territoryId: "gwangju" });
+    expect(selectRecommendedExpedition("bts", "busan", catalog))
+      .toMatchObject({ kind: "artist_linked", territoryId: "busan" });
+    expect(selectRecommendedExpedition("bts", "nowhere" as never, catalog)).toBeNull();
   });
 
   it("skips a connected candidate whose centroid is missing", () => {

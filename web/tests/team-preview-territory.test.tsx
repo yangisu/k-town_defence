@@ -58,7 +58,7 @@ it("turns artist choice into a visible tactical recommendation", async () => {
   renderPreviewWithArtist();
 
   const panel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
-  expect(within(panel).getByText("지역 연결 스토리 · 지민", { selector: "strong" })).toBeVisible();
+  expect(within(panel).getByText("지역 연결 스토리 · 지민·정국", { selector: "strong" })).toBeVisible();
   expect(within(panel).queryByText("팀 데이터 · 미검증 제안")).not.toBeInTheDocument();
   expect(within(panel).getByRole("heading", { name: "부산" })).toBeVisible();
   expect(within(panel).getByText(/^방어 우위$/)).toBeVisible();
@@ -135,14 +135,17 @@ it("keeps personalized filter IDs and fandom filtering", () => {
     .toEqual(["busan", "daegu", "yeongwol"]);
 });
 
-it("routes an empty region to the nearest sourced artist-linked expedition without fabricating evidence", async () => {
+// Yeongwol is ARMY-held but carries no researched BTS tie, and the panel used
+// to answer that by shipping the reader off to Busan. A region with no tie
+// keeps its own public route and says so.
+it("keeps a region with no tie on its own public route", async () => {
   const user = userEvent.setup();
   renderPreviewWithArtist({ selectedTerritoryId: "yeongwol" });
 
   const panel = await screen.findByRole("complementary", { name: "영월 전술 패널" });
-  expect(within(panel).getByText("인근 추천")).toBeVisible();
+  expect(within(panel).getByText("지역의 공공 관광 코스")).toBeVisible();
+  expect(within(panel).queryByText(/지역 연결 스토리/)).not.toBeInTheDocument();
   expect(within(panel).queryByLabelText("연결 근거 등급")).not.toBeInTheDocument();
-  expect(within(panel).getByText("이 영토에는 선택한 아티스트의 검증된 직접 연결이 없어 부산의 검증된 아티스트 연관 장소 중심 원정을 추천합니다.")).toBeVisible();
   expect(within(panel).getByRole("link", { name: "출처 확인" })).toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
 
   const action = within(panel).getByRole("button", { name: "원정 시작" });
@@ -151,15 +154,15 @@ it("routes an empty region to the nearest sourced artist-linked expedition witho
 
   await waitFor(() => {
     const saved = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as DemoSession;
-    expect(saved.selectedTerritoryId).toBe("busan");
-    expect(saved.selectedExpeditionId).toBe("bts-busan-artist-linked-expedition");
+    expect(saved.selectedTerritoryId).toBe("yeongwol");
+    expect(saved.selectedExpeditionId).toBe("yeongwol-regional-support-expedition");
   });
 });
 
 it.each([
-  ["gwangju", "광주"],
-  ["yeongwol", "영월"],
-] as const)("keeps %s battle context while opening the nearest evidence-eligible route", async (territoryId, territoryName) => {
+  ["gwangju", "광주", "지역균형 보너스 1×", "기본 지역균형 배율"],
+  ["yeongwol", "영월", "지역균형 보너스 1.8×", "인구감소지역"],
+] as const)("keeps %s battle context on its own recommended route", async (territoryId, territoryName, bonus, reason) => {
   const user = userEvent.setup();
   renderPreviewWithArtist({ selectedTerritoryId: territoryId });
 
@@ -168,17 +171,18 @@ it.each([
   const action = within(panel).getByRole("button", { name: "원정 시작" });
   expect(action).toBeEnabled();
 
-  const projection = within(panel).getByRole("region", { name: "부산 추천 원정 영향" });
-  expect(projection).toHaveTextContent("지역균형 보너스 1×");
-  expect(projection).toHaveTextContent("기본 지역균형 배율");
+  const projection = within(panel).getByRole("region", { name: `${territoryName} 추천 원정 영향` });
+  // The projection is the selected region's own now, so its multiplier is too.
+  expect(projection).toHaveTextContent(bonus);
+  expect(projection).toHaveTextContent(reason);
   expect(projection).toHaveTextContent(/영토 영향/);
   expect(projection).toHaveTextContent(/팬덤 순위 영향.*#1.*현재 순위 유지/);
 
   await user.click(action);
   await waitFor(() => {
     const saved = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as DemoSession;
-    expect(saved.selectedTerritoryId).toBe("busan");
-    expect(saved.selectedExpeditionId).toBe("bts-busan-artist-linked-expedition");
+    expect(saved.selectedTerritoryId).toBe(territoryId);
+    expect(saved.selectedExpeditionId).toBe(`${territoryId}-regional-support-expedition`);
   });
 });
 
@@ -199,12 +203,13 @@ it("uses summary cards as map navigation and explains the distance anchor", asyn
   expect(screen.getByRole("button", { name: /^경주/ })).toHaveAttribute("aria-pressed", "true");
 });
 
-it("describes the actual nearest artist-linked recommendation in English", async () => {
+it("names the region's own public route in English when there is no tie", async () => {
   renderPreviewWithArtist({ locale: "en", selectedTerritoryId: "yeongwol" });
 
   const panel = await screen.findByRole("complementary", { name: "Yeongwol tactical panel" });
-  expect(within(panel).getByText("This territory has no verified direct connection to the selected artist, so the nearest verified artist-linked expedition in Busan is recommended.")).toBeVisible();
-  expect(within(panel).queryByText(/public tourism expedition is recommended/i)).not.toBeInTheDocument();
+  expect(within(panel).getByText("Public tourism route in this region")).toBeVisible();
+  expect(within(panel).queryByText(/Regional connection story/)).not.toBeInTheDocument();
+  expect(within(panel).queryByText(/in Busan is recommended/i)).not.toBeInTheDocument();
 });
 
 it.each([
@@ -260,8 +265,12 @@ it.each([
   const expectedTerritoryIds = [
     ["wonju", "gwangju"],
     ["wonju", "chuncheon", "yongin", "gunpo", "cheonan", "daejeon", "busan", "ulsan"],
-    ["busan", "wonju", "gwangju", "suwon"],
-    ["busan", "wonju", "gwangju", "suwon", "gunpo", "daejeon", "yongin", "ulsan", "cheonan", "chuncheon", "yeongwol", "geoje", "gyeongju", "goyang", "namyangju", "daegu", "seoul", "seongnam", "siheung", "uijeongbu", "incheon", "jeju", "pohang"],
+    // ONEDOOR's researched ties are LEEHAN's Busan and SUNGHO's Wonju. The
+    // Gwangju and Suwon entries had no article behind them and are gone.
+    ["busan", "wonju"],
+    // Gwangju and Suwon fall back into plain order now that ONEDOOR has no
+    // researched tie to either.
+    ["busan", "wonju", "gunpo", "daejeon", "yongin", "ulsan", "cheonan", "chuncheon", "yeongwol", "geoje", "gyeongju", "goyang", "gwangju", "namyangju", "daegu", "seoul", "seongnam", "suwon", "siheung", "uijeongbu", "incheon", "jeju", "pohang"],
   ] as const;
   const list = screen.getByRole("list", { name: locale === "ko" ? "지도와 같은 영토 목록" : "Map-equivalent territory list" });
   for (const [index, filter] of filterLabels.entries()) {
@@ -501,14 +510,15 @@ it("brings the map into view when a summary card is used", async () => {
   expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
 });
 
-it("labels a public route without borrowing the artist connection story", async () => {
-  // BLINK has no artist-linked route, so every territory falls back to a public one.
+it("tells the fandom's own tie to the region it is a tie to", async () => {
+  // BLINK has no artist-linked route anywhere, but Gunpo is JISOO's birthplace
+  // and the research names it, so the story belongs on Gunpo's panel — with the
+  // route still honestly labelled as the region's public one.
   renderPreviewWithArtist({ selectedArtistId: "blackpink", selectedTerritoryId: "gunpo" });
 
   const panel = await screen.findByRole("complementary", { name: "군포 전술 패널" });
-  expect(within(panel).getByText("지역의 공공 관광 코스")).toBeVisible();
+  expect(within(panel).getByText(/지역 연결 스토리 · 지수/)).toBeVisible();
   expect(within(panel).getByText("공식 관광 출처 기반 공공 원정 · 아티스트 직접 연관 없음")).toBeVisible();
-  expect(within(panel).queryByText(/지역 연결 스토리/)).not.toBeInTheDocument();
 
   // The source is a corner link now, not a disclosure.
   const source = within(panel).getByRole("link", { name: "출처 확인" });
@@ -520,6 +530,17 @@ it("labels a public route without borrowing the artist connection story", async 
   const gapRow = within(panel).getByText("방어 우위").closest("div")!;
   const gap = within(gapRow).getByText(/^\d+P$/);
   expect(gap.nextElementSibling).toHaveTextContent(/거점 성장까지|최고 단계 방어 중/);
+});
+
+it("labels a public route without borrowing the artist connection story", async () => {
+  // BLINK has no researched tie to Busan, so nothing is borrowed to fill it —
+  // not JISOO's Gunpo story, not anyone else's.
+  renderPreviewWithArtist({ selectedArtistId: "blackpink", selectedTerritoryId: "busan" });
+
+  const panel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
+  expect(within(panel).getByText("지역의 공공 관광 코스")).toBeVisible();
+  expect(within(panel).getByText("공식 관광 출처 기반 공공 원정 · 아티스트 직접 연관 없음")).toBeVisible();
+  expect(within(panel).queryByText(/지역 연결 스토리/)).not.toBeInTheDocument();
 });
 
 it("sets the balance multiplier beside the stronghold mark", async () => {

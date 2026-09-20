@@ -31,6 +31,7 @@ interface MapHarness {
   emit: (event: string, value?: MapEvent) => void;
   emitLayer: (event: string, layer: string, value?: MapEvent) => void;
   canvas: { style: { cursor: string } };
+  scrollZoom: { enable: ReturnType<typeof vi.fn>; disable: ReturnType<typeof vi.fn> };
   featureStates: { id: unknown; state: unknown }[];
   sourceSpecs: Map<string, { promoteId?: string; data?: unknown }>;
 }
@@ -53,6 +54,8 @@ vi.mock("maplibre-gl", () => {
     setFilter = vi.fn();
     setPaintProperty = vi.fn();
     remove = vi.fn();
+    scrollZoom = { enable: vi.fn(), disable: vi.fn() };
+    dragPan = { enable: vi.fn(), disable: vi.fn() };
 
     constructor(options: Record<string, unknown>) {
       this.options = options;
@@ -870,4 +873,28 @@ it("names each territory once there is room for the name", async () => {
   // and drop out rather than overlap.
   expect(names?.minzoom).toBeGreaterThan(6.2);
   expect(names?.layout).toMatchObject({ "text-allow-overlap": false, "text-optional": true });
+});
+
+it("hands the wheel to the map only once the reader clicks it", async () => {
+  const user = userEvent.setup();
+  render(
+    <TerritoryMap
+      mapConfig={config}
+      session={createInitialDemoSession()}
+      selectedTerritoryId={null}
+      onSelectTerritory={() => undefined}
+    />,
+  );
+  const map = mapHarness.instances[0];
+  map.emit("load");
+
+  // Until then the page keeps its own scrolling.
+  expect(map.scrollZoom.enable).not.toHaveBeenCalled();
+
+  await user.click(screen.getByRole("region", { name: "대한민국 팬덤 영토 지도" }));
+  expect(map.scrollZoom.enable).toHaveBeenCalled();
+
+  // Clicking away gives it back.
+  await user.click(document.body);
+  expect(map.scrollZoom.disable).toHaveBeenCalled();
 });

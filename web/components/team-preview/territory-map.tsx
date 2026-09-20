@@ -723,13 +723,9 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
           ref={containerRef}
           data-guide="territory-map"
           className={mapFocused ? "preview-territory-map focused" : "preview-territory-map"}
+          // The wheel belongs to the page until the reader claims the map by
+          // clicking it, and a click outside hands it straight back.
           onPointerDown={() => setMapFocused(true)}
-          // A mouse over the map is already aiming at it, so the wheel should
-          // zoom without a click first. A finger is not: on a touch screen the
-          // page keeps the gesture until the map is tapped.
-          onPointerEnter={(event) => {
-            if (event.pointerType === "mouse") setMapFocused(true);
-          }}
           role="region"
           aria-label={session.locale === "ko" ? "대한민국 팬덤 영토 지도" : "Korea fandom territory map"}
         >

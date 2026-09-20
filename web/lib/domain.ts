@@ -179,6 +179,22 @@ export interface PhotoEvidence {
 
 export interface FandomSummary { id: string; name: string; artistName: string | null; }
 export interface SeasonMembership { userId: string; seasonId: string; fandomId: string; lockedAt: string | null; }
+export interface TerritoryStandingSnapshot { fandomId: string; fandomName: string; artistName: string | null; validPoints: number; }
+export interface TerritorySnapshot {
+  id: string;
+  nameKo: string;
+  nameEn: string;
+  latitude: number;
+  longitude: number;
+  populationDecline: boolean;
+  balanceMultiplier: 1 | 1.8;
+  balanceReasonKo: string;
+  balanceReasonEn: string;
+  ownerFandomId: string;
+  strongholdStage: "seed" | "tree" | "landmark";
+  standings: TerritoryStandingSnapshot[];
+}
+export interface TerritoryService { list(): Promise<TerritorySnapshot[]>; }
 export interface MembershipService {
   listFandoms(): Promise<FandomSummary[]>;
   getCurrent(): Promise<SeasonMembership | null>;
@@ -214,6 +230,7 @@ export interface BattleService {
 }
 
 export interface AppServices {
+  territories: TerritoryService;
   tourism: TourismService;
   expeditions: ExpeditionService;
   checkIn: CheckInService;

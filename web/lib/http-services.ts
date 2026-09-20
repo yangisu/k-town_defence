@@ -12,6 +12,7 @@ import type {
   LiveExpedition,
   OpenDataStatus,
   SeasonMembership,
+  TerritorySnapshot,
 } from "./domain";
 import { services as demoServices } from "./demo-services";
 import { ApiError } from "./api/api-error";
@@ -287,6 +288,11 @@ function mapOpenDataStatus(value: unknown): OpenDataStatus {
 
 export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
   return {
+    territories: {
+      async list() {
+        return (await requestJson<{ items: TerritorySnapshot[] }>(fetcher, "/api/v1/territories")).items;
+      },
+    },
     tourism: {
       listRegions: () => demoServices.tourism.listRegions(),
       getRegion: (regionId) => demoServices.tourism.getRegion(regionId),

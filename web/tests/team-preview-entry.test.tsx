@@ -14,6 +14,30 @@ function skipTutorial() {
   window.localStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
 }
 
+function integratedTerritories(fandomId: string) {
+  return {
+    items: createInitialDemoSession().territories.map((territory) => ({
+      id: territory.id,
+      nameKo: territory.name.ko,
+      nameEn: territory.name.en,
+      latitude: territory.centroid.latitude,
+      longitude: territory.centroid.longitude,
+      populationDecline: territory.populationDecline,
+      balanceMultiplier: territory.balanceMultiplier,
+      balanceReasonKo: territory.balanceReason.ko,
+      balanceReasonEn: territory.balanceReason.en,
+      ownerFandomId: fandomId,
+      strongholdStage: territory.strongholdStage,
+      standings: [{
+        fandomId,
+        fandomName: "ARMY",
+        artistName: "방탄소년단",
+        validPoints: territory.standings.find((standing) => standing.artistId === "bts")?.validPoints ?? 0,
+      }],
+    })),
+  };
+}
+
 beforeEach(() => {
   window.localStorage.clear();
   skipTutorial();
@@ -421,6 +445,12 @@ it("renders the modern UI and restores account state after durable membership is
         headers: { "content-type": "application/json" },
       });
     }
+    if (url.endsWith("/api/v1/territories")) {
+      return new Response(JSON.stringify(integratedTerritories(fandomId)), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
     throw new Error(`Unexpected integrated request: ${url}`);
   });
   vi.stubGlobal("fetch", fetcher);
@@ -458,6 +488,12 @@ it("lets a signed-in integrated visitor sign out through the real session route"
     }
     if (url.endsWith("/api/v1/me/game-state")) {
       return new Response(JSON.stringify({ state: remoteState }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (url.endsWith("/api/v1/territories")) {
+      return new Response(JSON.stringify(integratedTerritories(fandomId)), {
         status: 200,
         headers: { "content-type": "application/json" },
       });

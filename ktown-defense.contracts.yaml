@@ -20,6 +20,15 @@ common_types:
   accuracy_m: {type: number, minimum: 0, maximum: 1000}
   utc_timestamp: {format: RFC3339, offset: Z}
 
+read_api_contracts:
+  - route: GET /api/v1/territories
+    source_of_truth: approved check-in submissions joined to current-season membership
+    response:
+      items:
+        type: array
+        item_fields: [id, nameKo, nameEn, latitude, longitude, populationDecline, balanceMultiplier, balanceReasonKo, balanceReasonEn, ownerFandomId, strongholdStage, standings]
+    semantic_rules: [현재 시즌 제출만 집계, approved 점수만 집계, 동점은 fandom UUID 오름차순으로 결정]
+
 write_api_contracts:
   - route: PUT /api/v1/me/season-membership
     body:

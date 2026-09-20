@@ -30,6 +30,7 @@ import { MembershipGate } from "@/components/membership/membership-gate";
 import type { AppServices, CheckInService } from "@/lib/domain";
 import type { MapConfig } from "@/lib/map-config";
 import { createServices, type ServiceMode } from "@/lib/service-factory";
+import { mapTerritorySnapshots } from "@/lib/adapters/territory";
 
 function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", onChangeFandom }: {
   services: AppServices;
@@ -128,6 +129,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   useBodyScrollLock(leavingArtistId !== null);
 
   if (!session.hydrated) return <p role="status">{t(session.state.locale, "loading")}</p>;
+  if (session.territoryError) return <main className="membership-gate"><section className="membership-card"><h1>영토 정보를 불러오지 못했어요</h1><button onClick={() => window.location.reload()}>다시 시도</button></section></main>;
 
   return (
     <>
@@ -357,6 +359,9 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
 export function KTownApp({ mode, mapConfig }: { mode: ServiceMode; mapConfig: MapConfig | null }) {
   const services = useMemo(() => createServices(mode), [mode]);
   const remoteStore = useMemo(() => createRemoteDemoSessionStore(), []);
+  const territoryLoader = useMemo(() => mode === "integrated"
+    ? async () => mapTerritorySnapshots(await services.territories.list())
+    : undefined, [mode, services]);
 
   if (mode === "demo") {
     return <DemoSessionProvider><DemoProduct services={services} mapConfig={mapConfig} /></DemoSessionProvider>;
@@ -365,7 +370,7 @@ export function KTownApp({ mode, mapConfig }: { mode: ServiceMode; mapConfig: Ma
   return (
     <MembershipProvider service={services.membership}>
       <MembershipGate>
-        <DemoSessionProvider remote={remoteStore}>
+        <DemoSessionProvider remote={remoteStore} loadTerritories={territoryLoader}>
           <IntegratedModernProduct services={services} mapConfig={mapConfig} />
         </DemoSessionProvider>
       </MembershipGate>

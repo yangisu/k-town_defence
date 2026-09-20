@@ -186,13 +186,11 @@ async def related_attractions(
     )
     if place is None:
         raise ApiError(404, "PLACE_NOT_FOUND", "관광지를 찾을 수 없습니다.")
-    base_ym = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y%m")
     service: RelatedAttractionService = request.app.state.related_attraction_service
     items: tuple[RelatedAttraction, ...] = await service.get_for_place(
         place_id=place.id,
         name_ko=place.name_ko,
         region_code=place.region_code,
-        base_ym=base_ym,
     )
     return RelatedAttractionsResponse(
         place_id=place_id,

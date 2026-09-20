@@ -65,6 +65,28 @@ def test_search_related_accepts_empty_items() -> None:
     ) == ()
 
 
+def test_list_area_related_uses_tar_related_five_digit_sigungu_code() -> None:
+    urls: list[str] = []
+
+    def transport(url: str, timeout: float) -> bytes:
+        urls.append(url)
+        return response([{
+            "tAtsNm": "중심 관광지",
+            "rlteTatsCd": "related-code",
+            "rlteTatsNm": "연관 관광지",
+            "rlteRank": "1",
+        }])
+
+    records = KTourRelatedClient(service_key="service-key", transport=transport).list_area_related(
+        area_code="26", sigungu_code="26380", base_ym="202504", limit=5
+    )
+
+    assert records[0].source_name == "중심 관광지"
+    params = parse_qs(urlparse(urls[0]).query)
+    assert urlparse(urls[0]).path.endswith("/TarRlteTarService1/areaBasedList1")
+    assert params["signguCd"] == ["26380"]
+
+
 def test_area_code_mapping_is_separate_from_internal_region_code() -> None:
     assert KTourRelatedClient.area_code_for_region("6") == "26"
 

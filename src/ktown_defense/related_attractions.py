@@ -15,8 +15,8 @@ from .ktour_related import KTourRelatedClient, RelatedAttractionRecord
 logger = logging.getLogger(__name__)
 
 RELATED_ANCHORS = {
-    "부산아시아드주경기장": {"area_code": "26", "sigungu_code": "13"},
-    "감천문화마을": {"area_code": "26", "sigungu_code": "10"},
+    "부산아시아드주경기장": {"area_code": "26", "sigungu_code": "26470"},
+    "감천문화마을": {"area_code": "26", "sigungu_code": "26380"},
 }
 
 
@@ -39,6 +39,7 @@ class RelatedAttractionService:
         self,
         *,
         service_key: str | None,
+        base_ym: str = "202504",
         ttl_seconds: int = 300,
         max_cache_entries: int = 256,
         client_factory: Callable[[str], KTourRelatedClient] | None = None,
@@ -46,6 +47,8 @@ class RelatedAttractionService:
     ) -> None:
         if ttl_seconds <= 0 or max_cache_entries <= 0:
             raise ValueError("related attraction cache settings must be positive")
+        if not base_ym.isdigit() or len(base_ym) != 6:
+            raise ValueError("related attraction base_ym must use YYYYMM format")
         self._client = (
             (client_factory or self._default_client)(service_key)
             if service_key and service_key.strip()
@@ -53,6 +56,7 @@ class RelatedAttractionService:
         )
         self._ttl = timedelta(seconds=ttl_seconds)
         self._max_cache_entries = max_cache_entries
+        self._base_ym = base_ym
         self._cache: OrderedDict[tuple[UUID, str], _CacheEntry] = OrderedDict()
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
@@ -61,13 +65,14 @@ class RelatedAttractionService:
         return KTourRelatedClient(service_key=service_key)
 
     async def get_for_place(
-        self, *, place_id: UUID, name_ko: str, region_code: str, base_ym: str
+        self, *, place_id: UUID, name_ko: str, region_code: str, base_ym: str | None = None
     ) -> tuple[RelatedAttraction, ...]:
         anchor = RELATED_ANCHORS.get(name_ko.strip())
         if self._client is None or anchor is None:
             return ()
 
-        cache_key = (place_id, base_ym)
+        requested_base_ym = base_ym or self._base_ym
+        cache_key = (place_id, requested_base_ym)
         now = self._clock()
         entry = self._cache.get(cache_key)
         if entry is not None:
@@ -81,7 +86,7 @@ class RelatedAttractionService:
                 keyword=name_ko,
                 area_code=anchor["area_code"],
                 sigungu_code=anchor["sigungu_code"],
-                base_ym=base_ym,
+                base_ym=requested_base_ym,
             )
             value = tuple(_to_attraction(record) for record in records[:5])
         except Exception:

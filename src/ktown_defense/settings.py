@@ -21,6 +21,10 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="KTOUR_SERVICE_KEY",
     )
+    ktour_related_base_ym: str = Field(
+        default="202504",
+        validation_alias="KTOUR_RELATED_BASE_YM",
+    )
     gateway_shared_secret: SecretStr | None = Field(
         default=None,
         validation_alias="KTOWN_GATEWAY_SECRET",

@@ -41,7 +41,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             runtime_settings.ktour_service_key.get_secret_value()
             if runtime_settings.ktour_service_key is not None
             else None
-        )
+        ),
+        base_ym=runtime_settings.ktour_related_base_ym,
     )
     install_error_handlers(app)
 

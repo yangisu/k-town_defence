@@ -69,6 +69,37 @@ class KTourRelatedClient(KTourOpenAPIClient):
             records.append(self._to_record(item, default_base_ym=base_ym))
         return tuple(records)
 
+    def list_area_related(
+        self,
+        *,
+        area_code: str,
+        sigungu_code: str,
+        base_ym: str,
+        limit: int = 100,
+    ) -> tuple[RelatedAttractionRecord, ...]:
+        """List the dataset's center-attraction rows for a TarRlte region."""
+        if not area_code.strip() or not sigungu_code.strip():
+            raise ValueError("area_code and sigungu_code are required")
+        if not base_ym.isdigit() or len(base_ym) != 6:
+            raise ValueError("base_ym must use YYYYMM format")
+        if limit < 1 or limit > 1000:
+            raise ValueError("limit must be between 1 and 1000")
+
+        body = self._request(
+            "areaBasedList1",
+            {
+                "areaCd": area_code.strip(),
+                "signguCd": sigungu_code.strip(),
+                "baseYm": base_ym,
+                "numOfRows": limit,
+                "pageNo": 1,
+            },
+        )
+        return tuple(
+            self._to_record(item, default_base_ym=base_ym)
+            for item in self._items(body)
+        )
+
     @classmethod
     def area_code_for_region(cls, region_code: str) -> str:
         try:

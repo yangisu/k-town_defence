@@ -518,7 +518,7 @@ it("tells the fandom's own tie to the region it is a tie to", async () => {
 
   const panel = await screen.findByRole("complementary", { name: "군포 전술 패널" });
   expect(within(panel).getByText(/지역 연결 스토리 · 지수/)).toBeVisible();
-  expect(within(panel).getByText("공식 관광 출처 기반 공공 원정 · 아티스트 직접 연관 없음")).toBeVisible();
+  expect(within(panel).getByText("공식 관광 출처 기반 공공 원정")).toBeVisible();
 
   // The source is a corner link now, not a disclosure.
   const source = within(panel).getByRole("link", { name: "출처 확인" });
@@ -539,7 +539,7 @@ it("labels a public route without borrowing the artist connection story", async 
 
   const panel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
   expect(within(panel).getByText("지역의 공공 관광 코스")).toBeVisible();
-  expect(within(panel).getByText("공식 관광 출처 기반 공공 원정 · 아티스트 직접 연관 없음")).toBeVisible();
+  expect(within(panel).getByText("공식 관광 출처 기반 공공 원정")).toBeVisible();
   expect(within(panel).queryByText(/지역 연결 스토리/)).not.toBeInTheDocument();
 });
 

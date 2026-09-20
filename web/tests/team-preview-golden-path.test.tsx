@@ -61,8 +61,10 @@ it("completes the personalized BTS territory journey and persists its profile an
   view = render(<KTownApp mode="demo" mapConfig={null} />);
 
   expect(await screen.findByRole("heading", { name: "광주 지역 원정" })).toBeVisible();
-  expect(screen.getByText("지역의 공공 관광 코스")).toBeVisible();
-  expect(screen.getByText(/아티스트 직접 연관 없음/)).toBeVisible();
+  // Gwangju is a region ARMY is tied to, so the expedition page carries that
+  // tie as well, with the public-route note beneath it.
+  expect(screen.getByText("지역 연결 스토리")).toBeVisible();
+  expect(screen.getByText(/공식 관광 출처 기반 공공 원정/)).toBeVisible();
   expect(screen.queryByText("아티스트 연관 장소 중심")).not.toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "원정 종료" }));
@@ -301,8 +303,9 @@ it("tells Gwangju's connection story while keeping it on Gwangju's public route"
   render(<KTownApp mode="demo" mapConfig={null} />);
 
   expect(await screen.findByRole("heading", { name: "광주 지역 원정" })).toBeVisible();
-  expect(screen.getByText("지역의 공공 관광 코스")).toBeVisible();
-  expect(screen.getByText(/아티스트 직접 연관 없음/)).toBeVisible();
+  expect(screen.getByText("지역 연결 스토리")).toBeVisible();
+  expect(screen.getByRole("heading", { name: "제이홉 · 광주" })).toBeVisible();
+  expect(screen.getByText(/공식 관광 출처 기반 공공 원정/)).toBeVisible();
 
   await user.click(screen.getByRole("button", { name: "원정 종료" }));
   await user.click(within(await screen.findByRole("dialog", { name: "원정을 종료할까요?" }))

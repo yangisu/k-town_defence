@@ -100,13 +100,13 @@ it.each([
     "ko",
     ["ARMY", "현재 소유", "지역 연결 스토리 · 제이홉"],
     "광주 지역 원정",
-    "지역의 공공 관광 코스",
+    "공식 관광 출처 기반 공공 원정",
   ],
   [
     "en",
     ["ARMY", "Current owner", "Regional connection story · j-hope"],
     "Gwangju regional expedition",
-    "Public tourism route in this region",
+    "Public route from official tourism sources",
   ],
 ] as const)("separates %s identity, ownership, story, and fallback evidence roles", async (locale, roles, title, disclosure) => {
   const user = userEvent.setup();

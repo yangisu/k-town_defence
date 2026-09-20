@@ -48,8 +48,9 @@ const copy = {
     tree: "나무",
     landmark: "랜드마크",
     missing: "선택한 원정을 찾지 못했어요.",
-    publicRoute: "공식 관광 출처 기반 공공 원정 · 아티스트 직접 연관 없음",
+    publicRoute: "공식 관광 출처 기반 공공 원정",
     artistLinked: "아티스트 연관 장소 중심",
+    regionalStory: "지역 연결 스토리",
     regionalSupport: "지역의 공공 관광 코스",
     noDirectPlace: "검증된 아티스트 직접 연관 장소가 없어 지역의 공공 관광지만 안내합니다.",
   },
@@ -85,8 +86,9 @@ const copy = {
     tree: "Tree",
     landmark: "Landmark",
     missing: "The selected expedition could not be found.",
-    publicRoute: "Public route from official tourism sources · no direct artist link",
+    publicRoute: "Public route from official tourism sources",
     artistLinked: "Artist-linked places first",
+    regionalStory: "Regional connection story",
     regionalSupport: "Public tourism route in this region",
     noDirectPlace: "No verified direct artist destination is available; this route includes regional public attractions only.",
   },
@@ -183,6 +185,11 @@ export function PreviewExpeditionView({
     && (candidate.artistId === null || candidate.artistId === session.state.selectedArtistId)
   )) ?? null;
   const connection = previewContent.connections.find((candidate) => candidate.id === expedition?.connectionId) ?? null;
+  // A public route through a region the reader's fandom is tied to still has
+  // that tie to tell. The map panel says so; this page used to stay silent.
+  const regionalConnection = connection ?? previewContent.connections.find((candidate) => (
+    candidate.artistId === session.state.selectedArtistId && candidate.territoryId === expedition?.territoryId
+  )) ?? null;
   const territory = session.state.territories.find((candidate) => candidate.id === expedition?.territoryId) ?? null;
   const places = expedition?.stopIds
     .map((id) => previewContent.places.find((candidate) => candidate.id === id))
@@ -268,14 +275,17 @@ export function PreviewExpeditionView({
       </section>
 
       <section className="tactical-connection preview-expedition-connection">
-        {connection ? (
+        {regionalConnection ? (
           <>
-            <strong>{labels.artistLinked}</strong>
-            <h2>{connection.memberName[locale]} · {territory.name[locale]}</h2>
-            <p>{connection.story[locale]}</p>
+            {/* An artist-linked route leads with the route's own framing; a
+                public route through a connected region leads with the tie. */}
+            <strong>{connection ? labels.artistLinked : labels.regionalStory}</strong>
+            <h2>{regionalConnection.memberName[locale]} · {territory.name[locale]}</h2>
+            <p>{regionalConnection.story[locale]}</p>
+            {connection ? null : <p className="tactical-route-note">{labels.publicRoute}</p>}
             <details className="tactical-evidence">
               <summary>{labels.evidenceDisclosure}</summary>
-              <a href={connection.sourceUrls[0]} target="_blank" rel="noreferrer">{labels.evidenceSource}</a>
+              <a href={regionalConnection.sourceUrls[0]} target="_blank" rel="noreferrer">{labels.evidenceSource}</a>
             </details>
           </>
         ) : (

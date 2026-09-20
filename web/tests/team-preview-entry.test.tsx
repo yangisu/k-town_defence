@@ -341,7 +341,9 @@ it("switches artists without carrying the previous artist's expedition route", a
   await user.click(screen.getByRole("button", { name: "영토 지도로" }));
   await user.click(within(screen.getByRole("complementary", { name: /(전술 패널|tactical panel)$/ })).getByRole("button", { name: "원정 시작" }));
   expect(await screen.findByRole("heading", { name: "수원 지역 원정" })).toBeVisible();
-  expect(screen.getByText("지역의 공공 관광 코스")).toBeVisible();
+  // Whether or not the new fandom is tied to Suwon, the note is what marks
+  // this route as the region's public one.
+  expect(screen.getByText("공식 관광 출처 기반 공공 원정")).toBeVisible();
 });
 
 it("synchronizes the root document language for persisted and runtime locale changes", async () => {

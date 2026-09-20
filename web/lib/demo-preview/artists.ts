@@ -114,7 +114,7 @@ const documentedConnections: ConnectionSeed[] = [
       en: "RESCENE were named Suwon ambassadors on the strength of RIIV's ties there, promoting the Visit Suwon year and the Hwaseong Festival.",
     },
     sourceUrls: [
-      "https://www.suwon.go.kr/web/board/BD_board.view.do?bbsCd=1043&seq=20260624100424916",
+      "https://www.suwon.go.kr/web/board/BD_board.view.do?bbsCd=1043&delDesc=&pageType=&q_ctgCd=&q_currPage=1&q_rowPerPage=10&q_searchKey=&q_searchKeyType=TITLE___1002&q_searchVal=%EB%A6%AC%EC%84%BC%EB%8A%90&q_sortName=&q_sortOrder=&seq=20260624100424916&showSummaryYn=N",
       "https://news.suwon.go.kr/_Ext/news/viewPrint.php?reqIdx=202606241007287463",
       "https://www.koreajoongangdaily.com/entertainment/girl-group-rescene-to-frame-suwon-as-destination-city-as-ambassadors/12738541",
       "https://www.newspim.com/news/view/20260906000068",
@@ -179,7 +179,7 @@ const documentedConnections: ConnectionSeed[] = [
       ko: "수원가요제 대상 수상자로 이창섭을 기록한 수원시 인터넷신문 자료입니다.",
       en: "Suwon's city paper records Lee Changsub as a grand-prize winner of the Suwon song festival.",
     },
-    sourceUrls: ["https://news.suwon.go.kr/?mode=blog&reqIdx=121237389894085433&viewMode=view"],
+    sourceUrls: ["https://news.suwon.go.kr/?mode=blog&p=41&page=461&reqIdx=121237389894085433&viewMode=view"],
   },
   {
     id: "btob-yongin-eunkwang-sungjae", artistId: "btob", territoryId: "yongin",
@@ -190,15 +190,10 @@ const documentedConnections: ConnectionSeed[] = [
     },
     sourceUrls: ["https://enews.imbc.com/News/RetrieveNewsInfo/499610"],
   },
-  {
-    id: "ive-daejeon-anyujin", artistId: "ive", territoryId: "daejeon",
-    memberName: { ko: "안유진", en: "AN YUJIN" }, relationType: "official_activity",
-    story: {
-      ko: "안유진과 대전의 지역 연고를 다룬 보도입니다.",
-      en: "Reporting on AN YUJIN's connection with Daejeon.",
-    },
-    sourceUrls: ["https://www.yna.co.kr/view/AKR20241108137300063"],
-  },
+  // IVE and Daejeon is deliberately absent. The article offered for it is
+  // about a Daejeon fire-service officer who happens to share AN YUJIN's name,
+  // and its own headline says "not Daejeon's daughter" — it is a namesake
+  // story, not a regional tie, so there is nothing here to claim.
   {
     id: "ive-incheon-gaeul", artistId: "ive", territoryId: "incheon",
     memberName: { ko: "가을", en: "GAEUL" }, relationType: "hometown",
@@ -215,7 +210,7 @@ const documentedConnections: ConnectionSeed[] = [
       ko: "서울시가 KiiiKiii를 '서울색' 홍보대사로 위촉한 공식 자료입니다.",
       en: "Seoul's own record of appointing KiiiKiii as ambassadors for its city colour campaign.",
     },
-    sourceUrls: ["https://culture.seoul.go.kr/culture/bbs/B0000001/view.do?menuNo=200051&nttId=15681"],
+    sourceUrls: ["https://culture.seoul.go.kr/culture/bbs/B0000001/view.do?menuNo=200051&nttId=15681&pageIndex=1"],
   },
   {
     id: "riize-ulsan-wonbin", artistId: "riize", territoryId: "ulsan",
@@ -278,7 +273,7 @@ const documentedConnections: ConnectionSeed[] = [
       ko: "윈터가 2024 부산세계탁구선수권대회 홍보대사와 공식 주제가에 참여한 부산시 공식 자료입니다.",
       en: "Busan's own record of WINTER serving as an ambassador and singing the theme for the 2024 World Table Tennis Championships.",
     },
-    sourceUrls: ["https://www.busan.go.kr/nbtnewsBU/1580227"],
+    sourceUrls: ["https://www.busan.go.kr/nbtnewsBU/1580227?curPage=567&srchBeginDt=&srchEndDt=&srchKey=&srchText="],
   },
   {
     id: "aespa-suwon-karina", artistId: "aespa", territoryId: "suwon",

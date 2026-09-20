@@ -95,12 +95,22 @@ export function RecordView({
   // A badge belongs to the fandom, not to the member who happened to earn it:
   // a stage the fandom holds anywhere is a stage every member wears. The
   // "highest stage" tile above stays personal — that one is a record.
-  const fandomStageOrder = session.territories.reduce(
-    (highest, territory) => territory.ownerArtistId === session.selectedArtistId
-      ? Math.max(highest, stageOrder[territory.strongholdStage])
-      : highest,
-    -1,
-  );
+  // Where each badge came from: every territory, across every fandom on the
+  // roster, standing at that stage or above. A reader who follows three
+  // fandoms earned it three times over, and the record says so rather than
+  // crediting whichever one happens to be active.
+  const earnedAt = (stage: StrongholdStage) => session.territories
+    .filter((territory) => (
+      session.followedArtistIds.includes(territory.ownerArtistId)
+      && stageOrder[territory.strongholdStage] >= stageOrder[stage]
+    ))
+    .map((territory) => ({
+      key: `${territory.ownerArtistId}-${territory.id}`,
+      fandomName: previewContent.artists.find((candidate) => candidate.id === territory.ownerArtistId)?.fandomName
+        ?? territory.ownerArtistId,
+      color: previewContent.artists.find((candidate) => candidate.id === territory.ownerArtistId)?.color,
+      territoryName: territory.name[locale],
+    }));
   const followedArtists = session.followedArtistIds
     .map((artistId) => previewContent.artists.find((candidate) => candidate.id === artistId))
     .filter((candidate): candidate is (typeof previewContent.artists)[number] => candidate !== undefined);
@@ -213,7 +223,7 @@ export function RecordView({
         {growthInfoOpen ? <p className="record-growth-about" id="record-growth-about">{t(locale, "growthAbout")}</p> : null}
         <ol aria-label={t(locale, "recordGrowth")}>
           {stages.map((stage) => {
-            const unlocked = stageOrder[stage] <= fandomStageOrder;
+            const unlocked = earnedAt(stage).length > 0;
             return (
               <li key={stage} className={unlocked ? "unlocked" : "locked"}>
                 <StrongholdMark stage={stage} locale={locale} ownerColor={artist?.color} />
@@ -260,17 +270,26 @@ export function RecordView({
         <h2>{t(locale, "recordRewards")}</h2>
         <ul aria-label={t(locale, "recordRewards")}>
           {rewards.map(({ stage, label }) => {
-            const unlocked = stageOrder[stage] <= fandomStageOrder;
+            const sources = earnedAt(stage);
+            const unlocked = sources.length > 0;
             return (
               <li key={stage} className={unlocked ? "unlocked" : "locked"}>
                 <StageBadge stage={stage} locale={locale} unlocked={unlocked} ownerColor={artist?.color} />
-                {/* A badge belongs to a fandom, so it says which one earned it. */}
+                {/* A badge is earned in a place, by a fandom, so each way it
+                    was earned is its own tag rather than one summary line. */}
                 <span>
                   {t(locale, label)}
-                  {unlocked && artist ? (
-                    <small className="record-reward-fandom">
-                      {t(locale, "recordBadgeEarnedBy").replace("{fandom}", artist.fandomName)}
-                    </small>
+                  {sources.length > 0 ? (
+                    <span className="record-reward-sources">
+                      {sources.map((source) => (
+                        <small
+                          key={source.key}
+                          style={source.color ? { "--artist-color": source.color } as CSSProperties : undefined}
+                        >
+                          {source.fandomName} {source.territoryName}
+                        </small>
+                      ))}
+                    </span>
                   ) : null}
                 </span>
                 <span className={unlocked ? "record-state unlocked" : "record-state"}>

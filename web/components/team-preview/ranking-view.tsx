@@ -61,7 +61,12 @@ function FandomIdentity({ locale, artistId, fandomName }: { locale: Locale; arti
 }
 
 export function RankingView({ locale, fandoms, territories, selectedArtistId, onInspectTerritory }: Props) {
-  const [openFandomId, setOpenFandomId] = useState<ArtistId | null>(null);
+  // Opening one board does not close another: a reader comparing two fandoms
+  // wants both of them open at once.
+  const [openFandomIds, setOpenFandomIds] = useState<readonly ArtistId[]>([]);
+  const toggleFandom = (artistId: ArtistId) => setOpenFandomIds((current) => (
+    current.includes(artistId) ? current.filter((id) => id !== artistId) : [...current, artistId]
+  ));
   // Both lists are long, and on a phone they push each other off the screen.
   // The toggle only shows there; on a wide layout they sit side by side and
   // never need folding, so the class it sets does nothing.
@@ -181,7 +186,7 @@ export function RankingView({ locale, fandoms, territories, selectedArtistId, on
             {ranked.map((row) => {
               const artist = artistFor(row.artistId);
               const isSelected = row.artistId === selectedArtistId;
-              const open = openFandomId === row.artistId;
+              const open = openFandomIds.includes(row.artistId);
               const held = territories.filter((territory) => territory.ownerArtistId === row.artistId);
               return (
                 <li key={row.artistId} className={isSelected ? "selected" : undefined} aria-current={isSelected ? "true" : undefined} style={{ "--artist-color": artist?.color ?? "var(--purple)" } as CSSProperties}>
@@ -193,7 +198,7 @@ export function RankingView({ locale, fandoms, territories, selectedArtistId, on
                     className="ranking-row-open"
                     aria-expanded={open}
                     aria-label={t(locale, "rankingShowTerritories").replace("{fandom}", row.fandomName)}
-                    onClick={() => setOpenFandomId(open ? null : row.artistId)}
+                    onClick={() => toggleFandom(row.artistId)}
                   >
                     <span className="ranking-row-rank">#{row.rank}</span>
                     <span className="ranking-row-identity">
@@ -210,7 +215,6 @@ export function RankingView({ locale, fandoms, territories, selectedArtistId, on
                     <span className="ranking-row-strongholds">
                       {t(locale, "rankingStrongholds")} {row.strongholds}{t(locale, "rankingStrongholdUnit")}
                     </span>
-                    <ChevronRight className="ranking-row-caret" size={16} strokeWidth={2.6} aria-hidden="true" />
                   </button>
                   {open ? (
                     <div className="ranking-row-held">

@@ -56,43 +56,10 @@ const strongholdRadiusExpression: ExpressionSpecification = ["match", ["get", "s
 const markerLabels = Object.fromEntries(previewContent.artists.map((artist) => [artist.id, artist.markerLabel]));
 
 /**
- * The data's centroid is a representative point, not the middle of the shape
- * that gets drawn, so markers drifted off their territory. Take the centre of
- * the largest ring's bounding box instead, which sits under the body of the
- * shape a reader sees.
+ * The map is about one country, so the base style keeps only its sea: every
+ * land, border and label it ships with is hidden, and Korea is drawn from our
+ * own data on top. Nothing else competes for the reader's eye.
  */
-/**
- * The base map is scenery, not the subject. Its borders and labels go, since
- * the only lines worth reading are the territories this product draws, but
- * its colours stay — a blue sea reads better than a grey one — but washed
- * far towards white, so the country this game is played in leads.
- */
-function softenHex(hex: string, towardsWhite = 0.5) {
-  const value = hex.trim().replace("#", "");
-  const full = value.length === 3 ? value.split("").map((part) => part + part).join("") : value;
-  if (full.length !== 6 || /[^0-9a-f]/i.test(full)) return null;
-  const channels = [0, 2, 4].map((offset) => Number.parseInt(full.slice(offset, offset + 2), 16));
-  const mixed = channels.map((channel) => Math.round(channel + (255 - channel) * towardsWhite));
-  return `#${mixed.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
-}
-
-/** A style may hand its colours over as a bare hex or buried in an
- *  expression — a country palette keyed off a property, say — so walk it. */
-function softenPaintValue(value: unknown): unknown {
-  if (typeof value === "string") return softenHex(value) ?? undefined;
-  if (Array.isArray(value)) {
-    let changed = false;
-    const walked = value.map((item) => {
-      const next = softenPaintValue(item);
-      if (next === undefined) return item;
-      changed = true;
-      return next;
-    });
-    return changed ? walked : undefined;
-  }
-  return undefined;
-}
-
 function neutraliseBaseMap(map: MapLibreMap) {
   if (typeof map.getStyle !== "function") return;
   const style = map.getStyle();
@@ -100,23 +67,29 @@ function neutraliseBaseMap(map: MapLibreMap) {
     if (layer.id.startsWith("preview-") || layer.id.startsWith("my-location")) continue;
     if (typeof map.setPaintProperty !== "function" || typeof map.setLayoutProperty !== "function") return;
     try {
-      if (layer.type === "line" || layer.type === "symbol") {
-        // Country borders and place labels belong to the scenery.
-        map.setLayoutProperty(layer.id, "visibility", "none");
+      if (layer.type === "background") {
+        map.setPaintProperty(layer.id, "background-color", "#e9f2fa");
         continue;
       }
-      const property = layer.type === "background" ? "background-color" : layer.type === "fill" ? "fill-color" : null;
-      if (!property) continue;
-      const current = map.getPaintProperty(layer.id, property);
-      const softened = softenPaintValue(current);
-      // A paint value is whatever the style put there; MapLibre validates it.
-      if (softened !== undefined) map.setPaintProperty(layer.id, property, softened as never);
+      const id = layer.id.toLowerCase();
+      const sea = id.includes("water") || id.includes("ocean") || id.includes("sea");
+      if (layer.type === "fill" && sea) {
+        map.setPaintProperty(layer.id, "fill-color", "#e9f2fa");
+        continue;
+      }
+      map.setLayoutProperty(layer.id, "visibility", "none");
     } catch {
-      // A style may not accept every property; the rest still softens.
+      // A style may not accept every property; the rest still clears.
     }
   }
 }
 
+/**
+ * The data's centroid is a representative point, not the middle of the shape
+ * that gets drawn, so markers drifted off their territory. Take the centre of
+ * the largest ring's bounding box instead, which sits under the body of the
+ * shape a reader sees.
+ */
 function shapeCentres(collection: { features: unknown[] }) {
   const centres = new Map<string, { longitude: number; latitude: number }>();
   for (const feature of collection.features) {
@@ -227,8 +200,8 @@ function filterOpacityExpression(territories: readonly PreviewTerritory[], selec
   return [
     "match",
     ["id"],
-    ...territories.flatMap((territory) => [territory.id, territory.ownerArtistId === selectedArtistId ? 0.62 : 0.3]),
-    0.1,
+    ...territories.flatMap((territory) => [territory.id, territory.ownerArtistId === selectedArtistId ? 0.74 : 0.46]),
+    0.18,
   ] as ExpressionSpecification;
 }
 
@@ -385,7 +358,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         id: "preview-nation-fill",
         type: "fill",
         source: nationSourceId,
-        paint: { "fill-color": "#f2edff", "fill-opacity": 1 },
+        paint: { "fill-color": "#efe9ff", "fill-opacity": 1 },
       });
       map.addLayer({
         id: "preview-nation-edge",
@@ -423,9 +396,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         // A filter key set to undefined makes MapLibre reject the whole layer, so
         // spread it in only when the page is not already listing the territories.
         ...(usesListedTerritories ? {} : { filter: visibleLayerFilters(sessionRef.current.territories).boundaries }),
-        // Every border needs separating, but quietly: white is reserved for
-        // the reader's own territories.
-        paint: { "line-color": "#16231d", "line-width": 0.6, "line-opacity": 0.22 },
+        paint: { "line-color": "#fffef9", "line-width": 1.4 },
       });
       map.addLayer({
         id: "preview-selected-fandom-outline",

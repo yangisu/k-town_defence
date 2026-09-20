@@ -672,10 +672,10 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
     .at(-1)?.[2];
   // Ours is laid on thickly, everyone else's stays background.
   expect(allOpacity).toEqual(expect.arrayContaining([
-    "busan", 0.62,
-    "daegu", 0.62,
-    "yeongwol", 0.62,
-    "gwangju", 0.3,
+    "busan", 0.74,
+    "daegu", 0.74,
+    "yeongwol", 0.74,
+    "gwangju", 0.46,
   ]));
 
   const initialInnerWidth = window.innerWidth;

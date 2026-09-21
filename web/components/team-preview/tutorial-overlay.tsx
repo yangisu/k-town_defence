@@ -259,7 +259,25 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
     };
     window.addEventListener("resize", restart);
     window.addEventListener("scroll", restart, true);
+    // A card can change size with nothing scrolling and the window untouched —
+    // the list reflowing as the page settles, a web font arriving — and the
+    // outline used to stay the old size around it. Watch the target itself,
+    // and the page, whose reflow moves the target without resizing it.
+    let sizeWatcher: ResizeObserver | null = null;
+    let watchFrame = 0;
+    if (typeof ResizeObserver !== "undefined") {
+      sizeWatcher = new ResizeObserver(restart);
+      sizeWatcher.observe(document.body);
+      const watchTarget = () => {
+        const element = document.querySelector<HTMLElement>(`[data-guide="${step.target}"]`);
+        if (element) sizeWatcher?.observe(element);
+        else if (step.target) watchFrame = window.requestAnimationFrame(watchTarget);
+      };
+      watchFrame = window.requestAnimationFrame(watchTarget);
+    }
     return () => {
+      sizeWatcher?.disconnect();
+      window.cancelAnimationFrame(watchFrame);
       window.clearTimeout(openTimer);
       window.cancelAnimationFrame(settleFrame);
       window.cancelAnimationFrame(frame);

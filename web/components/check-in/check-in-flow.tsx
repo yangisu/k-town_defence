@@ -8,6 +8,7 @@ import type { Locale } from "@/features/team-preview/types";
 import { Camera, Check, Footprints, LocateFixed, Shield, X } from "@/components/ui/icons";
 import { checkInReducer, createInitialCheckInState, deriveCheckInProgress } from "./check-in-reducer";
 import { StateMessage } from "@/components/ui/state-message";
+import { randomId } from "@/lib/random-id";
 import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { ShareSheet } from "@/components/share/share-sheet";
@@ -76,7 +77,7 @@ export function CheckInFlow({
   onApproved,
   onClose,
 }: Props) {
-  const [idempotencyKey] = useState(() => globalThis.crypto.randomUUID());
+  const [idempotencyKey] = useState(() => randomId());
   const [state, dispatch] = useReducer(
     checkInReducer,
     createInitialCheckInState(`pending-${place.id}`, place.id, idempotencyKey, mode),

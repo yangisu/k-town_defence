@@ -339,6 +339,18 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
   const room = Math.floor(placement === "center" ? viewportHeight - margin * 2 : (placement === "bottom" ? below : above) - gap);
   const cardMaxHeight = placement === "center" ? undefined : Math.max(176, room);
 
+  // Across as well as up and down. On a phone the card already spans the
+  // screen, but a desktop left it stranded in the middle while the outline sat
+  // far off to one side. The card now lines up under (or over) its target and
+  // stops at the edges. This is the centre point; CSS shifts it back by half.
+  const cardWidth = Math.min(viewportWidth - margin * 2, 460);
+  const cardCentre = !spotlight || placement === "center"
+    ? viewportWidth / 2
+    : Math.min(
+      Math.max(spotlight.left + spotlight.width / 2, margin + cardWidth / 2),
+      viewportWidth - margin - cardWidth / 2,
+    );
+
   // Everything outside the spotlight is sealed off, so the only thing the
   // reader can press is the thing the step is pointing at. Without this the
   // page stayed live under the guide and a stray tap took them somewhere the
@@ -403,7 +415,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
         aria-modal="true"
         aria-labelledby="tutorial-title"
         ref={dialogRef}
-        style={cardMaxHeight === undefined ? { top: cardTop } : { top: cardTop, maxHeight: cardMaxHeight }}
+        style={cardMaxHeight === undefined ? { top: cardTop, left: cardCentre } : { top: cardTop, left: cardCentre, maxHeight: cardMaxHeight }}
         onClick={waiting ? undefined : advance}
       >
         <header>

@@ -186,25 +186,6 @@ it.each([
   });
 });
 
-it("uses the recommended action as map navigation", async () => {
-  const user = userEvent.setup();
-  renderPreviewWithArtist({ selectedArtistId: "rescene", selectedTerritoryId: "geoje" });
-
-  // The three cards beside it restated the list and filter below, so the one
-  // that says what to do next is all that is left — and pressing it frames
-  // that territory on the map.
-  const summary = await screen.findByRole("region", { name: "추천 행동" });
-  const action = within(summary).getByRole("button");
-  expect(within(summary).getAllByRole("button")).toHaveLength(1);
-  expect(action).toHaveTextContent(/방어|탈환/);
-
-  await user.click(action);
-
-  const chosen = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!) as DemoSession;
-  await waitFor(() => expect(chosen.selectedTerritoryId).not.toBeNull());
-  expect(screen.getByRole("button", { name: new RegExp(`^${screen.getByRole("complementary", { name: /전술 패널$/ }).getAttribute("aria-label")!.replace(" 전술 패널", "")}`) }))
-    .toHaveAttribute("aria-pressed", "true");
-});
 
 it("names the region's own public route in English when there is no tie", async () => {
   renderPreviewWithArtist({ locale: "en", selectedTerritoryId: "yeongwol" });
@@ -219,22 +200,18 @@ it.each([
   [
     "ko",
     ["소유 영토", "접전 지역", "아티스트 연결", "전체"],
-    [["추천 행동", "방어 · 원주"]],
     "현재 소유",
     "전국 보기",
     "내 팬덤 관리",
-    "추천 행동",
   ],
   [
     "en",
     ["Owned territories", "Contested", "Artist connection", "All"],
-    [["Recommended action", "Defend · Wonju"]],
     "Current owner",
     "National view",
     "Manage my fandoms",
-    "Recommended action",
   ],
-] as const)("keeps every personalized summary value and filter order available in %s", async (locale, filterLabels, summaryPairs, owner, nationalView, changeArtist, summary) => {
+] as const)("keeps every personalized value and filter order available in %s", async (locale, filterLabels, owner, nationalView, changeArtist) => {
   const user = userEvent.setup();
   renderPreviewWithArtist({ locale: locale as "ko" | "en", selectedArtistId: "boynextdoor", selectedTerritoryId: "gwangju" });
 
@@ -245,11 +222,6 @@ it.each([
     .filter((button) => filterLabels.includes(button.textContent as typeof filterLabels[number]));
   expect(filters.map((button) => button.textContent)).toEqual(filterLabels);
   expect(filters[0]).toHaveAttribute("aria-pressed", "true");
-  const summaryRegion = screen.getByRole("region", { name: summary });
-  expect(within(summaryRegion).getAllByRole("button").map((button) => [
-    button.querySelector("span")?.textContent,
-    button.querySelector("strong")?.textContent,
-  ])).toEqual(summaryPairs);
   const territoryListLabel = locale === "ko" ? "지도와 같은 영토 목록" : "Map-equivalent territory list";
   // The card names the fandom; "current owner" was a label saying what the
   // position of the name already says.
@@ -459,14 +431,6 @@ it("keeps the filters in the map action row and the camera reset out of it witho
   expect(within(list).getAllByRole("button")).toHaveLength(23);
 });
 
-it("renders the recommended action above the map", async () => {
-  renderPreviewWithArtist();
-
-  const summary = await screen.findByRole("region", { name: "추천 행동" });
-  const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
-  // The action heads the page, with the map block underneath it.
-  expect(summary.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-});
 
 it("puts the territory list behind a toggle once it runs long", async () => {
   const user = userEvent.setup();
@@ -516,17 +480,6 @@ it("offers the filters as a select as well as the tag row", async () => {
   expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getAllByRole("button")).toHaveLength(23);
 });
 
-it("brings the map into view when the recommended action is used", async () => {
-  const user = userEvent.setup();
-  const scrollIntoView = vi.fn();
-  Element.prototype.scrollIntoView = scrollIntoView;
-  renderPreviewWithArtist();
-
-  await user.click(within(await screen.findByRole("region", { name: "추천 행동" }))
-    .getAllByRole("button")[0]);
-
-  expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
-});
 
 it("tells the fandom's own tie to the region it is a tie to", async () => {
   // BLINK has no artist-linked route anywhere, but Gunpo is JISOO's birthplace

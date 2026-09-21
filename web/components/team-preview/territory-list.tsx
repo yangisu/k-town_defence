@@ -24,7 +24,7 @@ export function TerritoryList({ id, collapsed = false, territories, locale, sele
       className={collapsed ? "preview-territory-list collapsed" : "preview-territory-list"}
       aria-label={locale === "ko" ? "지도와 같은 영토 목록" : "Map-equivalent territory list"}
     >
-      {territories.map((territory) => {
+      {territories.map((territory, territoryIndex) => {
         const owner = territory.standings.find((standing) => standing.artistId === territory.ownerArtistId);
         const ownerColor = previewContent.artists.find((artist) => artist.id === territory.ownerArtistId)?.color ?? "#7559ff";
         const selected = territory.standings.find((standing) => standing.artistId === selectedArtistId);
@@ -37,6 +37,7 @@ export function TerritoryList({ id, collapsed = false, territories, locale, sele
         <li key={territory.id} style={{ "--owner-color": ownerColor } as CSSProperties}>
           <button
             type="button"
+            {...(territoryIndex === 0 ? { "data-guide": "territory-card-first" } : {})}
             aria-pressed={selectedTerritoryId === territory.id}
             onClick={() => onSelectTerritory(territory.id)}
           >

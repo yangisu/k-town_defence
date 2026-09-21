@@ -31,7 +31,6 @@ async function advance(user: ReturnType<typeof userEvent.setup>) {
 async function reachTheWaitingStep(user: ReturnType<typeof userEvent.setup>) {
   const dialog = await screen.findByRole("dialog");
   await advance(user);
-  await advance(user);
   return dialog;
 }
 
@@ -93,7 +92,20 @@ it("walks the rest of the tour and finishes on the last step", async () => {
     .getAllByRole("button")[0]);
   await within(dialog).findByRole("heading", { name: "지금 점수 차이" });
 
-  for (let step = 4; step < GUIDE_STEPS.length; step += 1) {
+  // Up to the step that asks for a route to be started.
+  const startIndex = GUIDE_STEPS.findIndex((candidate) => candidate.awaits === "expedition");
+  for (let step = 3; step <= startIndex; step += 1) {
+    await advance(user);
+    expect(within(dialog).getByText(`${step + 1} / ${GUIDE_STEPS.length}`)).toBeVisible();
+  }
+
+  // That step waits for the press, and the press carries the guide onto the
+  // expedition page for the rest of the tour.
+  expect(screen.queryByRole("button", { name: /다음 단계|가이드 마치기/ })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "원정 시작" }));
+  expect(await within(dialog).findByText(`${startIndex + 2} / ${GUIDE_STEPS.length}`)).toBeVisible();
+
+  for (let step = startIndex + 2; step < GUIDE_STEPS.length; step += 1) {
     await advance(user);
     expect(within(dialog).getByText(`${step + 1} / ${GUIDE_STEPS.length}`)).toBeVisible();
   }

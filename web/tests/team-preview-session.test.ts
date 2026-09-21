@@ -305,7 +305,8 @@ describe("demo preview session", () => {
       version: 2,
       artistConfirmed: true,
       selectedArtistId: "bts",
-      selectedTerritoryId: "busan",    };
+      selectedTerritoryId: "busan",
+    };
 
     expect(loadDemoSession(storageWith(null))).toEqual(initial);
     expect(loadDemoSession(storageWith(""))).toEqual(initial);

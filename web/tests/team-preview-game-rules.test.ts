@@ -60,7 +60,8 @@ describe("preview game rules", () => {
       accommodationVerified: false,
       balanceMultiplier: 1,
       fandomSizeMultiplier: 1,
-      repeatCount: 0,      ownerStrongholdStage,
+      repeatCount: 0,
+      ownerStrongholdStage,
     });
 
     expect(award).toMatchObject({ strongholdBonus, validPoints, cappedPoints: validPoints });

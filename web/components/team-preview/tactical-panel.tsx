@@ -143,7 +143,8 @@ function estimateAward(expedition: PreviewExpedition, territory: PreviewTerritor
     accommodationVerified: true,
     balanceMultiplier: territory.balanceMultiplier,
     fandomSizeMultiplier: 1,
-    repeatCount: firstStop ? (session.missionVisitCounts[firstStop.id] ?? 0) : 0,    ownerStrongholdStage: territory.ownerArtistId === artistId ? territory.strongholdStage : null,
+    repeatCount: firstStop ? (session.missionVisitCounts[firstStop.id] ?? 0) : 0,
+    ownerStrongholdStage: territory.ownerArtistId === artistId ? territory.strongholdStage : null,
   });
 }
 
@@ -353,7 +354,11 @@ export function TacticalPanel({
           <dt>{copy.owner}</dt>
           <dd className="tactical-owner">
             <span>{standingName(owner)}</span>
-            <StrongholdMark stage={territory.strongholdStage} locale={locale} ownerColor={territoryOwnerColor} />
+            {/* The guide narrows onto the stage mark alone when it explains
+                seed, tree and landmark. */}
+            <span data-guide="stronghold-mark">
+              <StrongholdMark stage={territory.strongholdStage} locale={locale} ownerColor={territoryOwnerColor} />
+            </span>
           </dd>
         </div>
         <div>

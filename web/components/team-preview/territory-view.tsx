@@ -78,13 +78,6 @@ export function TerritoryView({ mapConfig }: {
   // map, even while the filter hides its card.
   const changeFilter = (nextFilter: TerritoryFilter) => setFilter(nextFilter);
 
-  const openSummaryTerritory = (nextFilter: TerritoryFilter, territoryId: string | null) => {
-    setFilter(nextFilter);
-    if (territoryId) selectTerritory(territoryId);
-    // The card acts on the map below it, so bring the map along.
-    mapRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-  };
-
   const territoryName = (territoryId: string | null | undefined) => territoryId
     ? session.state.territories.find((territory) => territory.id === territoryId)?.name[session.state.locale] ?? "—"
     : "—";
@@ -125,26 +118,10 @@ export function TerritoryView({ mapConfig }: {
   return (
     <div className="view territory-view">
       <h1 className="preview-page-title">{t(session.state.locale, "navTerritory")}</h1>
-      {selectedArtist && summary ? (
-        <section data-guide="territory-summary" className="territory-summary" aria-label={t(session.state.locale, "territorySummary")}>
-          {/* Three of these four cards restated what the list and filter below
-              already show, and one of them — the owned count — read as though
-              pressing it would list every owned territory when it only framed
-              the strongest. What is left is the one card that says do this
-              next, given the width the others were taking. */}
-          <button className="territory-summary-action" type="button" onClick={() => openSummaryTerritory("contested", summary.recommendation?.territoryId ?? null)} disabled={!summary.recommendation}>
-            <span>{t(session.state.locale, "summaryRecommendation")}</span>
-            <strong>{summary.recommendation
-              ? `${t(session.state.locale, summary.recommendation.kind === "defend" ? "recommendDefend" : "recommendCapture")} · ${territoryName(summary.recommendation.territoryId)}`
-              : "—"}</strong>
-            <small>{summary.recommendation
-              ? summary.recommendation.kind === "defend"
-                ? session.state.locale === "ko" ? `${summary.recommendation.pointsRequired}P 우위 · 방어가 가장 시급해요` : `${summary.recommendation.pointsRequired}P lead · Most urgent defense`
-                : session.state.locale === "ko" ? `${summary.recommendation.pointsRequired}P 필요 · 가장 쉽게 탈환할 수 있어요` : `${summary.recommendation.pointsRequired}P needed · Easiest capture opportunity`
-              : ""}</small>
-          </button>
-        </section>
-      ) : null}
+      {/* The summary cards are gone. Every one of them restated what the
+          filter, the list and the map below already say, and the last of them
+          — a single recommended move — was a fifth opinion on a page whose
+          whole job is letting the reader form their own. */}
       {selectedArtist && summary ? (
         <ShareSheet
           label={session.state.locale === "ko" ? "영토 현황 공유하기" : "Share territory status"}

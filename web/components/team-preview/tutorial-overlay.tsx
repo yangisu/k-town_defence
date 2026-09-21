@@ -31,7 +31,7 @@ function readRect(target: string | undefined): Rect | null {
  * and close; a step that asks for something waits for the deed instead, and
  * leaves the page clickable so the reader can do it.
  */
-export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelected = false }: {
+export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelected = false, expeditionOpen = false }: {
   locale: Locale;
   onClose(): void;
   /** Puts the page into the state a step describes — the right tab, and a
@@ -40,6 +40,9 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
   /** Whether a territory is chosen, which is what the "choose one" step waits
    *  for before it moves on. */
   territorySelected?: boolean;
+  /** Whether a route has been started, which carries the guide onto the
+   *  expedition page and its chapter of steps. */
+  expeditionOpen?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
@@ -49,7 +52,8 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
   const prepareRef = useRef(onPrepareStep);
   const step = GUIDE_STEPS[index];
   const lastStep = index === GUIDE_STEPS.length - 1;
-  const waiting = step.awaits === "territory";
+  const waiting = step.awaits !== undefined;
+  const done = step.awaits === "territory" ? territorySelected : step.awaits === "expedition" ? expeditionOpen : false;
 
   useModalFocus(true, dialogRef, closeRef, onClose);
 
@@ -66,28 +70,39 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
     prepareRef.current?.(step);
   }, [step]);
 
-  // The waiting step moves on by itself once the reader has chosen a territory.
+  // A waiting step moves on by itself once the reader has done the deed —
+  // chosen a territory, or started the route that carries the guide onto the
+  // expedition page.
   useEffect(() => {
-    if (!waiting || !territorySelected) return;
+    if (!waiting || !done) return;
     const settle = window.setTimeout(() => setIndex((current) => (
-      GUIDE_STEPS[current]?.awaits === "territory" ? current + 1 : current
-    )), 260);
+      GUIDE_STEPS[current]?.awaits ? current + 1 : current
+    )), 320);
     return () => window.clearTimeout(settle);
-  }, [territorySelected, waiting]);
+  }, [done, waiting]);
 
   useEffect(() => {
     const card = dialogRef.current;
     if (!card) return;
     setCardHeight(card.getBoundingClientRect().height);
     if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(([entry]) => setCardHeight(entry.contentRect.height));
+    // The border box, not the content box: the card's padding and border are
+    // 34px of it, and leaving them out placed the card 34px too far down —
+    // just enough to sit on top of the target it was meant to clear.
+    const observer = new ResizeObserver(() => setCardHeight(card.getBoundingClientRect().height));
     observer.observe(card);
     return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
-    const target = document.querySelector<HTMLElement>(`[data-guide="${step.target}"]`);
-    target?.scrollIntoView?.({ block: "center", inline: "nearest", behavior: "smooth" });
+    const bring = () => document
+      .querySelector<HTMLElement>(`[data-guide="${step.target}"]`)
+      ?.scrollIntoView?.({ block: "center", inline: "nearest", behavior: "smooth" });
+    bring();
+    // A step that opens something first — the phone's territory list — moves
+    // its own target after this runs, and the target ended up behind the tab
+    // bar. Asking again once the page has settled puts it back in the middle.
+    const settle = window.setTimeout(bring, 420);
 
     // Follow the target every frame while the page scrolls into place. Reading
     // it on scroll events alone let the outline lag and then jump to catch up.
@@ -117,6 +132,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
     window.addEventListener("resize", restart);
     window.addEventListener("scroll", restart, true);
     return () => {
+      window.clearTimeout(settle);
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", restart);
       window.removeEventListener("scroll", restart, true);
@@ -130,32 +146,78 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
     height: rect.height + SPOTLIGHT_PADDING * 2,
   } : null;
   const viewportHeight = typeof window === "undefined" ? 0 : window.innerHeight;
-  const targetInTopHalf = rect ? rect.top + rect.height / 2 < viewportHeight / 2 : true;
-  const placement = spotlight ? (targetInTopHalf ? "bottom" : "top") : "center";
+  const viewportWidth = typeof window === "undefined" ? 0 : window.innerWidth;
+  // The card sits in whichever gap the spotlight leaves, right up against it
+  // rather than pinned to an edge. Pinning put the card at the very bottom of
+  // a phone when the target was near the top, and let it cover the target
+  // outright when the target sat in the middle.
+  const margin = 16;
+  const gap = 14;
+  const above = spotlight ? spotlight.top - margin : 0;
+  const below = spotlight ? viewportHeight - (spotlight.top + spotlight.height) - margin : 0;
+  const placement = !spotlight
+    ? "center"
+    : below >= cardHeight + gap || below >= above
+      ? "bottom"
+      : "top";
   // A coordinate rather than a layout switch, so the card glides between steps
   // instead of being re-laid out at the other end of the screen.
-  const margin = 16;
-  const cardTop = placement === "center"
-    ? Math.max(margin, (viewportHeight - cardHeight) / 2)
+  const rawTop = !spotlight
+    ? (viewportHeight - cardHeight) / 2
     : placement === "bottom"
-      ? Math.max(margin, viewportHeight - cardHeight - margin)
-      : margin;
+      ? spotlight.top + spotlight.height + gap
+      : spotlight.top - cardHeight - gap;
+  const cardTop = Math.min(
+    Math.max(margin, rawTop),
+    Math.max(margin, viewportHeight - cardHeight - margin),
+  );
+  // A target too tall for either gap would be covered by a full-height card,
+  // so the card gives up height instead and scrolls. Below a floor it stops
+  // shrinking — a card too short to read is worse than a covered target.
+  const room = Math.floor(placement === "center" ? viewportHeight - margin * 2 : (placement === "bottom" ? below : above) - gap);
+  const cardMaxHeight = placement === "center" ? undefined : Math.max(176, room);
+
+  // Everything outside the spotlight is sealed off, so the only thing the
+  // reader can press is the thing the step is pointing at. Without this the
+  // page stayed live under the guide and a stray tap took them somewhere the
+  // guide was not describing. Four panels rather than one sheet, because a
+  // single sheet cannot have a hole in it.
+  const shutters: Rect[] = spotlight ? [
+    { top: 0, left: 0, width: viewportWidth, height: Math.max(0, spotlight.top) },
+    { top: spotlight.top + spotlight.height, left: 0, width: viewportWidth, height: Math.max(0, viewportHeight - spotlight.top - spotlight.height) },
+    { top: Math.max(0, spotlight.top), left: 0, width: Math.max(0, spotlight.left), height: Math.max(0, spotlight.height) },
+    { top: Math.max(0, spotlight.top), left: spotlight.left + spotlight.width, width: Math.max(0, viewportWidth - spotlight.left - spotlight.width), height: Math.max(0, spotlight.height) },
+  ] : [{ top: 0, left: 0, width: viewportWidth, height: viewportHeight }];
 
   return (
     <div className={`tutorial-overlay tutorial-overlay--${placement}`}>
-      {waiting ? null : (
-        // The whole screen is the "next" control, so a reader can tap wherever
-        // they are already looking.
+      {/* Off a waiting step, the sealed-off area is also the "next" control, so
+          a reader can tap wherever they are already looking. While the guide
+          waits, it only blocks. */}
+      {shutters.map((shutter, shutterIndex) => (
         <button
+          key={shutterIndex}
           type="button"
-          className="tutorial-advance"
-          aria-label={t(locale, lastStep ? "tutorialDone" : "tutorialNext")}
-          onClick={advance}
+          className="tutorial-shutter"
+          tabIndex={-1}
+          aria-hidden={waiting ? "true" : undefined}
+          aria-label={waiting ? undefined : t(locale, lastStep ? "tutorialDone" : "tutorialNext")}
+          style={{ top: shutter.top, left: shutter.left, width: shutter.width, height: shutter.height }}
+          onClick={waiting ? undefined : advance}
         />
-      )}
+      ))}
       {spotlight ? (
         <div
-          className="tutorial-spotlight"
+          className={waiting ? "tutorial-spotlight tutorial-spotlight--beckon" : "tutorial-spotlight"}
+          aria-hidden="true"
+          style={{ top: spotlight.top, left: spotlight.left, width: spotlight.width, height: spotlight.height }}
+        />
+      ) : null}
+      {/* A ring that pulses outward from the target, so the step that waits
+          reads as "press this" instead of as the guide having stalled. */}
+      {spotlight && waiting ? (
+        <div
+          className="tutorial-beckon"
           aria-hidden="true"
           style={{ top: spotlight.top, left: spotlight.left, width: spotlight.width, height: spotlight.height }}
         />
@@ -166,7 +228,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
         aria-modal="true"
         aria-labelledby="tutorial-title"
         ref={dialogRef}
-        style={{ top: cardTop }}
+        style={cardMaxHeight === undefined ? { top: cardTop } : { top: cardTop, maxHeight: cardMaxHeight }}
         onClick={waiting ? undefined : advance}
       >
         <header>

@@ -137,7 +137,8 @@ it("retains demo evidence and the submission key when a network retry is needed"
         visitBase: 100,
         balanceMultiplier: 1,
         fandomSizeMultiplier: 1,
-        repeatCount: 0,      }}
+        repeatCount: 0,
+      }}
       onApproved={() => undefined}
       onClose={() => undefined}
     />,

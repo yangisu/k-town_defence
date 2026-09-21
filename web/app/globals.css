@@ -204,19 +204,19 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px soli
 .tutorial-overlay--center{background:rgba(13,20,16,.66)}
 
 
-.tutorial-advance{position:fixed;inset:0;z-index:0;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto}
+.tutorial-shutter{position:fixed;z-index:0;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto}
 .tutorial-card--waiting{cursor:default;box-shadow:0 20px 60px rgba(13,20,16,.5)}
 .tutorial-spotlight{position:fixed;z-index:1;border:3px solid var(--lime);border-radius:16px;box-shadow:0 0 0 9999px rgba(13,20,16,.58);pointer-events:none;transition:top .42s cubic-bezier(.22,.61,.36,1),left .42s cubic-bezier(.22,.61,.36,1),width .42s cubic-bezier(.22,.61,.36,1),height .42s cubic-bezier(.22,.61,.36,1)}
 @media(prefers-reduced-motion:reduce){.tutorial-spotlight,.tutorial-card{transition:none}}
 .tutorial-card{cursor:pointer;position:fixed;left:50%;transform:translateX(-50%);transition:top .42s cubic-bezier(.22,.61,.36,1);z-index:2;pointer-events:auto;width:min(100% - 32px,460px);max-height:min(58dvh,520px);overflow-y:auto;padding:20px;border:1px solid var(--line);border-radius:22px;background:var(--white);box-shadow:0 20px 60px rgba(13,20,16,.45)}
 .tutorial-card>header{display:flex;align-items:center;gap:10px}
 .tutorial-progress{margin:0;margin-right:auto;color:var(--purple);font-size:11px;font-weight:900;letter-spacing:.08em}
-.tutorial-card>header button{display:flex;align-items:center;justify-content:center;line-height:0;min-width:32px;min-height:32px;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--paper-2);color:var(--ink);cursor:pointer}.tutorial-card>header button:disabled{opacity:.35;cursor:default}
+.tutorial-card>header button{display:flex;align-items:center;justify-content:center;line-height:0;min-width:32px;min-height:32px;padding:0;border:1px solid var(--line);border-radius:10px;background:var(--paper-2);color:var(--ink);cursor:pointer}.tutorial-close{border-color:var(--lime)!important;background:var(--lime)!important;color:var(--ink)!important}.tutorial-close:hover{filter:brightness(.95)}.tutorial-card>header button:disabled{opacity:.35;cursor:default}
 .tutorial-card>header button>svg{display:block}
-.tutorial-card h2{margin:10px 0 8px;font-size:clamp(20px,4.2vw,25px);line-height:1.22;letter-spacing:-.04em;word-break:keep-all}
+.tutorial-card h2{margin:10px 0 10px;font-size:clamp(20px,4.2vw,25px);font-weight:900;line-height:1.22;letter-spacing:-.04em;word-break:keep-all}
 .tutorial-body{margin:0;color:var(--ink-2);font-size:14px;line-height:1.72;word-break:keep-all}
 .tutorial-fallback{margin:12px 0 0;padding:10px 12px;border-radius:12px;background:var(--paper-2);color:var(--muted);font-size:12px;line-height:1.6;word-break:keep-all}
-.tutorial-dots{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 0;padding:0;list-style:none}
+.tutorial-dots{display:flex;flex-wrap:wrap;gap:6px;margin:26px 0 0;padding:0;list-style:none}
 .tutorial-dots li{width:7px;height:7px;border-radius:999px;background:var(--line)}
 .tutorial-dots li.current{width:20px;background:var(--purple)}
 
@@ -253,3 +253,10 @@ button.record-reward-open:focus-visible{outline:3px solid var(--purple);outline-
 .record-reward-sources{margin-top:10px}
 /* One call to action across the width four cards used to share. */.territory-summary>.territory-summary-action{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 12px;width:100%;min-width:0;padding:13px 16px;border:1px solid var(--ink);border-radius:15px;background:var(--ink);color:white;text-align:left;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease}.territory-summary>.territory-summary-action:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 12px 26px rgba(22,35,29,.2)}.territory-summary>.territory-summary-action:disabled{opacity:.55;cursor:default}.territory-summary>.territory-summary-action:focus-visible{outline:3px solid var(--purple);outline-offset:3px}.territory-summary>.territory-summary-action>span{grid-area:1/1/2/2;color:var(--lime);font-size:10px;font-weight:900;letter-spacing:.08em}.territory-summary>.territory-summary-action>strong{grid-area:1/2/2/3;justify-self:end;font-size:15px;color:white;text-align:right}.territory-summary>.territory-summary-action>small{grid-area:2/1/3/3;color:#cfd8d2;font-size:11px;line-height:1.5}@media(prefers-reduced-motion:reduce){.territory-summary>.territory-summary-action{transition:none}}
 /* The map may grow to meet a long detail card, but a tall map should not   stretch a short card to match it — the card is as long as it has to be. */@media(min-width:768px){.preview-map-layout>.tactical-panel{align-self:start}}
+
+/* A step that waits for a press beckons: the outline breathes and a ring   travels outward from it, so the guide does not read as stalled. */
+.tutorial-beckon{position:fixed;z-index:1;border:3px solid var(--lime);border-radius:16px;pointer-events:none;animation:tutorial-beckon-ring 1.6s cubic-bezier(.22,.61,.36,1) infinite}
+.tutorial-spotlight--beckon{animation:tutorial-beckon-core 1.6s ease-in-out infinite}
+@keyframes tutorial-beckon-ring{0%{opacity:.85;transform:scale(1)}70%{opacity:0;transform:scale(1.14)}100%{opacity:0;transform:scale(1.14)}}
+@keyframes tutorial-beckon-core{0%,100%{box-shadow:0 0 0 9999px rgba(13,20,16,.58),0 0 0 0 color-mix(in srgb,var(--lime) 70%,transparent)}50%{box-shadow:0 0 0 9999px rgba(13,20,16,.58),0 0 22px 6px color-mix(in srgb,var(--lime) 70%,transparent)}}
+@media(prefers-reduced-motion:reduce){.tutorial-beckon,.tutorial-spotlight--beckon{animation:none}}

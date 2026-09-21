@@ -23,7 +23,7 @@ import { MembershipProvider, useMembership } from "@/features/membership/members
 import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/demo-session-context";
 import type { DemoSession as DemoSessionState } from "@/features/team-preview/demo-session";
 import type { ArtistId } from "@/features/team-preview/types";
-import { previewContent } from "@/features/team-preview/content";
+import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
 import { createRemoteDemoSessionStore } from "@/features/team-preview/remote-session-store";
 import { t } from "@/features/team-preview/i18n";
 import { MembershipGate } from "@/components/membership/membership-gate";
@@ -78,14 +78,31 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   // tactical panel only renders once a territory is chosen. Put the page into
   // that state so a replay from My Record explains the real screen.
   const prepareGuideStep = useCallback((step: GuideStep) => {
-    if (session.state.activeTab !== step.tab) session.dispatch({ type: "changeTab", tab: step.tab });
     if (step.awaits === "territory") {
       // The reader is about to choose one, so clear any earlier choice and, on
-      // a phone, open the list that holds the cards they need to tap.
+      // a phone, open the list that holds the card they need to tap.
+      if (session.state.activeTab !== step.tab) session.dispatch({ type: "changeTab", tab: step.tab });
       if (session.state.selectedTerritoryId) session.dispatch({ type: "selectTerritory", territoryId: null });
       document.querySelector<HTMLButtonElement>(".territory-list-toggle[aria-expanded='false']")?.click();
       return;
     }
+    // The expedition chapter needs a route open. The reader starts it
+    // themselves on the step before; this only covers a replay that jumps
+    // straight in, and picks the route for whatever territory they are on.
+    if (step.tab === "expedition") {
+      if (session.state.activeExpeditionId) {
+        if (session.state.activeTab !== "expedition") session.dispatch({ type: "changeTab", tab: "expedition" });
+        return;
+      }
+      const territoryId = session.state.selectedTerritoryId ?? session.state.territories[0]?.id ?? null;
+      const artistId = session.state.selectedArtistId;
+      const route = territoryId && artistId ? getPlayableExpedition(artistId, territoryId) : null;
+      if (route && territoryId) {
+        session.dispatch({ type: "openRecommendedExpedition", expeditionId: route.id, territoryId });
+      }
+      return;
+    }
+    if (session.state.activeTab !== step.tab) session.dispatch({ type: "changeTab", tab: step.tab });
     if (!step.needsTerritory || session.state.selectedTerritoryId) return;
     const first = session.state.territories[0];
     if (first) session.dispatch({ type: "selectTerritory", territoryId: first.id });
@@ -202,7 +219,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
           />
         ) : null}
       </AppShell>
-      {guideOpen ? <TutorialOverlay locale={session.state.locale} onClose={closeGuide} onPrepareStep={prepareGuideStep} territorySelected={session.state.selectedTerritoryId !== null} /> : null}
+      {guideOpen ? <TutorialOverlay locale={session.state.locale} onClose={closeGuide} onPrepareStep={prepareGuideStep} territorySelected={session.state.selectedTerritoryId !== null} expeditionOpen={session.state.activeExpeditionId !== null} /> : null}
       {leavingArtistId !== null && typeof document !== "undefined" ? createPortal(
         <LeaveFandomDialog
           locale={session.state.locale}

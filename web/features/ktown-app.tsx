@@ -24,6 +24,7 @@ import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/dem
 import type { DemoSession as DemoSessionState } from "@/features/team-preview/demo-session";
 import type { ArtistId } from "@/features/team-preview/types";
 import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
+import { isGuideRunning } from "@/features/team-preview/guide-running";
 import { createRemoteDemoSessionStore } from "@/features/team-preview/remote-session-store";
 import { t } from "@/features/team-preview/i18n";
 import { MembershipGate } from "@/components/membership/membership-gate";
@@ -174,6 +175,9 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     }
   }, [guideChecked, session.state.artistConfirmed]);
   useEffect(() => {
+    // Changing tab normally means starting at the top, but the guide decides
+    // where each of its steps sits and this snapped the page away from it.
+    if (isGuideRunning()) return;
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [session.state.activeTab, session.state.artistConfirmed]);
   useModalFocus(resetOpen, resetDialogRef, resetTitleRef, () => setResetOpen(false));

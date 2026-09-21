@@ -6,6 +6,7 @@ import { TacticalPanel } from "@/components/team-preview/tactical-panel";
 import { TerritoryMap } from "@/components/team-preview/territory-map";
 import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
 import { useDemoSession } from "@/features/team-preview/demo-session-context";
+import { isGuideRunning } from "@/features/team-preview/guide-running";
 import { t } from "@/features/team-preview/i18n";
 import { summarizeTerritories } from "@/features/team-preview/territory-summary";
 import type { MapConfig } from "@/lib/map-config";
@@ -49,7 +50,7 @@ export function TerritoryView({ mapConfig }: {
     const cleared = session.state.selectedTerritoryId === territoryId;
     session.dispatch({ type: "selectTerritory", territoryId: cleared ? null : territoryId });
     // A new selection acts on the map, so follow it there.
-    if (!cleared && follow) mapRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    if (!cleared && follow && !isGuideRunning()) mapRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   };
 
   // A territory picked on the map may sit outside the current filter. Its card
@@ -64,6 +65,7 @@ export function TerritoryView({ mapConfig }: {
     } else {
       setRecentre((count) => count + 1);
     }
+    if (isGuideRunning()) return;
     window.setTimeout(() => {
       // A full-screen map covers the page, so moving the page under it would
       // only surprise whoever closes it. The list and card still follow.

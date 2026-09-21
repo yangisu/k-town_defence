@@ -204,10 +204,10 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px soli
 .tutorial-overlay--center{background:rgba(13,20,16,.66)}
 
 
-.tutorial-shutter{position:fixed;z-index:0;padding:0;border:0;background:rgba(13,20,16,.58);cursor:pointer;pointer-events:auto}
+.tutorial-shutter{position:fixed;z-index:0;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto}
 .tutorial-card--waiting{cursor:default;box-shadow:0 20px 60px rgba(13,20,16,.5)}
 .tutorial-spotlight{position:fixed;z-index:1;border:3px solid var(--lime);border-radius:16px;pointer-events:none;transition:top .42s cubic-bezier(.22,.61,.36,1),left .42s cubic-bezier(.22,.61,.36,1),width .42s cubic-bezier(.22,.61,.36,1),height .42s cubic-bezier(.22,.61,.36,1)}
-@media(prefers-reduced-motion:reduce){.tutorial-spotlight,.tutorial-card{transition:none}}
+@media(prefers-reduced-motion:reduce){}
 .tutorial-card{cursor:pointer;position:fixed;left:50%;transform:translateX(-50%);transition:top .42s cubic-bezier(.22,.61,.36,1);z-index:2;pointer-events:auto;width:min(100% - 32px,460px);max-height:min(58dvh,520px);overflow-y:auto;padding:20px;border:1px solid var(--line);border-radius:22px;background:var(--white);box-shadow:0 20px 60px rgba(13,20,16,.45)}
 .tutorial-card>header{display:flex;align-items:center;gap:10px}
 .tutorial-progress{margin:0;margin-right:auto;color:var(--purple);font-size:11px;font-weight:900;letter-spacing:.08em}
@@ -266,3 +266,12 @@ button.record-reward-open:focus-visible{outline:3px solid var(--purple);outline-
 .tutorial-overlay--moving .tutorial-spotlight,.tutorial-overlay--moving .tutorial-beckon,.tutorial-overlay--moving .tutorial-card{opacity:0;pointer-events:none}
 .tutorial-overlay--cardless .tutorial-card{display:none}
 @keyframes tutorial-beckon-core{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--lime) 70%,transparent)}50%{box-shadow:0 0 22px 6px color-mix(in srgb,var(--lime) 70%,transparent)}}
+
+/* The dim and the outline share one geometry and one easing, so the bright   area is exactly the shape of the ring and both glide to the next target. */
+.tutorial-mask{position:fixed;z-index:0;border-radius:16px;pointer-events:none;box-shadow:0 0 0 9999px rgba(13,20,16,.58)}
+.tutorial-overlay--center .tutorial-mask{display:none}
+.tutorial-mask,.tutorial-spotlight,.tutorial-beckon{transition:top .46s cubic-bezier(.32,.72,.28,1),left .46s cubic-bezier(.32,.72,.28,1),width .46s cubic-bezier(.32,.72,.28,1),height .46s cubic-bezier(.32,.72,.28,1),opacity .3s ease}
+.tutorial-card{transition:top .46s cubic-bezier(.32,.72,.28,1),opacity .3s ease,transform .3s cubic-bezier(.32,.72,.28,1)}
+.tutorial-overlay--moving .tutorial-spotlight,.tutorial-overlay--moving .tutorial-beckon{opacity:0}
+.tutorial-overlay--moving .tutorial-card{opacity:0;transform:translateX(-50%) translateY(10px);pointer-events:none}
+@media(prefers-reduced-motion:reduce){.tutorial-mask,.tutorial-spotlight,.tutorial-beckon,.tutorial-card{transition-duration:.01ms}}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, X } from "@/components/ui/icons";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { GUIDE_STEPS, type GuideStep } from "@/features/team-preview/guide-steps";
+import { setGuideRunning } from "@/features/team-preview/guide-running";
 import { t } from "@/features/team-preview/i18n";
 import type { Locale } from "@/features/team-preview/types";
 
@@ -62,6 +63,12 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
       ? expeditionOpen
       : step.awaits === "dom" ? domDone : false;
 
+  // The app stops scrolling the page on its own while the guide is driving.
+  useEffect(() => {
+    setGuideRunning(true);
+    return () => setGuideRunning(false);
+  }, []);
+
   useModalFocus(true, dialogRef, closeRef, onClose);
 
   const advance = () => {
@@ -86,6 +93,12 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
     setDomDone(false);
     const selector = step.awaits === "dom" ? step.advanceWhen : undefined;
     if (!selector) return;
+    // Stepping back onto "press check-in" with the check-in already open would
+    // see its own condition met and bounce straight forward again, so the step
+    // puts the page back the way it needs it first.
+    if (step.undoWith && document.querySelector(selector)) {
+      document.querySelector<HTMLElement>(step.undoWith)?.click();
+    }
     let frame = 0;
     const look = () => {
       const gone = selector.startsWith("!");
@@ -135,12 +148,24 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
     let lastOffset = Number.NaN;
     let stillFor = 0;
     if (!step.target) {
+      // Nothing to point at, so nothing to wait for — and the stale outline
+      // from the step before must not linger over the centred card.
+      setRect(null);
       setSettled(true);
       return;
     }
+    let waited = 0;
     const place = () => {
       const element = document.querySelector<HTMLElement>(`[data-guide="${step.target}"]`);
-      if (!element) return;
+      // Stepping back onto a page the guide has to rebuild first, the target
+      // is briefly absent. Giving up here left the guide invisible and the
+      // page unscrolled, so it waits for the control to arrive.
+      if (!element) {
+        waited += 1;
+        if (waited > 180) setSettled(true);
+        else settleFrame = window.requestAnimationFrame(place);
+        return;
+      }
       const box = element.getBoundingClientRect();
       const offset = box.top + window.scrollY;
       stillFor = Math.abs(offset - lastOffset) < 0.5 ? stillFor + 1 : 0;
@@ -286,6 +311,18 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
           onClick={waiting ? undefined : advance}
         />
       ))}
+      {/* The dim itself, with the hole cut to the same rounded shape as the
+          outline. Four square panels left bright corners sticking out past the
+          ring; they now only block presses and carry no colour. This one stays
+          through a step change so the screen never flashes, and eases to the
+          next target instead of jumping to it. */}
+      {spotlight ? (
+        <div
+          className="tutorial-mask"
+          aria-hidden="true"
+          style={{ top: spotlight.top, left: spotlight.left, width: spotlight.width, height: spotlight.height }}
+        />
+      ) : null}
       {spotlight ? (
         <div
           className={waiting ? "tutorial-spotlight tutorial-spotlight--beckon" : "tutorial-spotlight"}
@@ -317,7 +354,9 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
             type="button"
             className="tutorial-back"
             aria-label={t(locale, "tutorialBack")}
-            disabled={index === 0}
+            // Past a check-in there is nothing to go back to: the evidence
+            // cannot be un-gathered, nor the submission recalled.
+            disabled={index === 0 || step.noBack === true}
             onClick={(event) => {
               event.stopPropagation();
               setIndex((current) => Math.max(0, current - 1));

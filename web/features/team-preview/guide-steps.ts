@@ -20,6 +20,12 @@ export interface GuideStep {
    *  dialog that opened, the button that replaced the one just pressed. A
    *  leading "!" waits for the opposite: the dialog that closed again. */
   advanceWhen?: string;
+  /** Clicked when the step is entered and `advanceWhen` already matches, to
+   *  put the page back the way the step needs it — closing the dialog the
+   *  reader is stepping back out of. */
+  undoWith?: string;
+  /** A step past a point of no return: the back arrow greys out. */
+  noBack?: boolean;
   /** A step with nothing to read: the dialog it points into has already said
    *  it, so the guide shows only the ring around the button to press. */
   cardless?: boolean;
@@ -144,6 +150,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     tab: "expedition",
     awaits: "dom",
     advanceWhen: ".checkin-dialog",
+    undoWith: '[data-guide-close="checkin"]',
     target: "expedition-check-in",
     anchor: 0.4,
     title: { ko: "방문 장소에서 체크인", en: "Check in at a stop" },
@@ -170,6 +177,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     tab: "expedition",
     awaits: "dom",
     advanceWhen: '[data-guide="checkin-result"]',
+    noBack: true,
     target: "checkin-submit",
     anchor: 0.5,
     title: { ko: "체크인 제출하기", en: "Submit the check-in" },
@@ -183,6 +191,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     tab: "expedition",
     awaits: "dom",
     advanceWhen: "!.checkin-dialog",
+    noBack: true,
     target: "checkin-continue",
     anchor: 0.5,
     title: { ko: "이렇게 점수가 쌓여요", en: "This is how points land" },
@@ -196,6 +205,8 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     tab: "expedition",
     awaits: "dom",
     advanceWhen: ".expedition-end-dialog",
+    undoWith: '[data-guide-close="expedition-end"]',
+    noBack: true,
     target: "expedition-end",
     anchor: 0.42,
     title: { ko: "원정 마치기", en: "Finishing the expedition" },
@@ -209,6 +220,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
     tab: "expedition",
     awaits: "dom",
     advanceWhen: "!.expedition-end-dialog",
+    noBack: true,
     target: "expedition-end-confirm",
     cardless: true,
     anchor: 0.5,

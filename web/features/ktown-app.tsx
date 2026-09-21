@@ -47,6 +47,9 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const [resetOpen, setResetOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideChecked, setGuideChecked] = useState(false);
+  // The session as it stood when the guide opened, so the practice run it
+  // walks the reader through can be undone in full when it closes.
+  const guideSnapshot = useRef<DemoSessionState | null>(null);
   const resetDialogRef = useRef<HTMLDivElement>(null);
   const resetTitleRef = useRef<HTMLHeadingElement>(null);
   const leaveDialogRef = useRef<HTMLDivElement>(null);
@@ -94,6 +97,9 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
         if (session.state.activeTab !== "expedition") session.dispatch({ type: "changeTab", tab: "expedition" });
         return;
       }
+      // The closing step has no target and comes after the route was ended on
+      // purpose; opening a fresh one under it would undo what it just said.
+      if (!step.target) return;
       const territoryId = session.state.selectedTerritoryId ?? session.state.territories[0]?.id ?? null;
       const artistId = session.state.selectedArtistId;
       const route = territoryId && artistId ? getPlayableExpedition(artistId, territoryId) : null;
@@ -110,12 +116,26 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
 
   const closeGuide = () => {
     setGuideOpen(false);
+    // The guide has the reader walk a real check-in, so it hands the session
+    // back exactly as it found it: the practice points, the route it started
+    // and the territory it picked are all put back. Nothing done inside the
+    // tutorial counts.
+    const before = guideSnapshot.current;
+    guideSnapshot.current = null;
+    if (before) session.dispatch({ type: "hydrate", state: before });
     try {
       markTutorialSeen(window.localStorage);
     } catch {
       // Nothing to remember when storage is blocked.
     }
   };
+
+  // Taken once the guide is actually up, not when it is asked for: confirming
+  // a first fandom asks in the same breath as choosing one, and the state at
+  // that moment has no fandom on it yet.
+  useEffect(() => {
+    if (guideOpen) guideSnapshot.current ??= session.state;
+  }, [guideOpen, session.state]);
 
   const resetDemo = () => {
     // Resetting asks for the demo from the top, greeting included.

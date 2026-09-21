@@ -53,7 +53,12 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
   const step = GUIDE_STEPS[index];
   const lastStep = index === GUIDE_STEPS.length - 1;
   const waiting = step.awaits !== undefined;
-  const done = step.awaits === "territory" ? territorySelected : step.awaits === "expedition" ? expeditionOpen : false;
+  const [domDone, setDomDone] = useState(false);
+  const done = step.awaits === "territory"
+    ? territorySelected
+    : step.awaits === "expedition"
+      ? expeditionOpen
+      : step.awaits === "dom" ? domDone : false;
 
   useModalFocus(true, dialogRef, closeRef, onClose);
 
@@ -73,6 +78,29 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
   // A waiting step moves on by itself once the reader has done the deed —
   // chosen a territory, or started the route that carries the guide onto the
   // expedition page.
+  // A step whose deed leaves no mark on the session watches the page instead:
+  // the dialog that opened, the button that replaced the one just pressed.
+  useEffect(() => {
+    setDomDone(false);
+    const selector = step.awaits === "dom" ? step.advanceWhen : undefined;
+    if (!selector) return;
+    let frame = 0;
+    const look = () => {
+      const gone = selector.startsWith("!");
+      let found = false;
+      try {
+        found = (document.querySelector(gone ? selector.slice(1) : selector) !== null) !== gone;
+      } catch {
+        // An unsupported selector simply never matches, and the step is then
+        // advanced by its own spotlight as any other would be.
+      }
+      if (found) setDomDone(true);
+      else frame = window.requestAnimationFrame(look);
+    };
+    frame = window.requestAnimationFrame(look);
+    return () => window.cancelAnimationFrame(frame);
+  }, [step]);
+
   useEffect(() => {
     if (!waiting || !done) return;
     const settle = window.setTimeout(() => setIndex((current) => (
@@ -95,14 +123,43 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
   }, []);
 
   useEffect(() => {
-    const bring = () => document
-      .querySelector<HTMLElement>(`[data-guide="${step.target}"]`)
-      ?.scrollIntoView?.({ block: "center", inline: "nearest", behavior: "smooth" });
-    bring();
-    // A step that opens something first — the phone's territory list — moves
-    // its own target after this runs, and the target ended up behind the tab
-    // bar. Asking again once the page has settled puts it back in the middle.
-    const settle = window.setTimeout(bring, 420);
+    // One smooth move, and not until the page has stopped shifting under it.
+    // Scrolling straight away and again on a timer meant a step that opens
+    // something first — the phone's territory list — slid up and was yanked
+    // back down mid-glide. Here the target is watched until it holds still,
+    // and only then is a single scroll issued, to wherever the step wants it.
+    let settleFrame = 0;
+    let lastOffset = Number.NaN;
+    let stillFor = 0;
+    const place = () => {
+      const element = document.querySelector<HTMLElement>(`[data-guide="${step.target}"]`);
+      if (!element) return;
+      const box = element.getBoundingClientRect();
+      const offset = box.top + window.scrollY;
+      stillFor = Math.abs(offset - lastOffset) < 0.5 ? stillFor + 1 : 0;
+      lastOffset = offset;
+      if (stillFor < 3) {
+        settleFrame = window.requestAnimationFrame(place);
+        return;
+      }
+      // Inside a dialog it is the dialog that scrolls, not the page, and
+      // asking the window to move did nothing at all for the check-in steps.
+      let scroller: HTMLElement | null = element.parentElement;
+      while (scroller) {
+        const overflow = getComputedStyle(scroller).overflowY;
+        if ((overflow === "auto" || overflow === "scroll") && scroller.scrollHeight > scroller.clientHeight) break;
+        scroller = scroller.parentElement;
+      }
+      const anchor = step.anchor ?? 0.5;
+      const frameBox = scroller ? scroller.getBoundingClientRect() : { top: 0, height: window.innerHeight };
+      const wanted = frameBox.top + frameBox.height * anchor - box.height / 2;
+      const by = box.top - wanted;
+      if (Math.abs(by) <= 4) return;
+      // jsdom has neither, and a guide that cannot scroll still works.
+      if (scroller) scroller.scrollBy?.({ top: by, behavior: "smooth" });
+      else window.scrollBy?.({ top: by, behavior: "smooth" });
+    };
+    settleFrame = window.requestAnimationFrame(place);
 
     // Follow the target every frame while the page scrolls into place. Reading
     // it on scroll events alone let the outline lag and then jump to catch up.
@@ -132,7 +189,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
     window.addEventListener("resize", restart);
     window.addEventListener("scroll", restart, true);
     return () => {
-      window.clearTimeout(settle);
+      window.cancelAnimationFrame(settleFrame);
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", restart);
       window.removeEventListener("scroll", restart, true);

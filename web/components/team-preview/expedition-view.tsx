@@ -364,7 +364,7 @@ export function PreviewExpeditionView({
             <p>{allStopsCheckedIn ? labels.endCompleteBody : labels.endConfirmLost}</p>
             <div className="reset-dialog-actions">
               <button type="button" onClick={() => setEndOpen(false)}>{labels.endCancel}</button>
-              <button type="button" className="danger" onClick={() => {
+              <button type="button" className="danger" data-guide="expedition-end-confirm" onClick={() => {
                 setEndOpen(false);
                 session.dispatch({ type: "endExpedition" });
               }}>{allStopsCheckedIn ? labels.endComplete : labels.end}</button>

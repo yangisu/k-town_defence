@@ -229,7 +229,7 @@ export function CheckInFlow({
         </header>
 
         {result ? (
-          <section className="checkin-result">
+          <section className="checkin-result" data-guide="checkin-result">
             <div className="result-icon"><Check size={40} /></div>
             <span className="eyebrow">{resultEyebrow[result.decision]}</span>
             <h2>{approvedDemo ? demoLabels.approved : result.message}</h2>
@@ -275,7 +275,7 @@ export function CheckInFlow({
               </>
             )}
             {shareCard ? <ShareSheet card={shareCard} /> : null}
-            <button className="primary-button" onClick={onClose}>{mode === "integrated" ? "여행 계속하기" : demoLabels.continue}</button>
+            <button data-guide="checkin-continue" className="primary-button" onClick={onClose}>{mode === "integrated" ? "여행 계속하기" : demoLabels.continue}</button>
           </section>
         ) : (
           <>
@@ -354,10 +354,10 @@ export function CheckInFlow({
               </label>
             ) : null}
             {mode === "demo" && !demoEvidenceComplete ? (
-              <button className="primary-button" disabled={state.sessionId.startsWith("pending-") || busy} onClick={runDemo}>{demoLabels.runDemo}</button>
+              <button data-guide="checkin-run-demo" className="primary-button" disabled={state.sessionId.startsWith("pending-") || busy} onClick={runDemo}>{demoLabels.runDemo}</button>
             ) : null}
             {progress.canSubmit && state.issue !== "network_failed" ? (
-              <button className="primary-button" disabled={busy} onClick={() => void submit()}>{mode === "integrated" ? "체크인 제출" : demoLabels.submit}</button>
+              <button data-guide="checkin-submit" className="primary-button" disabled={busy} onClick={() => void submit()}>{mode === "integrated" ? "체크인 제출" : demoLabels.submit}</button>
             ) : null}
             {state.status === "submitting" && state.issue === "network_failed" ? (
               <button className="primary-button" disabled={busy} onClick={() => void submit()}>{mode === "integrated" ? "다시 제출" : demoLabels.retry}</button>

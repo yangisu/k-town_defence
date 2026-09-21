@@ -78,13 +78,6 @@ export function TerritoryView({ mapConfig }: {
   // map, even while the filter hides its card.
   const changeFilter = (nextFilter: TerritoryFilter) => setFilter(nextFilter);
 
-  const openSummaryTerritory = (nextFilter: TerritoryFilter, territoryId: string | null) => {
-    setFilter(nextFilter);
-    if (territoryId) selectTerritory(territoryId);
-    // The card acts on the map below it, so bring the map along.
-    mapRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-  };
-
   const territoryName = (territoryId: string | null | undefined) => territoryId
     ? session.state.territories.find((territory) => territory.id === territoryId)?.name[session.state.locale] ?? "—"
     : "—";
@@ -125,40 +118,10 @@ export function TerritoryView({ mapConfig }: {
   return (
     <div className="view territory-view">
       <h1 className="preview-page-title">{t(session.state.locale, "navTerritory")}</h1>
-      {selectedArtist && summary ? (
-        <section data-guide="territory-summary" className="territory-summary" aria-label={t(session.state.locale, "territorySummary")}>
-          <div className="territory-summary-grid">
-            <button type="button" onClick={() => openSummaryTerritory("my_fandom", summary.strongestOwnedTerritoryId)}>
-              <span>{t(session.state.locale, "summaryOwned")}</span>
-              <strong>{summary.ownedCount}</strong>
-              <small>{session.state.locale === "ko" ? "내 영토만 지도에서 보기" : "Show only my territories"}</small>
-            </button>
-            <button type="button" onClick={() => openSummaryTerritory("my_fandom", summary.strongestOwnedTerritoryId)} disabled={!summary.strongestOwnedTerritoryId}>
-              <span>{t(session.state.locale, "summaryStrongest")}</span>
-              <strong>{summary.strongestOwnedTerritoryId ? territoryName(summary.strongestOwnedTerritoryId) : t(session.state.locale, "noOwnedTerritory")}</strong>
-              <small>{session.state.locale === "ko" ? "선택하고 지도로 이동" : "Select and move the map"}</small>
-            </button>
-            <button type="button" onClick={() => openSummaryTerritory("contested", summary.nearestContestedTerritoryId)} disabled={!summary.nearestContestedTerritoryId}>
-              <span>{session.state.locale === "ko" ? "내 거점에서 가까운 접전지" : "Contested territory near my base"}</span>
-              <strong>{territoryName(summary.nearestContestedTerritoryId)}</strong>
-              <small>{summary.nearestContestedAnchorTerritoryId
-                ? `${territoryName(summary.nearestContestedAnchorTerritoryId)} ${session.state.locale === "ko" ? "거점 기준" : "base"} · ${session.state.locale === "ko" ? "약" : "about"} ${summary.nearestContestedDistanceKm ?? "—"}km`
-                : session.state.locale === "ko" ? "대표 연결 지역 기준" : "Based on the representative connected region"}</small>
-            </button>
-            <button className="territory-summary-action" type="button" onClick={() => openSummaryTerritory("contested", summary.recommendation?.territoryId ?? null)} disabled={!summary.recommendation}>
-              <span>{t(session.state.locale, "summaryRecommendation")}</span>
-              <strong>{summary.recommendation
-                ? `${t(session.state.locale, summary.recommendation.kind === "defend" ? "recommendDefend" : "recommendCapture")} · ${territoryName(summary.recommendation.territoryId)}`
-                : "—"}</strong>
-              <small>{summary.recommendation
-                ? summary.recommendation.kind === "defend"
-                  ? session.state.locale === "ko" ? `${summary.recommendation.pointsRequired}P 우위 · 방어가 가장 시급해요` : `${summary.recommendation.pointsRequired}P lead · Most urgent defense`
-                  : session.state.locale === "ko" ? `${summary.recommendation.pointsRequired}P 필요 · 가장 쉽게 탈환할 수 있어요` : `${summary.recommendation.pointsRequired}P needed · Easiest capture opportunity`
-                : ""}</small>
-            </button>
-          </div>
-        </section>
-      ) : null}
+      {/* The summary cards are gone. Every one of them restated what the
+          filter, the list and the map below already say, and the last of them
+          — a single recommended move — was a fifth opinion on a page whose
+          whole job is letting the reader form their own. */}
       {selectedArtist && summary ? (
         <ShareSheet
           label={session.state.locale === "ko" ? "영토 현황 공유하기" : "Share territory status"}

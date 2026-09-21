@@ -1,6 +1,6 @@
 import type { AppTab } from "@/features/app-controller";
 import { getArtistHomeTerritories, previewContent } from "./content";
-import { GAME_RULES, stageForPoints, type MissionAward } from "./game-rules";
+import { stageForPoints, type MissionAward } from "./game-rules";
 import type { ArtistId, FandomStanding, Locale, PreviewTerritory, StrongholdStage, TerritoryFilterId, TerritoryId } from "./types";
 
 export const DEMO_SESSION_VERSION = 3;
@@ -35,6 +35,14 @@ export interface DemoSession {
    * coming back the same way the chosen territory does.
    */
   territoryFilter: TerritoryFilterId;
+  /**
+   * Every fold the reader has opened or closed by hand, keyed by panel. A
+   * section they shut stays shut when they come back to the page — it used to
+   * spring open again on every visit, undoing the choice each time. Signing in
+   * or changing the roster starts the reading over, so the bag is emptied
+   * there and nowhere else.
+   */
+  disclosures: Record<string, boolean>;
   selectedTerritoryId: TerritoryId | null;
   activeTab: AppTab;
   selectedExpeditionId: string | null;
@@ -53,6 +61,7 @@ export type DemoSessionAction =
   | { type: "removeArtist"; artistId: ArtistId }
   | { type: "selectTerritory"; territoryId: TerritoryId | null }
   | { type: "setTerritoryFilter"; filter: TerritoryFilterId }
+  | { type: "setDisclosure"; key: string; open: boolean }
   | { type: "changeTab"; tab: AppTab }
   | { type: "openExpedition"; expeditionId: string }
   | { type: "openRecommendedExpedition"; expeditionId: string; territoryId: TerritoryId }
@@ -145,6 +154,7 @@ export function createInitialDemoSession(): DemoSession {
     selectedArtistId: null,
     followedArtistIds: [],
     territoryFilter: "my_fandom",
+    disclosures: {},
     selectedTerritoryId: null,
     activeTab: "explore",
     selectedExpeditionId: null,
@@ -188,11 +198,11 @@ export function applyCheckInImpact(state: DemoSession, expeditionId: string, pla
   if (!state.artistConfirmed || artistId === null || territoryId === null || state.selectedExpeditionId !== expeditionId) return state;
   const expedition = compatibleExpedition(expeditionId, artistId, territoryId);
   const place = previewContent.places.find((candidate) => candidate.id === placeId);
-  const actualApplied = Math.min(
-    Math.max(Number.isFinite(award.cappedPoints) ? award.cappedPoints : 0, 0),
-    Math.max(GAME_RULES.dailyCap - state.contributedToday, 0),
-  );
-  if (!expedition || !place || place.territoryId !== expedition.territoryId || !expedition.stopIds.includes(place.id) || actualApplied <= 0) return state;
+  // Every check-in lands in full. There used to be a 1200P daily ceiling here,
+  // which one stop in a 1.8x region all but exhausted, leaving the next stop on
+  // the same route worth almost nothing for no reason the traveller could see.
+  const actualApplied = Math.max(Number.isFinite(award.cappedPoints) ? award.cappedPoints : 0, 0);
+  if (!expedition || !place || place.territoryId !== expedition.territoryId || !expedition.stopIds.includes(place.id)) return state;
 
   const territories = state.territories.map((territory) => {
     if (territory.id !== expedition.territoryId) return territory;
@@ -232,6 +242,7 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         artistConfirmed: true,
         selectedArtistId: action.artistId,
         followedArtistIds: withArtist(state.followedArtistIds, action.artistId),
+        disclosures: {},
         selectedTerritoryId: null,
         activeTab: "explore",
         selectedExpeditionId: null,
@@ -256,6 +267,7 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         artistConfirmed: true,
         selectedArtistId: action.artistId,
         followedArtistIds: withArtist(state.followedArtistIds, action.artistId),
+        disclosures: {},
         selectedTerritoryId: territory?.id ?? null,
         // Switching fandom is not a request to go somewhere: the reader stays
         // on the page they were reading, now showing it as the new fandom. The
@@ -277,6 +289,7 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         return {
           ...state,
           followedArtistIds,
+          disclosures: {},
           artistConfirmed: false,
           selectedArtistId: null,
           selectedTerritoryId: null,
@@ -289,6 +302,7 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
       return {
         ...state,
         followedArtistIds,
+        disclosures: {},
         artistConfirmed: true,
         selectedArtistId: successor,
         selectedTerritoryId: territory?.id ?? null,
@@ -299,6 +313,10 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
     }
     case "setTerritoryFilter":
       return state.territoryFilter === action.filter ? state : { ...state, territoryFilter: action.filter };
+    case "setDisclosure":
+      return state.disclosures[action.key] === action.open
+        ? state
+        : { ...state, disclosures: { ...state.disclosures, [action.key]: action.open } };
     case "selectTerritory":
       return state.artistConfirmed
         ? { ...state, selectedTerritoryId: action.territoryId, activeTab: "explore", selectedExpeditionId: null }
@@ -311,13 +329,12 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
       const active = state.activeExpeditionId
         ? previewContent.expeditions.find((candidate) => candidate.id === state.activeExpeditionId)
         : undefined;
+      // The route carries its own territory, so opening it leaves the map's
+      // selection alone. It used to overwrite it, and a reader who started in
+      // Yeongwol, then read up on Ulsan, found Yeongwol waiting on the map
+      // again — the route had quietly undone their last move.
       return active && (active.artistId === null || active.artistId === state.selectedArtistId)
-        ? {
-            ...state,
-            selectedTerritoryId: active.territoryId,
-            activeTab: "expedition",
-            selectedExpeditionId: active.id,
-          }
+        ? { ...state, activeTab: "expedition", selectedExpeditionId: active.id }
         : { ...state, activeTab: "expedition", selectedExpeditionId: null };
     }
     case "endExpedition":
@@ -499,10 +516,11 @@ export function isValidDemoSession(value: unknown): value is DemoSession {
     || !value.approvedCheckIns.every(isValidApprovedCheckIn)
     || !isRecord(value.missionVisitCounts)
     || !Object.entries(value.missionVisitCounts).every(([placeId, count]) => placeIds.has(placeId) && Number.isInteger(count) && isNonNegativeFinite(count))
-    || !isNonNegativeFinite(value.contributedToday)
-    || value.contributedToday > GAME_RULES.dailyCap) return false;
+    || !isNonNegativeFinite(value.contributedToday)) return false;
 
   if (!TERRITORY_FILTER_IDS.includes(value.territoryFilter as TerritoryFilterId)) return false;
+  if (!isRecord(value.disclosures)
+    || Object.values(value.disclosures).some((open) => typeof open !== "boolean")) return false;
   if (!Array.isArray(value.followedArtistIds)
     || !value.followedArtistIds.every(isArtistId)
     || new Set(value.followedArtistIds).size !== value.followedArtistIds.length) return false;
@@ -519,8 +537,11 @@ export function isValidDemoSession(value: unknown): value is DemoSession {
     if (!active || (active.artistId !== null && active.artistId !== value.selectedArtistId)) return false;
   }
   if (value.selectedExpeditionId !== null) {
-    if (!value.selectedArtistId || !value.selectedTerritoryId
-      || !compatibleExpedition(value.selectedExpeditionId, value.selectedArtistId, value.selectedTerritoryId)) return false;
+    // The open route stands on its own territory — the map may be looking
+    // somewhere else entirely while the route keeps running.
+    const open = previewContent.expeditions.find((candidate) => candidate.id === value.selectedExpeditionId);
+    if (!value.selectedArtistId || !open
+      || !compatibleExpedition(value.selectedExpeditionId, value.selectedArtistId, open.territoryId)) return false;
   }
   // An open route implies the expedition tab, but the tab may sit empty.
   if (value.selectedExpeditionId !== null && value.activeTab !== "expedition") return false;
@@ -552,6 +573,10 @@ export function parseDemoSession(value: unknown): DemoSession | null {
       territoryFilter: TERRITORY_FILTER_IDS.includes(value.territoryFilter as TerritoryFilterId)
         ? value.territoryFilter
         : "my_fandom",
+      // Folds saved before they were remembered come back at their defaults.
+      disclosures: isRecord(value.disclosures)
+        ? Object.fromEntries(Object.entries(value.disclosures).filter(([, open]) => typeof open === "boolean"))
+        : {},
     }
     : value;
   return isValidDemoSession(candidate) ? candidate : null;

@@ -31,7 +31,6 @@ async function advance(user: ReturnType<typeof userEvent.setup>) {
 async function reachTheWaitingStep(user: ReturnType<typeof userEvent.setup>) {
   const dialog = await screen.findByRole("dialog");
   await advance(user);
-  await advance(user);
   return dialog;
 }
 
@@ -80,7 +79,7 @@ it("holds the choose-a-territory step until a territory is chosen", async () => 
   await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
     .getAllByRole("button")[0]);
 
-  expect(await within(dialog).findByRole("heading", { name: "지금 점수 차이" })).toBeVisible();
+  expect(await within(dialog).findByRole("heading", { name: "지역 점수 현황" })).toBeVisible();
 });
 
 it("walks the rest of the tour and finishes on the last step", async () => {
@@ -91,16 +90,36 @@ it("walks the rest of the tour and finishes on the last step", async () => {
   const dialog = await reachTheWaitingStep(user);
   await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
     .getAllByRole("button")[0]);
-  await within(dialog).findByRole("heading", { name: "지금 점수 차이" });
+  await within(dialog).findByRole("heading", { name: "지역 점수 현황" });
 
-  for (let step = 4; step < GUIDE_STEPS.length; step += 1) {
-    await advance(user);
-    expect(within(dialog).getByText(`${step + 1} / ${GUIDE_STEPS.length}`)).toBeVisible();
+  // Each remaining step either moves on from a tap anywhere, or waits for the
+  // very control it is pointing at. Pressing that control is the whole point
+  // of the second half of the tour, so the walk is driven by what each step
+  // asks for rather than by a fixed count.
+  const press = async (name: RegExp) => user.click(screen.getAllByRole("button", { name })[0]);
+  for (let index = 2; index < GUIDE_STEPS.length; index += 1) {
+    expect(within(dialog).getByText(`${index + 1} / ${GUIDE_STEPS.length}`)).toBeVisible();
+    const step = GUIDE_STEPS[index];
+    if (!step.awaits) {
+      await advance(user);
+      continue;
+    }
+    expect(screen.queryByRole("button", { name: /다음 단계|가이드 마치기/ })).not.toBeInTheDocument();
+    if (step.id === "start-expedition") await press(/^원정 시작$/);
+    else if (step.id === "check-in") await press(/체크인$/);
+    else if (step.id === "check-in-verify") await press(/^데모 인증 진행$/);
+    else if (step.id === "check-in-submit") await press(/^체크인 제출$/);
+    else if (step.id === "check-in-result") await press(/^여행 계속하기$/);
+    else if (step.id === "expedition-end") await press(/^원정 종료$|^원정 완료$/);
+    // The page button and the dialog's both read "end expedition"; this step
+    // means the one inside the dialog it just opened.
+    else if (step.id === "expedition-end-confirm") await user.click(document.querySelector<HTMLButtonElement>('[data-guide="expedition-end-confirm"]')!);
+    await within(dialog).findByText(`${index + 2} / ${GUIDE_STEPS.length}`);
   }
 
-  await advance(user);
+  // The loop advanced off the closing step, which is what ends the guide.
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-});
+}, 30_000);
 
 it("steps back from the control left of the counter", async () => {
   const user = userEvent.setup();
@@ -121,7 +140,7 @@ it("explains the real scoring numbers rather than placeholders", () => {
   const impact = GUIDE_STEPS.find((step) => step.id === "impact");
   expect(award?.body.ko).toContain(`${GAME_RULES.localSpend}P`);
   expect(award?.body.ko).toContain(`${GAME_RULES.accommodation}P`);
-  expect(impact?.body.ko).toContain(GAME_RULES.dailyCap.toLocaleString());
+  expect(impact?.body.ko).toContain(`${Math.round(GAME_RULES.repeatDecay[1] * 100)}%`);
 });
 
 it("remembers a finished guide so it does not interrupt the next visit", async () => {
@@ -167,3 +186,36 @@ it("shows the English tour for an English visitor", async () => {
 
   expect(await screen.findByRole("dialog", { name: GUIDE_STEPS[0].title.en })).toBeVisible();
 });
+
+it("keeps nothing the practice check-in earned", async () => {
+  const user = userEvent.setup();
+  storeConfirmedBtsSession();
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  const before = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!);
+  const dialog = await reachTheWaitingStep(user);
+  await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
+    .getAllByRole("button")[0]);
+  await within(dialog).findByRole("heading", { name: "지역 점수 현황" });
+
+  // Far enough in to have started a route and banked a check-in.
+  for (let index = 2; index < GUIDE_STEPS.findIndex((s) => s.id === "check-in-result"); index += 1) {
+    const step = GUIDE_STEPS[index];
+    if (!step.awaits) { await advance(user); continue; }
+    if (step.id === "start-expedition") await user.click(screen.getAllByRole("button", { name: /^원정 시작$/ })[0]);
+    else if (step.id === "check-in") await user.click(screen.getAllByRole("button", { name: /체크인$/ })[0]);
+    else if (step.id === "check-in-verify") await user.click(screen.getAllByRole("button", { name: /^데모 인증 진행$/ })[0]);
+    else if (step.id === "check-in-submit") await user.click(screen.getAllByRole("button", { name: /^체크인 제출$/ })[0]);
+    await within(dialog).findByText(`${index + 2} / ${GUIDE_STEPS.length}`);
+  }
+  const during = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!);
+  expect(during.approvedCheckIns.length).toBe(1);
+
+  // Leaving the guide hands the session back exactly as it was found.
+  await user.keyboard("{Escape}");
+  const after = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!);
+  expect(after.approvedCheckIns).toEqual(before.approvedCheckIns);
+  expect(after.contributedToday).toBe(before.contributedToday);
+  expect(after.territories).toEqual(before.territories);
+  expect(after.activeExpeditionId).toBe(before.activeExpeditionId);
+}, 30_000);

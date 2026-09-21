@@ -6,7 +6,7 @@ import { calculateMissionAward, GAME_RULES, rankFandoms, stageForPoints } from "
 import { previewContent } from "@/features/team-preview/content";
 import { t } from "@/features/team-preview/i18n";
 import type { DemoSession } from "@/features/team-preview/demo-session";
-import { useDemoSession } from "@/features/team-preview/demo-session-context";
+import { useDemoSession, useDisclosure } from "@/features/team-preview/demo-session-context";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
 import type {
   ArtistConnection,
@@ -47,7 +47,7 @@ const panelCopy = {
     awardHelpAccommodation: `숙박을 인증하면 ${GAME_RULES.accommodation}P.`,
     awardHelpStronghold: `내 팬덤이 소유한 영토에서만 붙어요. 씨앗 +${GAME_RULES.strongholdVisitBonus}P, 나무부터 체류 보너스가 있으면 +${GAME_RULES.strongholdDwellBonus}P, 랜드마크에서 소비를 인증하면 +${GAME_RULES.strongholdSpendBonus}P가 더해집니다.`,
     awardHelpTotalTerm: "합계 뒤",
-    awardHelpTotal: `지역 배율을 곱하고, 같은 장소를 반복하면 ${GAME_RULES.repeatDecay.join("배 → ")}배로 줄어요. 하루 상한은 ${GAME_RULES.dailyCap.toLocaleString()}P입니다.`,
+    awardHelpTotal: `지역 배율을 곱하고, 같은 장소를 반복하면 ${GAME_RULES.repeatDecay.join("배 → ")}배로 줄어요.`,
     impactTitle: "추천 원정 영향",
     impactHelp: "영향 지표 설명 보기",
     impactHelpBalance: "합계에 곱해지는 지역 배율이에요. 옆 문구는 그 배율이 붙은 근거이고, 방문을 유도할 이유가 있는 지역일수록 높습니다.",
@@ -98,7 +98,7 @@ const panelCopy = {
     awardHelpAccommodation: `Verify an overnight stay for ${GAME_RULES.accommodation}P.`,
     awardHelpStronghold: `Only in territories your fandom owns. Seed adds +${GAME_RULES.strongholdVisitBonus}P, tree adds +${GAME_RULES.strongholdDwellBonus}P once a dwell bonus applies, and landmark adds +${GAME_RULES.strongholdSpendBonus}P with verified spending.`,
     awardHelpTotalTerm: "After the subtotal",
-    awardHelpTotal: `The regional multiplier applies, repeat visits to the same place decay ${GAME_RULES.repeatDecay.join("× → ")}×, and the daily cap is ${GAME_RULES.dailyCap.toLocaleString()}P.`,
+    awardHelpTotal: `The regional multiplier applies, and repeat visits to the same place decay ${GAME_RULES.repeatDecay.join("× → ")}×.`,
     impactTitle: "Recommended expedition impact",
     impactHelp: "What these impact figures mean",
     impactHelpBalance: "The regional multiplier applied to the subtotal. The note beside it is the reason for that multiplier; regions worth steering visits toward carry a higher one.",
@@ -144,7 +144,6 @@ function estimateAward(expedition: PreviewExpedition, territory: PreviewTerritor
     balanceMultiplier: territory.balanceMultiplier,
     fandomSizeMultiplier: 1,
     repeatCount: firstStop ? (session.missionVisitCounts[firstStop.id] ?? 0) : 0,
-    contributedToday: session.contributedToday,
     ownerStrongholdStage: territory.ownerArtistId === artistId ? territory.strongholdStage : null,
   });
 }
@@ -194,8 +193,8 @@ export function TacticalPanel({
 }) {
   const demoSession = useDemoSession();
   const swipeOrigin = useRef<{ x: number; y: number } | null>(null);
-  const [awardHelpOpen, setAwardHelpOpen] = useState(false);
-  const [impactHelpOpen, setImpactHelpOpen] = useState(false);
+  const [awardHelpOpen, setAwardHelpOpen] = useDisclosure("tactical.award", false);
+  const [impactHelpOpen, setImpactHelpOpen] = useDisclosure("tactical.impact", false);
   const [slide, setSlide] = useState<"next" | "previous" | null>(null);
   const [switchOpen, setSwitchOpen] = useState(false);
   const switchDialogRef = useRef<HTMLDivElement>(null);
@@ -355,7 +354,11 @@ export function TacticalPanel({
           <dt>{copy.owner}</dt>
           <dd className="tactical-owner">
             <span>{standingName(owner)}</span>
-            <StrongholdMark stage={territory.strongholdStage} locale={locale} ownerColor={territoryOwnerColor} />
+            {/* The guide narrows onto the stage mark alone when it explains
+                seed, tree and landmark. */}
+            <span data-guide="stronghold-mark">
+              <StrongholdMark stage={territory.strongholdStage} locale={locale} ownerColor={territoryOwnerColor} />
+            </span>
           </dd>
         </div>
         <div>

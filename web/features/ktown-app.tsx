@@ -23,7 +23,7 @@ import { MembershipProvider, useMembership } from "@/features/membership/members
 import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/demo-session-context";
 import type { DemoSession as DemoSessionState } from "@/features/team-preview/demo-session";
 import type { ArtistId } from "@/features/team-preview/types";
-import { previewContent } from "@/features/team-preview/content";
+import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
 import { createRemoteDemoSessionStore } from "@/features/team-preview/remote-session-store";
 import { t } from "@/features/team-preview/i18n";
 import { MembershipGate } from "@/components/membership/membership-gate";
@@ -48,6 +48,9 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const [resetOpen, setResetOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideChecked, setGuideChecked] = useState(false);
+  // The session as it stood when the guide opened, so the practice run it
+  // walks the reader through can be undone in full when it closes.
+  const guideSnapshot = useRef<DemoSessionState | null>(null);
   const resetDialogRef = useRef<HTMLDivElement>(null);
   const resetTitleRef = useRef<HTMLHeadingElement>(null);
   const leaveDialogRef = useRef<HTMLDivElement>(null);
@@ -79,14 +82,34 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   // tactical panel only renders once a territory is chosen. Put the page into
   // that state so a replay from My Record explains the real screen.
   const prepareGuideStep = useCallback((step: GuideStep) => {
-    if (session.state.activeTab !== step.tab) session.dispatch({ type: "changeTab", tab: step.tab });
     if (step.awaits === "territory") {
       // The reader is about to choose one, so clear any earlier choice and, on
-      // a phone, open the list that holds the cards they need to tap.
+      // a phone, open the list that holds the card they need to tap.
+      if (session.state.activeTab !== step.tab) session.dispatch({ type: "changeTab", tab: step.tab });
       if (session.state.selectedTerritoryId) session.dispatch({ type: "selectTerritory", territoryId: null });
       document.querySelector<HTMLButtonElement>(".territory-list-toggle[aria-expanded='false']")?.click();
       return;
     }
+    // The expedition chapter needs a route open. The reader starts it
+    // themselves on the step before; this only covers a replay that jumps
+    // straight in, and picks the route for whatever territory they are on.
+    if (step.tab === "expedition") {
+      if (session.state.activeExpeditionId) {
+        if (session.state.activeTab !== "expedition") session.dispatch({ type: "changeTab", tab: "expedition" });
+        return;
+      }
+      // The closing step has no target and comes after the route was ended on
+      // purpose; opening a fresh one under it would undo what it just said.
+      if (!step.target) return;
+      const territoryId = session.state.selectedTerritoryId ?? session.state.territories[0]?.id ?? null;
+      const artistId = session.state.selectedArtistId;
+      const route = territoryId && artistId ? getPlayableExpedition(artistId, territoryId) : null;
+      if (route && territoryId) {
+        session.dispatch({ type: "openRecommendedExpedition", expeditionId: route.id, territoryId });
+      }
+      return;
+    }
+    if (session.state.activeTab !== step.tab) session.dispatch({ type: "changeTab", tab: step.tab });
     if (!step.needsTerritory || session.state.selectedTerritoryId) return;
     const first = session.state.territories[0];
     if (first) session.dispatch({ type: "selectTerritory", territoryId: first.id });
@@ -94,12 +117,26 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
 
   const closeGuide = () => {
     setGuideOpen(false);
+    // The guide has the reader walk a real check-in, so it hands the session
+    // back exactly as it found it: the practice points, the route it started
+    // and the territory it picked are all put back. Nothing done inside the
+    // tutorial counts.
+    const before = guideSnapshot.current;
+    guideSnapshot.current = null;
+    if (before) session.dispatch({ type: "hydrate", state: before });
     try {
       markTutorialSeen(window.localStorage);
     } catch {
       // Nothing to remember when storage is blocked.
     }
   };
+
+  // Taken once the guide is actually up, not when it is asked for: confirming
+  // a first fandom asks in the same breath as choosing one, and the state at
+  // that moment has no fandom on it yet.
+  useEffect(() => {
+    if (guideOpen) guideSnapshot.current ??= session.state;
+  }, [guideOpen, session.state]);
 
   const resetDemo = () => {
     // Resetting asks for the demo from the top, greeting included.
@@ -204,7 +241,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
           />
         ) : null}
       </AppShell>
-      {guideOpen ? <TutorialOverlay locale={session.state.locale} onClose={closeGuide} onPrepareStep={prepareGuideStep} territorySelected={session.state.selectedTerritoryId !== null} /> : null}
+      {guideOpen ? <TutorialOverlay locale={session.state.locale} onClose={closeGuide} onPrepareStep={prepareGuideStep} territorySelected={session.state.selectedTerritoryId !== null} expeditionOpen={session.state.activeExpeditionId !== null} /> : null}
       {leavingArtistId !== null && typeof document !== "undefined" ? createPortal(
         <LeaveFandomDialog
           locale={session.state.locale}

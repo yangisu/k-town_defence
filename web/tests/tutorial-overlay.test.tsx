@@ -287,3 +287,34 @@ it("undoes only the practice check-in, leaving earlier progress alone", async ()
   expect(after.contributedToday).toBe(2232);
   expect(after.territories).toEqual(played.territories);
 }, 30_000);
+
+// Two focus traps at once — the guide's card and the check-in it opens — each
+// pulled focus out of the other until the call stack gave way, and Escape in
+// the inner one closed both. Only the topmost holds the screen now.
+it("opens the check-in inside the guide without the two fighting over focus", async () => {
+  const user = userEvent.setup();
+  storeConfirmedBtsSession();
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  const dialog = await reachTheWaitingStep(user);
+  await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
+    .getAllByRole("button")[0]);
+  await within(dialog).findByRole("heading", { name: "지역 점수 현황" });
+  for (let index = 2; index < GUIDE_STEPS.findIndex((s) => s.id === "check-in-verify"); index += 1) {
+    const step = GUIDE_STEPS[index];
+    if (!step.awaits) { await advance(user); continue; }
+    if (step.id === "start-expedition") await user.click(screen.getAllByRole("button", { name: /^원정 시작$/ })[0]);
+    else if (step.id === "check-in") await user.click(screen.getAllByRole("button", { name: /체크인$/ })[0]);
+    await within(dialog).findByText(`${index + 2} / ${GUIDE_STEPS.length}`);
+  }
+
+  // Both are on screen, and focus has come to rest inside the newer one.
+  const checkIn = document.querySelector(".checkin-dialog");
+  expect(checkIn).not.toBeNull();
+  expect(checkIn!.contains(document.activeElement)).toBe(true);
+
+  // Escape belongs to the check-in alone; the guide is still standing after it.
+  await user.keyboard("{Escape}");
+  expect(document.querySelector(".checkin-dialog")).toBeNull();
+  expect(screen.getByText(`${GUIDE_STEPS.findIndex((s) => s.id === "check-in-verify") + 1} / ${GUIDE_STEPS.length}`)).toBeVisible();
+}, 30_000);

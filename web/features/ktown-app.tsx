@@ -31,14 +31,28 @@ import { MembershipGate } from "@/components/membership/membership-gate";
 import type { AppServices, CheckInService, PersistedExpedition } from "@/lib/domain";
 import type { MapConfig } from "@/lib/map-config";
 import { createServices, type ServiceMode } from "@/lib/service-factory";
+import { createDemoServices } from "@/lib/demo-services";
 import { mapTerritorySnapshots } from "@/lib/adapters/territory";
 
-function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", checkInMode, onChangeFandom }: {
+function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", checkInMode, practiceCheckInService, availableArtistIds, onChangeFandom }: {
   services: AppServices;
   mapConfig: MapConfig | null;
   profileLocked?: boolean;
   mode?: ServiceMode;
   checkInMode?: "demo" | "integrated";
+  /** Fandoms the season membership can actually be set to. The full preview
+   *  roster has many more artists than the backend has fandoms for, and
+   *  picking one with no matching fandom used to close the drawer and do
+   *  nothing — no error, no fandom change. Restricting the drawer to this
+   *  list keeps every choice one that `onChangeFandom` can actually apply. */
+  availableArtistIds?: ArtistId[];
+  /** Used for the guide's practice check-in instead of `services.checkIn`.
+   *  The guide can walk a reader through any territory, but the live catalog
+   *  only has real places for Busan (see `hasLiveExpeditionData`), so a
+   *  practice run that hit the real backend would get stuck on a place it
+   *  cannot find. Practice never counts for score anyway, so it runs fully
+   *  local instead of depending on live data coverage. */
+  practiceCheckInService?: CheckInService;
   /** Integrated mode changes a fandom through the season membership rather
    *  than the local session, and the API may refuse mid-season. */
   onChangeFandom?: (artistId: NonNullable<DemoSessionState["selectedArtistId"]>) => void;
@@ -267,7 +281,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
         {session.state.artistConfirmed && session.state.activeTab === "expedition" ? (
             <PreviewExpeditionView
               expeditionId={session.state.selectedExpeditionId}
-              checkInService={services.checkIn}
+              checkInService={mode === "integrated" && guideOpen && practiceCheckInService ? practiceCheckInService : services.checkIn}
               relatedAttractionService={services.tourism}
               checkInMode={checkInMode ?? mode}
               checkInPractice={mode === "integrated" && guideOpen}
@@ -309,6 +323,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
             // In integrated mode the roster lives on the server, so the drawer
             // stays a single-fandom switch until that contract catches up.
             followedArtistIds={onChangeFandom ? undefined : session.state.followedArtistIds}
+            availableArtistIds={availableArtistIds}
             onClose={() => setDrawerOpen(false)}
             onSelect={chooseArtist}
             onRemove={onChangeFandom ? undefined : setLeavingArtistId}
@@ -415,6 +430,9 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
   const membership = useMembership();
   const session = useDemoSession();
   const uiServices = useMemo(() => ({ ...services, checkIn: createPreviewCheckInService(services) }), [services]);
+  // The guide's practice check-in never touches the live backend: see
+  // `practiceCheckInService` on `DemoProduct`.
+  const practiceCheckInService = useMemo(() => createDemoServices().checkIn, []);
   // The brand beat the demo shows after logging in, kept for the real login.
   const [welcoming, setWelcoming] = useState(() => (
     typeof window === "undefined" ? false : !hasSeenBrandWelcome(window.sessionStorage)
@@ -446,6 +464,12 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
     const fandom = membership.fandoms.find((candidate) => candidate.name === artist?.fandomName);
     if (fandom) void membership.selectFandom(fandom.id);
   }, [membership]);
+  // Only artists whose fandom the season membership actually offers — the
+  // preview roster has far more, and the drawer used to let a reader pick one
+  // that `changeFandom` could not apply, closing on nothing happening.
+  const availableArtistIds = useMemo(() => membership.fandoms
+    .map((fandom) => previewContent.artists.find((artist) => artist.fandomName === fandom.name)?.id)
+    .filter((id): id is ArtistId => Boolean(id)), [membership.fandoms]);
 
   if (welcoming) {
     return <DemoBrandTransition onComplete={() => {
@@ -461,6 +485,8 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
         mapConfig={mapConfig}
         profileLocked
         mode="integrated"
+        practiceCheckInService={practiceCheckInService}
+        availableArtistIds={availableArtistIds}
         checkInMode="demo"
         onChangeFandom={changeFandom}
       />

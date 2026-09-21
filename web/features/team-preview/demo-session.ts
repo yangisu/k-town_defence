@@ -32,7 +32,10 @@ export interface DemoSession {
   /**
    * Which slice of the board the reader last asked the map to show. It is part
    * of where they are, not a setting, so it survives leaving the page and
-   * coming back the same way the chosen territory does.
+   * coming back the same way the chosen territory does. It opens on the whole
+   * board: a fandom holding nothing had an empty list under a filter set to
+   * its own territories, with no way through the tutorial and nothing to look
+   * at. A new roster puts it back there for the same reason.
    */
   territoryFilter: TerritoryFilterId;
   /**
@@ -153,7 +156,7 @@ export function createInitialDemoSession(): DemoSession {
     artistConfirmed: false,
     selectedArtistId: null,
     followedArtistIds: [],
-    territoryFilter: "my_fandom",
+    territoryFilter: "all",
     disclosures: {},
     selectedTerritoryId: null,
     activeTab: "explore",
@@ -243,6 +246,7 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         selectedArtistId: action.artistId,
         followedArtistIds: withArtist(state.followedArtistIds, action.artistId),
         disclosures: {},
+        territoryFilter: "all",
         selectedTerritoryId: null,
         activeTab: "explore",
         selectedExpeditionId: null,
@@ -268,6 +272,7 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         selectedArtistId: action.artistId,
         followedArtistIds: withArtist(state.followedArtistIds, action.artistId),
         disclosures: {},
+        territoryFilter: "all",
         selectedTerritoryId: territory?.id ?? null,
         // Switching fandom is not a request to go somewhere: the reader stays
         // on the page they were reading, now showing it as the new fandom. The
@@ -290,6 +295,7 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
           ...state,
           followedArtistIds,
           disclosures: {},
+          territoryFilter: "all",
           artistConfirmed: false,
           selectedArtistId: null,
           selectedTerritoryId: null,
@@ -303,6 +309,7 @@ export function demoSessionReducer(state: DemoSession, action: DemoSessionAction
         ...state,
         followedArtistIds,
         disclosures: {},
+        territoryFilter: "all",
         artistConfirmed: true,
         selectedArtistId: successor,
         selectedTerritoryId: territory?.id ?? null,
@@ -568,11 +575,11 @@ export function parseDemoSession(value: unknown): DemoSession | null {
     ? {
       ...value,
       followedArtistIds: rosterOf(value),
-      // A session saved before the filter was remembered was showing the
-      // default, so that is what it comes back as.
+      // A session saved before the filter was remembered comes back on the
+      // default, which is the whole board.
       territoryFilter: TERRITORY_FILTER_IDS.includes(value.territoryFilter as TerritoryFilterId)
         ? value.territoryFilter
-        : "my_fandom",
+        : "all",
       // Folds saved before they were remembered come back at their defaults.
       disclosures: isRecord(value.disclosures)
         ? Object.fromEntries(Object.entries(value.disclosures).filter(([, open]) => typeof open === "boolean"))

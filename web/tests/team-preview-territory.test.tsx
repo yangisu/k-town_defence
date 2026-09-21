@@ -25,6 +25,9 @@ function confirmedSession(overrides: Partial<DemoSession> = {}): DemoSession {
     artistConfirmed: true,
     selectedArtistId: "bts",
     selectedTerritoryId: "busan",
+    // These read the page as a fandom looking at its own ground. The app now
+    // opens on the whole board, so the slice under test is stated here.
+    territoryFilter: "my_fandom",
     ...overrides,
   };
 }

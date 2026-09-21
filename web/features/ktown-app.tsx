@@ -150,6 +150,9 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   useEffect(() => {
     if (!guideOpen) return;
     guideSnapshot.current ??= session.state;
+    // The guide points at the first card in the list, so it needs a list. The
+    // reader's own slice comes back with everything else when it closes.
+    if (session.state.territoryFilter !== "all") session.dispatch({ type: "setTerritoryFilter", filter: "all" });
     // Sealed for the whole visit, so a practice check-in never reaches storage
     // or the server — not even if the tab is closed mid-tutorial.
     session.seal(true);

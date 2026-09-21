@@ -170,7 +170,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
       const offset = box.top + window.scrollY;
       stillFor = Math.abs(offset - lastOffset) < 0.5 ? stillFor + 1 : 0;
       lastOffset = offset;
-      if (stillFor < 3) {
+      if (stillFor < 2) {
         settleFrame = window.requestAnimationFrame(place);
         return;
       }
@@ -202,7 +202,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
         const now = element.getBoundingClientRect().top;
         quiet = Math.abs(now - lastTop) < 0.5 ? quiet + 1 : 0;
         lastTop = now;
-        if (quiet >= 4) setSettled(true);
+        if (quiet >= 3) setSettled(true);
         else settleFrame = window.requestAnimationFrame(waitForStop);
       };
       settleFrame = window.requestAnimationFrame(waitForStop);
@@ -380,7 +380,9 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
         </header>
         <h2 id="tutorial-title">{step.title[locale]}</h2>
         <p className="tutorial-body">{step.body[locale]}</p>
-        {step.target && !rect ? (
+        {/* Only once the guide has given up looking. Stepping back and forward
+            again, the control is briefly absent and this used to flash. */}
+        {step.target && !rect && settled ? (
           <p className="tutorial-fallback" role="note">{t(locale, "tutorialOffscreen")}</p>
         ) : null}
         <ol className="tutorial-dots" aria-hidden="true">

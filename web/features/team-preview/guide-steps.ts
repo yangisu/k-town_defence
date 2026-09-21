@@ -233,6 +233,7 @@ export const GUIDE_STEPS: readonly GuideStep[] = [
   {
     id: "finish",
     tab: "expedition",
+    noBack: true,
     title: { ko: "이제 K-Defense를 즐겨주세요", en: "Now go and play" },
     body: {
       ko: "여기까지가 한 번의 원정이에요. 연습으로 얻은 점수는 모두 되돌려 두었으니, 이제 우리 팬덤의 영토를 진짜로 넓혀볼 차례입니다.",

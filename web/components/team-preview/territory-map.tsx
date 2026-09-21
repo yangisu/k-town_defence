@@ -871,6 +871,13 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
           <ChevronRight size={17} strokeWidth={2.8} aria-hidden="true" />
         </button>
       ) : null}
+      {/* A fandom that holds nothing asked for its own territories and got a
+          blank strip with no word about why. */}
+      {listedTerritories.length === 0 ? (
+        <p className="preview-territory-empty" role="note">
+          {t(session.locale, activeFilter === "my_fandom" ? "territoryListNoneOwned" : "territoryListNoneHere")}
+        </p>
+      ) : null}
       <TerritoryList
         id="preview-territory-list"
         collapsed={!listExpanded}

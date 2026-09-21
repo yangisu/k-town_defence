@@ -4,15 +4,18 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Annotated
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 
 from ..expedition_recommendation import ExpeditionRecommendationService
+from ..expedition_application import ExpeditionApplication
 from ..infrastructure.models import (
     CatalogSyncRunModel,
+    ExpeditionModel,
     OpenApiCallLogModel,
     PlaceModel,
 )
@@ -21,7 +24,7 @@ from ..related_attractions import (
     RelatedAttractionService,
     RouteAttractionRecommendation,
 )
-from .dependencies import get_session
+from .dependencies import get_session, get_user_id
 from .errors import ApiError
 from .place_routes import PlaceResponse
 from fastapi import Depends
@@ -30,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(tags=["expeditions"])
 Session = Annotated[AsyncSession, Depends(get_session)]
+UserId = Annotated[str, Depends(get_user_id)]
 
 
 class ExpeditionStopResponse(BaseModel):
@@ -81,6 +85,36 @@ class RecommendedExpeditionResponse(BaseModel):
     travel_date: date = Field(serialization_alias="travelDate")
     data_updated_at: str | None = Field(serialization_alias="dataUpdatedAt")
     stops: list[ExpeditionStopResponse]
+
+
+class CreateExpeditionRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    recommendation_id: str = Field(alias="recommendationId", min_length=1, max_length=64)
+    region_code: str = Field(default="6", alias="regionCode", min_length=1, max_length=20)
+    keyword: str | None = Field(default=None, max_length=100)
+    travel_date: date = Field(alias="travelDate")
+    limit: int = Field(default=5, ge=3, le=5)
+
+
+class StoredExpeditionStopResponse(ExpeditionStopResponse):
+    completed_at: str | None = Field(serialization_alias="completedAt")
+
+
+class StoredExpeditionResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: UUID
+    recommendation_id: str = Field(serialization_alias="recommendationId")
+    region_code: str = Field(serialization_alias="regionCode")
+    territory_id: str | None = Field(serialization_alias="territoryId")
+    title: str
+    keyword: str | None
+    travel_date: date = Field(serialization_alias="travelDate")
+    status: str
+    created_at: str = Field(serialization_alias="createdAt")
+    completed_at: str | None = Field(serialization_alias="completedAt")
+    stops: list[StoredExpeditionStopResponse]
 
 
 class OperationStatusResponse(BaseModel):
@@ -243,6 +277,70 @@ async def route_attractions(
     )
 
 
+@router.post(
+    "/api/v1/expeditions",
+    response_model=StoredExpeditionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_expedition(
+    payload: CreateExpeditionRequest,
+    session: Session,
+    user_id: UserId,
+) -> StoredExpeditionResponse:
+    try:
+        application = ExpeditionApplication(session)
+        expedition = await application.create(
+            user_id,
+            recommendation_id=payload.recommendation_id,
+            region_code=payload.region_code,
+            keyword=payload.keyword,
+            travel_date=payload.travel_date,
+            limit=payload.limit,
+        )
+    except ValueError as exc:
+        raise ApiError(404, "EXPEDITION_NOT_AVAILABLE", "추천할 수 있는 지역 원정이 없습니다.") from exc
+    return await _stored_response(application, expedition)
+
+
+@router.get(
+    "/api/v1/expeditions/current",
+    response_model=StoredExpeditionResponse | None,
+)
+async def current_expedition(session: Session, user_id: UserId):
+    application = ExpeditionApplication(session)
+    expedition = await application.current(user_id)
+    return None if expedition is None else await _stored_response(application, expedition)
+
+
+@router.get(
+    "/api/v1/expeditions/{expedition_id}",
+    response_model=StoredExpeditionResponse,
+)
+async def get_expedition(expedition_id: UUID, session: Session, user_id: UserId):
+    application = ExpeditionApplication(session)
+    return await _stored_response(application, await application.get_owned(user_id, expedition_id))
+
+
+@router.post(
+    "/api/v1/expeditions/{expedition_id}/abandon",
+    response_model=StoredExpeditionResponse,
+)
+async def abandon_expedition(expedition_id: UUID, session: Session, user_id: UserId):
+    application = ExpeditionApplication(session)
+    expedition = await application.finish(user_id, expedition_id, "abandoned")
+    return await _stored_response(application, expedition)
+
+
+@router.post(
+    "/api/v1/expeditions/{expedition_id}/complete",
+    response_model=StoredExpeditionResponse,
+)
+async def complete_expedition(expedition_id: UUID, session: Session, user_id: UserId):
+    application = ExpeditionApplication(session)
+    expedition = await application.finish(user_id, expedition_id, "completed")
+    return await _stored_response(application, expedition)
+
+
 @router.get("/api/v1/open-data/status", response_model=OpenDataStatusResponse)
 async def open_data_status(session: Session) -> OpenDataStatusResponse:
     latest_run = await session.scalar(
@@ -300,3 +398,31 @@ async def open_data_status(session: Session) -> OpenDataStatusResponse:
 
 def _iso(value) -> str | None:
     return value.isoformat().replace("+00:00", "Z") if value else None
+
+
+async def _stored_response(
+    application: ExpeditionApplication, expedition: ExpeditionModel
+) -> StoredExpeditionResponse:
+    stops = await application.stops(expedition.id)
+    return StoredExpeditionResponse(
+        id=expedition.id,
+        recommendation_id=expedition.recommendation_id,
+        region_code=expedition.region_code,
+        territory_id=expedition.territory_id,
+        title=expedition.title,
+        keyword=expedition.keyword,
+        travel_date=expedition.travel_date,
+        status=expedition.status,
+        created_at=_iso(expedition.created_at) or "",
+        completed_at=_iso(expedition.completed_at),
+        stops=[
+            StoredExpeditionStopResponse(
+                order=stop.stop_order,
+                distance_km=float(stop.distance_km),
+                reasons=list(stop.reasons),
+                place=ExpeditionPlaceResponse.from_model(place),
+                completed_at=_iso(stop.completed_at),
+            )
+            for stop, place in stops
+        ],
+    )

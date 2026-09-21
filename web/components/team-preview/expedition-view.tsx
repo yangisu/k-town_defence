@@ -13,7 +13,8 @@ import { calculateMissionAward, rankFandoms, type MissionAward } from "@/feature
 import { TerritoryStandings } from "@/components/team-preview/territory-standings";
 import { t } from "@/features/team-preview/i18n";
 import type { Locale, PreviewMissionPlace, StrongholdStage } from "@/features/team-preview/types";
-import type { CheckInImpact, CheckInResult, CheckInService, Place, RouteAttraction, TourismService } from "@/lib/domain";
+import type { CheckInImpact, CheckInResult, CheckInService, PersistedExpedition, Place, RouteAttraction, TourismService } from "@/lib/domain";
+import { liveMissionPlaces } from "@/lib/adapters/expedition";
 
 const copy = {
   ko: {
@@ -122,6 +123,7 @@ function ExpeditionPlaceCard({
   action,
   done = false,
   recommended = false,
+  guide = false,
 }: {
   name: string;
   tag: string;
@@ -134,12 +136,13 @@ function ExpeditionPlaceCard({
   action: ReactNode;
   done?: boolean;
   recommended?: boolean;
+  guide?: boolean;
 }) {
   const className = [done ? "done" : "", recommended ? "recommended-stop" : ""]
     .filter(Boolean)
     .join(" ") || undefined;
   return (
-    <li className={className} aria-label={name}>
+    <li className={className} aria-label={name} {...(guide ? { "data-guide": "expedition-stop-first" } : {})}>
       {sourceUrl ? (
         <a
           className="stop-source"
@@ -193,7 +196,6 @@ function maximumAward(place: PreviewMissionPlace, multiplier: number, ownerStron
     balanceMultiplier: multiplier,
     fandomSizeMultiplier: 1,
     repeatCount: 0,
-    contributedToday: 0,
     ownerStrongholdStage,
   });
 }
@@ -241,6 +243,9 @@ export function PreviewExpeditionView({
   checkInMode = "demo",
   onBack,
   onStartCheckIn,
+  checkInPractice = false,
+  liveExpedition = null,
+  onEndExpedition,
 }: {
   expeditionId: string | null;
   checkInService: CheckInService;
@@ -248,6 +253,9 @@ export function PreviewExpeditionView({
   checkInMode?: "demo" | "integrated";
   onBack: () => void;
   onStartCheckIn?: (place: PreviewMissionPlace) => void;
+  checkInPractice?: boolean;
+  liveExpedition?: PersistedExpedition | null;
+  onEndExpedition?: () => void;
 }) {
   const session = useDemoSession();
   const locale = session.state.locale;
@@ -255,7 +263,6 @@ export function PreviewExpeditionView({
   const requestedExpeditionId = expeditionId ?? session.state.selectedExpeditionId;
   const expedition = previewContent.expeditions.find((candidate) => (
     candidate.id === requestedExpeditionId
-    && candidate.territoryId === session.state.selectedTerritoryId
     && (candidate.artistId === null || candidate.artistId === session.state.selectedArtistId)
   )) ?? null;
   const connection = previewContent.connections.find((candidate) => candidate.id === expedition?.connectionId) ?? null;
@@ -265,12 +272,13 @@ export function PreviewExpeditionView({
     candidate.artistId === session.state.selectedArtistId && candidate.territoryId === expedition?.territoryId
   )) ?? null;
   const territory = session.state.territories.find((candidate) => candidate.id === expedition?.territoryId) ?? null;
-  const places = useMemo(
-    () => expedition?.stopIds
-      .map((id) => previewContent.places.find((candidate) => candidate.id === id))
-      .filter((place): place is PreviewMissionPlace => Boolean(place)) ?? [],
-    [expedition],
-  );
+  const places = useMemo(() => (
+    liveExpedition && expedition
+      ? liveMissionPlaces(liveExpedition, expedition.territoryId)
+      : expedition?.stopIds
+        .map((id) => previewContent.places.find((candidate) => candidate.id === id))
+        .filter((place): place is PreviewMissionPlace => Boolean(place)) ?? []
+  ), [expedition, liveExpedition]);
   const [routeAttractionResult, setRouteAttractionResult] = useState<{
     key: string;
     items: RouteAttraction[];
@@ -303,6 +311,10 @@ export function PreviewExpeditionView({
     return () => { cancelled = true; };
   }, [placeIdsKey, places, relatedAttractionService]);
   const [checkInPlace, setCheckInPlace] = useState<PreviewMissionPlace | null>(null);
+  // Latched when the visit starts, not read live: if the guide were closed
+  // with the check-in still open, a practice visit would finish as a real one
+  // and the server would score it.
+  const [practiceRun, setPracticeRun] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
   const endDialogRef = useRef<HTMLDivElement>(null);
   const endTitleRef = useRef<HTMLHeadingElement>(null);
@@ -346,6 +358,7 @@ export function PreviewExpeditionView({
   const startCheckIn = (place: PreviewMissionPlace) => {
     onStartCheckIn?.(place);
     setImpactBefore(null);
+    setPracticeRun(checkInPractice);
     setCheckInPlace(place);
   };
 
@@ -389,14 +402,19 @@ export function PreviewExpeditionView({
       <section className="expedition-hero">
         <div className="expedition-title">
           <span className="eyebrow">{territory.name[locale]} · {session.selectedArtist?.fandomName}</span>
-          <h1>{expedition.title[locale]}</h1>
+          <h1>{liveExpedition?.title ?? expedition.title[locale]}</h1>
           {expedition.description[locale] ? <p>{expedition.description[locale]}</p> : null}
+          {/* The guide points here rather than at the whole hero: the title
+              and story above it are not what the step is about, and a
+              spotlight that tall leaves a phone no room for the card. */}
+          <div data-guide="expedition-hero">
           <div className="hero-meta">
             <span><Clock3 size={16} /> {labels.estimated} {expedition.estimatedMinutes}{locale === "ko" ? "" : " "}{labels.minuteUnit}</span>
             <span><Shield size={16} /> {labels.multiplier} {territory.balanceMultiplier}×</span>
             {ownerStrongholdStage ? <span><Shield size={16} /> {t(locale, "rewardStrongholdBonus")} · {t(locale, ownerStrongholdStage === "seed" ? "strongholdSeedBuff" : ownerStrongholdStage === "tree" ? "strongholdTreeBuff" : "strongholdLandmarkBuff")}</span> : null}
           </div>
           <p className="hero-total"><strong>{labels.total} {totalAward.toLocaleString()}P</strong></p>
+          </div>
         </div>
         <aside className="battle-card">
           <TerritoryStandings
@@ -434,7 +452,7 @@ export function PreviewExpeditionView({
       <div className="expedition-layout">
         <section className="itinerary-panel">
           <div className="section-heading"><h2>{labels.route}</h2></div>
-          <ol className="stop-list">
+          <ol className="stop-list" data-guide="expedition-stops">
             {places.map((place, index) => {
               const stopAward = awards[index];
               // An artist-linked stop wears the member's tag; anything else is public.
@@ -457,12 +475,13 @@ export function PreviewExpeditionView({
                     sourceUrl={place.sourceUrls[0]}
                     sourceLabel={labels.source}
                     done={checkedIn}
+                    guide={index === 0}
                     action={(
                       <>
                         <strong>{labels.maximum} {stopAward.cappedPoints}P</strong>
                         {checkedIn
                           ? <span className="stop-done">{labels.checkInDone}</span>
-                          : <button type="button" onClick={() => startCheckIn(place)} aria-label={`${place.name[locale]} ${labels.checkIn}`}>{labels.checkIn}</button>}
+                          : <button type="button" {...(index === 0 ? { "data-guide": "expedition-check-in" } : {})} onClick={() => startCheckIn(place)} aria-label={`${place.name[locale]} ${labels.checkIn}`}>{labels.checkIn}</button>}
                       </>
                     )}
                   />
@@ -478,6 +497,7 @@ export function PreviewExpeditionView({
       {session.state.activeExpeditionId === expedition.id ? (
         <button
           className={allStopsCheckedIn ? "expedition-end expedition-end--complete" : "expedition-end"}
+          data-guide="expedition-end"
           type="button"
           onClick={() => setEndOpen(true)}
         >{allStopsCheckedIn ? labels.endComplete : labels.end}</button>
@@ -492,9 +512,10 @@ export function PreviewExpeditionView({
             <p>{labels.endConfirmKept}</p>
             <p>{allStopsCheckedIn ? labels.endCompleteBody : labels.endConfirmLost}</p>
             <div className="reset-dialog-actions">
-              <button type="button" onClick={() => setEndOpen(false)}>{labels.endCancel}</button>
-              <button type="button" className="danger" onClick={() => {
+              <button type="button" data-guide-close="expedition-end" onClick={() => setEndOpen(false)}>{labels.endCancel}</button>
+              <button type="button" className="danger" data-guide="expedition-end-confirm" onClick={() => {
                 setEndOpen(false);
+                onEndExpedition?.();
                 session.dispatch({ type: "endExpedition" });
               }}>{allStopsCheckedIn ? labels.endComplete : labels.end}</button>
             </div>
@@ -514,10 +535,11 @@ export function PreviewExpeditionView({
             balanceMultiplier: territory.balanceMultiplier,
             fandomSizeMultiplier: 1,
             repeatCount: session.state.missionVisitCounts[checkInPlace.id] ?? 0,
-            contributedToday: session.state.contributedToday,
             ownerStrongholdStage,
           }}
           impact={impact}
+          practice={practiceRun}
+          expeditionId={liveExpedition?.id}
           onApproved={applyApprovedAward}
           onClose={() => setCheckInPlace(null)}
         />

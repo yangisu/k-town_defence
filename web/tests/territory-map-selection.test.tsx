@@ -76,6 +76,9 @@ beforeEach(() => {
     artistConfirmed: true,
     selectedArtistId: "bts",
     selectedTerritoryId: null,
+    // A narrowed board, so there is something for the map to reach past. The
+    // app opens on the whole board, where nothing is hidden to begin with.
+    territoryFilter: "my_fandom",
   }));
   render(
     <DemoSessionProvider storage={window.localStorage}>
@@ -103,7 +106,7 @@ it("selects a territory the current filter hides, straight from its marker", asy
   // it to All used to lift every dimmed region on the map along with it.
   await waitFor(() => expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
     .getByRole("button", { name: new RegExp(`^${hiddenName}`) })).toHaveAttribute("aria-pressed", "true"));
-  expect(screen.getByRole("button", { name: "내 팬덤" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "소유 영토" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByRole("button", { name: "전체" })).toHaveAttribute("aria-pressed", "false");
   expect(await screen.findByRole("complementary", { name: `${hiddenName} 전술 패널` })).toBeVisible();
   expect(previewContent.territories.length).toBeGreaterThan(0);

@@ -76,7 +76,6 @@ function CheckInHarness() {
             balanceMultiplier: 1,
             fandomSizeMultiplier: 1,
             repeatCount: 0,
-            contributedToday: 0,
           }}
           onClose={() => setOpen(false)}
         />
@@ -294,7 +293,6 @@ it("announces the complete mission impact as one polite textual summary", async 
         balanceMultiplier: 1,
         fandomSizeMultiplier: 1,
         repeatCount: 0,
-        contributedToday: 0,
       }}
       impact={{
         territoryName: "부산",

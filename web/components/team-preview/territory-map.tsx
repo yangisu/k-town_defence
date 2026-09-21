@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useDisclosure } from "@/features/team-preview/demo-session-context";
 import * as maplibregl from "maplibre-gl";
 import type { ExpressionSpecification, GeoJSONSource, GeoJSONSourceSpecification, Map as MapLibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -290,7 +291,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
   const hoveredTerritoryRef = useRef<string | null>(null);
   const cameraSelectionRef = useRef(selectedTerritoryId);
   const [mapError, setMapError] = useState(false);
-  const [listExpanded, setListExpanded] = useState(false);
+  const [listExpanded, setListExpanded] = useDisclosure("map.list", false);
   const [mapFocused, setMapFocused] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const { position: myPosition, status: myLocationStatus, requestPermission: requestMyLocation } = useLiveLocation();
@@ -869,6 +870,13 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
         >
           <ChevronRight size={17} strokeWidth={2.8} aria-hidden="true" />
         </button>
+      ) : null}
+      {/* A fandom that holds nothing asked for its own territories and got a
+          blank strip with no word about why. */}
+      {listedTerritories.length === 0 ? (
+        <p className="preview-territory-empty" role="note">
+          {t(session.locale, activeFilter === "my_fandom" ? "territoryListNoneOwned" : "territoryListNoneHere")}
+        </p>
       ) : null}
       <TerritoryList
         id="preview-territory-list"

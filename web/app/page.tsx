@@ -1,13 +1,14 @@
 import { KTownApp } from "@/features/ktown-app";
-import { DemoEntryGate } from "@/components/demo-entry/demo-entry-gate";
+import { IntegratedLogin } from "@/components/demo-entry/integrated-login";
 import { readMapConfig } from "@/lib/map-config";
-import type { ServiceMode } from "@/lib/service-factory";
+import { readSessionPayload, SESSION_COOKIE_NAME } from "@/lib/server/session";
+import { cookies } from "next/headers";
 
-export default function Page() {
-  const mode: ServiceMode = process.env.KTOWN_SERVICE_MODE === "integrated"
-    ? "integrated"
-    : "demo";
+export default async function Page() {
+  const cookieStore = await cookies();
+  const session = readSessionPayload(cookieStore.get(SESSION_COOKIE_NAME)?.value);
+  if (!session) return <IntegratedLogin returnTo="/" />;
+
   const mapConfig = readMapConfig(process.env);
-  const app = <KTownApp mode={mode} mapConfig={mapConfig} />;
-  return mode === "demo" ? <DemoEntryGate>{app}</DemoEntryGate> : app;
+  return <KTownApp mode="integrated" mapConfig={mapConfig} />;
 }

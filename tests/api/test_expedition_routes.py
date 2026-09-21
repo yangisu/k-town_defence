@@ -315,5 +315,96 @@ async def test_route_attractions_returns_ordered_recommendation_cards(api_client
     assert body["items"][1]["source"] == "KTOUR_ROUTE_DETOUR"
 
 
+async def test_member_can_persist_restore_and_abandon_verified_recommendation(
+    member_client, place_factory, session_factory
+) -> None:
+    await _seed_logs(session_factory)
+    for index in range(3):
+        await place_factory(
+            content_id=f"persistent-{index}",
+            name_ko=f"부산 원정지 {index}",
+            address_ko="부산광역시 중구",
+            source="KTOUR_API",
+            latitude=35.0 + index * 0.001,
+            synced_at=NOW,
+        )
+    await member_client.put(
+        "/api/v1/me/season-membership",
+        json={"fandomId": "10000000-0000-4000-8000-000000000001"},
+    )
+    recommended = await member_client.get(
+        "/api/v1/expeditions/recommended?regionCode=6&travelDate=2026-08-22&limit=3"
+    )
+
+    created = await member_client.post(
+        "/api/v1/expeditions",
+        json={
+            "recommendationId": recommended.json()["id"],
+            "regionCode": "6",
+            "travelDate": "2026-08-22",
+            "limit": 3,
+        },
+    )
+    current = await member_client.get("/api/v1/expeditions/current")
+
+    assert created.status_code == 201
+    assert current.status_code == 200
+    assert current.json() == created.json()
+    assert current.json()["status"] == "active"
+    assert current.json()["territoryId"] == "busan"
+    assert len(current.json()["stops"]) == 3
+
+    checkin = await member_client.post(
+        "/api/v1/checkins",
+        json={
+            "placeId": current.json()["stops"][0]["place"]["id"],
+            "verificationType": "demo",
+            "expeditionId": created.json()["id"],
+        },
+    )
+    submitted = await member_client.post(
+        f"/api/v1/checkins/{checkin.json()['id']}/submit",
+        headers={"Idempotency-Key": str(uuid4())},
+    )
+    progressed = await member_client.get("/api/v1/expeditions/current")
+    assert submitted.json()["decision"] == "approved"
+    assert progressed.json()["stops"][0]["completedAt"] is not None
+    assert progressed.json()["stops"][1]["completedAt"] is None
+
+    abandoned = await member_client.post(
+        f"/api/v1/expeditions/{created.json()['id']}/abandon"
+    )
+    assert abandoned.status_code == 200
+    assert abandoned.json()["status"] == "abandoned"
+    assert (await member_client.get("/api/v1/expeditions/current")).json() is None
+
+
+async def test_persisted_expedition_rejects_a_stale_recommendation_id(
+    member_client, place_factory, session_factory
+) -> None:
+    await _seed_logs(session_factory)
+    for index in range(3):
+        await place_factory(
+            content_id=f"stale-{index}", source="KTOUR_API", latitude=35.0 + index * 0.001
+        )
+    await member_client.put(
+        "/api/v1/me/season-membership",
+        json={"fandomId": "10000000-0000-4000-8000-000000000001"},
+    )
+
+    response = await member_client.post(
+        "/api/v1/expeditions",
+        json={
+            "recommendationId": "stale-client-id",
+            "regionCode": "6",
+            "travelDate": "2026-08-22",
+            "limit": 3,
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "EXPEDITION_RECOMMENDATION_CHANGED"
+
+
 def test_recommended_expedition_date_default_is_calculated_per_request() -> None:
     assert inspect.signature(recommended_expedition).parameters["travel_date"].default is None

@@ -14,6 +14,30 @@ function skipTutorial() {
   window.localStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
 }
 
+function integratedTerritories(fandomId: string) {
+  return {
+    items: createInitialDemoSession().territories.map((territory) => ({
+      id: territory.id,
+      nameKo: territory.name.ko,
+      nameEn: territory.name.en,
+      latitude: territory.centroid.latitude,
+      longitude: territory.centroid.longitude,
+      populationDecline: territory.populationDecline,
+      balanceMultiplier: territory.balanceMultiplier,
+      balanceReasonKo: territory.balanceReason.ko,
+      balanceReasonEn: territory.balanceReason.en,
+      ownerFandomId: fandomId,
+      strongholdStage: territory.strongholdStage,
+      standings: [{
+        fandomId,
+        fandomName: "ARMY",
+        artistName: "방탄소년단",
+        validPoints: territory.standings.find((standing) => standing.artistId === "bts")?.validPoints ?? 0,
+      }],
+    })),
+  };
+}
+
 beforeEach(() => {
   window.localStorage.clear();
   skipTutorial();
@@ -92,8 +116,11 @@ it("opens in the product shell and enters the service after explicit profile con
   expect(screen.getByRole("heading", { name: "영토 지도" })).toBeVisible();
   expect(screen.getByRole("navigation", { name: "주요 메뉴" })).toBeVisible();
   expect(screen.getByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).toBeVisible();
+  // A fresh reader opens on the whole board, not on the ground their fandom
+  // already holds — which for most fandoms is none of it.
   const fallbackList = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
-  expect(within(fallbackList).getAllByRole("button")).toHaveLength(3);
+  expect(within(fallbackList).getAllByRole("button")).toHaveLength(previewContent.territories.length);
+  expect(screen.getByRole("button", { name: "전체" })).toHaveAttribute("aria-pressed", "true");
   await user.click(screen.getByRole("button", { name: "전체" }));
   expect(within(fallbackList).getAllByRole("button")).toHaveLength(previewContent.territories.length);
   expect(within(screen.getByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
@@ -421,6 +448,12 @@ it("renders the modern UI and restores account state after durable membership is
         headers: { "content-type": "application/json" },
       });
     }
+    if (url.endsWith("/api/v1/territories")) {
+      return new Response(JSON.stringify(integratedTerritories(fandomId)), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
     throw new Error(`Unexpected integrated request: ${url}`);
   });
   vi.stubGlobal("fetch", fetcher);
@@ -458,6 +491,12 @@ it("lets a signed-in integrated visitor sign out through the real session route"
     }
     if (url.endsWith("/api/v1/me/game-state")) {
       return new Response(JSON.stringify({ state: remoteState }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (url.endsWith("/api/v1/territories")) {
+      return new Response(JSON.stringify(integratedTerritories(fandomId)), {
         status: 200,
         headers: { "content-type": "application/json" },
       });

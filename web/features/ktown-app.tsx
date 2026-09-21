@@ -23,19 +23,22 @@ import { MembershipProvider, useMembership } from "@/features/membership/members
 import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/demo-session-context";
 import type { DemoSession as DemoSessionState } from "@/features/team-preview/demo-session";
 import type { ArtistId } from "@/features/team-preview/types";
-import { previewContent } from "@/features/team-preview/content";
+import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
+import { isGuideRunning } from "@/features/team-preview/guide-running";
 import { createRemoteDemoSessionStore } from "@/features/team-preview/remote-session-store";
 import { t } from "@/features/team-preview/i18n";
 import { MembershipGate } from "@/components/membership/membership-gate";
-import type { AppServices, CheckInService } from "@/lib/domain";
+import type { AppServices, CheckInService, PersistedExpedition } from "@/lib/domain";
 import type { MapConfig } from "@/lib/map-config";
 import { createServices, type ServiceMode } from "@/lib/service-factory";
+import { mapTerritorySnapshots } from "@/lib/adapters/territory";
 
-function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", onChangeFandom }: {
+function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", checkInMode, onChangeFandom }: {
   services: AppServices;
   mapConfig: MapConfig | null;
   profileLocked?: boolean;
   mode?: ServiceMode;
+  checkInMode?: "demo" | "integrated";
   /** Integrated mode changes a fandom through the season membership rather
    *  than the local session, and the API may refuse mid-season. */
   onChangeFandom?: (artistId: NonNullable<DemoSessionState["selectedArtistId"]>) => void;
@@ -47,6 +50,14 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const [resetOpen, setResetOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideChecked, setGuideChecked] = useState(false);
+  const [liveExpedition, setLiveExpedition] = useState<PersistedExpedition | null>(null);
+  const [expeditionRecoveryStatus, setExpeditionRecoveryStatus] = useState<"ready" | "loading" | "error">(
+    mode === "integrated" ? "loading" : "ready",
+  );
+  const [expeditionRecoveryAttempt, setExpeditionRecoveryAttempt] = useState(0);
+  // The session as it stood when the guide opened, so the practice run it
+  // walks the reader through can be undone in full when it closes.
+  const guideSnapshot = useRef<DemoSessionState | null>(null);
   const resetDialogRef = useRef<HTMLDivElement>(null);
   const resetTitleRef = useRef<HTMLHeadingElement>(null);
   const leaveDialogRef = useRef<HTMLDivElement>(null);
@@ -54,6 +65,23 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const session = useDemoSession();
   const signOut = useDemoSignOut();
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
+
+  useEffect(() => {
+    if (mode !== "integrated") return;
+    let active = true;
+    void services.expeditions.current()
+      .then((expedition) => {
+        if (!active) return;
+        setLiveExpedition(expedition);
+        setExpeditionRecoveryStatus("ready");
+      })
+      .catch(() => {
+        if (active) setExpeditionRecoveryStatus("error");
+      });
+    return () => {
+      active = false;
+    };
+  }, [expeditionRecoveryAttempt, mode, services]);
 
   const canChangeArtist = !profileLocked || Boolean(onChangeFandom);
   const chooseArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
@@ -68,24 +96,58 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     // back through a link is not a new account.
     setGuideChecked(true);
     try {
-      if (!hasSeenTutorial(window.localStorage)) setGuideOpen(true);
+      if (!hasSeenTutorial(window.localStorage)) openGuide();
     } catch {
-      setGuideOpen(true);
+      openGuide();
     }
   };
+
+  const openGuide = () => setGuideOpen(true);
 
   // The guide describes controls that only exist on a particular tab, and the
   // tactical panel only renders once a territory is chosen. Put the page into
   // that state so a replay from My Record explains the real screen.
   const prepareGuideStep = useCallback((step: GuideStep) => {
-    if (session.state.activeTab !== step.tab) session.dispatch({ type: "changeTab", tab: step.tab });
     if (step.awaits === "territory") {
       // The reader is about to choose one, so clear any earlier choice and, on
-      // a phone, open the list that holds the cards they need to tap.
+      // a phone, open the list that holds the card they need to tap.
+      if (session.state.activeTab !== step.tab) session.dispatch({ type: "changeTab", tab: step.tab });
       if (session.state.selectedTerritoryId) session.dispatch({ type: "selectTerritory", territoryId: null });
       document.querySelector<HTMLButtonElement>(".territory-list-toggle[aria-expanded='false']")?.click();
       return;
     }
+    // Asking someone to press Start Expedition while a route is already
+    // running answers itself: the step saw the route and moved straight on.
+    // Clearing it first means the press is theirs to make.
+    if (step.awaits === "expedition") {
+      if (session.state.activeTab !== step.tab) session.dispatch({ type: "changeTab", tab: step.tab });
+      if (session.state.activeExpeditionId) session.dispatch({ type: "endExpedition" });
+      if (!session.state.selectedTerritoryId) {
+        const first = session.state.territories[0];
+        if (first) session.dispatch({ type: "selectTerritory", territoryId: first.id });
+      }
+      return;
+    }
+    // The expedition chapter needs a route open. The reader starts it
+    // themselves on the step before; this only covers a replay that jumps
+    // straight in, and picks the route for whatever territory they are on.
+    if (step.tab === "expedition") {
+      if (session.state.activeExpeditionId) {
+        if (session.state.activeTab !== "expedition") session.dispatch({ type: "changeTab", tab: "expedition" });
+        return;
+      }
+      // The closing step has no target and comes after the route was ended on
+      // purpose; opening a fresh one under it would undo what it just said.
+      if (!step.target) return;
+      const territoryId = session.state.selectedTerritoryId ?? session.state.territories[0]?.id ?? null;
+      const artistId = session.state.selectedArtistId;
+      const route = territoryId && artistId ? getPlayableExpedition(artistId, territoryId) : null;
+      if (route && territoryId) {
+        session.dispatch({ type: "openRecommendedExpedition", expeditionId: route.id, territoryId });
+      }
+      return;
+    }
+    if (session.state.activeTab !== step.tab) session.dispatch({ type: "changeTab", tab: step.tab });
     if (!step.needsTerritory || session.state.selectedTerritoryId) return;
     const first = session.state.territories[0];
     if (first) session.dispatch({ type: "selectTerritory", territoryId: first.id });
@@ -93,12 +155,42 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
 
   const closeGuide = () => {
     setGuideOpen(false);
+    session.seal(null);
+    // The guide has the reader walk a real check-in, so it hands the session
+    // back exactly as it found it: the practice points, the route it started
+    // and the territory it picked are all put back. Nothing done inside the
+    // tutorial counts.
+    const before = guideSnapshot.current;
+    guideSnapshot.current = null;
+    if (before) session.dispatch({ type: "hydrate", state: before });
     try {
       markTutorialSeen(window.localStorage);
     } catch {
       // Nothing to remember when storage is blocked.
     }
   };
+
+  // Taken once the guide is actually up, not when it is asked for: confirming
+  // a first fandom asks in the same breath as choosing one, and the state at
+  // that moment has no fandom on it yet.
+  useEffect(() => {
+    if (!guideOpen) return;
+    guideSnapshot.current ??= session.state;
+    // The guide points at the first card in the list, so it needs a list. The
+    // reader's own slice comes back with everything else when it closes.
+    if (session.state.territoryFilter !== "all") session.dispatch({ type: "setTerritoryFilter", filter: "all" });
+    // Storage and the server keep seeing the state the guide opened on, so a
+    // practice check-in reaches neither — not even if the tab is closed
+    // mid-tutorial — while the choice that opened the guide still persists.
+    session.seal(guideSnapshot.current);
+  }, [guideOpen, session]);
+
+  // A seal outlives the guide only if this leaves the screen still holding
+  // one. Unsealing on unmount alone — never on a re-render, which would lift
+  // it mid-tutorial.
+  const sealRef = useRef(session.seal);
+  useEffect(() => { sealRef.current = session.seal; }, [session]);
+  useEffect(() => () => sealRef.current(null), []);
 
   const resetDemo = () => {
     // Resetting asks for the demo from the top, greeting included.
@@ -114,12 +206,15 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     if (guideChecked || !session.state.artistConfirmed) return;
     setGuideChecked(true);
     try {
-      if (!hasSeenTutorial(window.localStorage)) setGuideOpen(true);
+      if (!hasSeenTutorial(window.localStorage)) openGuide();
     } catch {
       // Blocked storage only means the guide greets this visit too.
     }
   }, [guideChecked, session.state.artistConfirmed]);
   useEffect(() => {
+    // Changing tab normally means starting at the top, but the guide decides
+    // where each of its steps sits and this snapped the page away from it.
+    if (isGuideRunning()) return;
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [session.state.activeTab, session.state.artistConfirmed]);
   useModalFocus(resetOpen, resetDialogRef, resetTitleRef, () => setResetOpen(false));
@@ -128,6 +223,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   useBodyScrollLock(leavingArtistId !== null);
 
   if (!session.hydrated) return <p role="status">{t(session.state.locale, "loading")}</p>;
+  if (session.territoryError) return <main className="membership-gate"><section className="membership-card"><h1>영토 정보를 불러오지 못했어요</h1><button onClick={() => window.location.reload()}>다시 시도</button></section></main>;
 
   return (
     <>
@@ -158,6 +254,14 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
             <TerritoryView
               key={session.state.artistConfirmed ? `artist:${session.state.selectedArtistId}` : "unconfirmed"}
               mapConfig={mapConfig}
+              services={services}
+              integrated={mode === "integrated"}
+              expeditionRecoveryStatus={expeditionRecoveryStatus}
+              onRetryExpeditionRecovery={() => {
+                setExpeditionRecoveryStatus("loading");
+                setExpeditionRecoveryAttempt((attempt) => attempt + 1);
+              }}
+              onLiveExpedition={setLiveExpedition}
             />
         ) : null}
         {session.state.artistConfirmed && session.state.activeTab === "expedition" ? (
@@ -165,7 +269,15 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
               expeditionId={session.state.selectedExpeditionId}
               checkInService={services.checkIn}
               relatedAttractionService={services.tourism}
-              checkInMode={mode}
+              checkInMode={checkInMode ?? mode}
+              checkInPractice={mode === "integrated" && guideOpen}
+              liveExpedition={liveExpedition}
+              onEndExpedition={() => {
+                if (liveExpedition?.status === "active") {
+                  void services.expeditions.abandon(liveExpedition.id).catch(() => undefined);
+                }
+                 setLiveExpedition(null);
+               }}
               onBack={() => undefined}
             />
         ) : null}
@@ -186,7 +298,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
             onChangeArtist={canChangeArtist ? () => setDrawerOpen(true) : undefined}
             onSignOut={signOut ?? undefined}
             onReset={() => setResetOpen(true)}
-            onReplayGuide={() => setGuideOpen(true)}
+            onReplayGuide={openGuide}
           />
         ) : null}
         {canChangeArtist ? (
@@ -203,7 +315,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
           />
         ) : null}
       </AppShell>
-      {guideOpen ? <TutorialOverlay locale={session.state.locale} onClose={closeGuide} onPrepareStep={prepareGuideStep} territorySelected={session.state.selectedTerritoryId !== null} /> : null}
+      {guideOpen ? <TutorialOverlay locale={session.state.locale} onClose={closeGuide} onPrepareStep={prepareGuideStep} territorySelected={session.state.selectedTerritoryId !== null} expeditionOpen={session.state.activeExpeditionId !== null} /> : null}
       {leavingArtistId !== null && typeof document !== "undefined" ? createPortal(
         <LeaveFandomDialog
           locale={session.state.locale}
@@ -282,9 +394,9 @@ function LeaveFandomDialog({ locale, artistId, isLastFandom, dialogRef, titleRef
 export function createPreviewCheckInService(services: AppServices): CheckInService {
   return {
     ...services.checkIn,
-    async create(previewPlaceId) {
+    async create(previewPlaceId, options) {
       const previewPlace = previewContent.places.find((place) => place.id === previewPlaceId);
-      if (!previewPlace) throw new Error("PREVIEW_PLACE_NOT_FOUND");
+      if (!previewPlace) return services.checkIn.create(previewPlaceId, options);
       const places = await services.tourism.listPlaces({
         regionId: previewPlace.territoryId,
         query: previewPlace.name.ko,
@@ -294,7 +406,7 @@ export function createPreviewCheckInService(services: AppServices): CheckInServi
         candidate.nameKo.replace(/\s+/g, "").toLocaleLowerCase("ko") === expected
       ));
       if (!place) throw new Error("LIVE_PLACE_NOT_FOUND");
-      return services.checkIn.create(place.id);
+      return services.checkIn.create(place.id, options);
     },
   };
 }
@@ -349,6 +461,7 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
         mapConfig={mapConfig}
         profileLocked
         mode="integrated"
+        checkInMode="demo"
         onChangeFandom={changeFandom}
       />
     </DemoSignOutProvider>
@@ -358,6 +471,9 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
 export function KTownApp({ mode, mapConfig }: { mode: ServiceMode; mapConfig: MapConfig | null }) {
   const services = useMemo(() => createServices(mode), [mode]);
   const remoteStore = useMemo(() => createRemoteDemoSessionStore(), []);
+  const territoryLoader = useMemo(() => mode === "integrated"
+    ? async () => mapTerritorySnapshots(await services.territories.list())
+    : undefined, [mode, services]);
 
   if (mode === "demo") {
     return <DemoSessionProvider><DemoProduct services={services} mapConfig={mapConfig} /></DemoSessionProvider>;
@@ -366,7 +482,7 @@ export function KTownApp({ mode, mapConfig }: { mode: ServiceMode; mapConfig: Ma
   return (
     <MembershipProvider service={services.membership}>
       <MembershipGate>
-        <DemoSessionProvider remote={remoteStore}>
+        <DemoSessionProvider remote={remoteStore} loadTerritories={territoryLoader}>
           <IntegratedModernProduct services={services} mapConfig={mapConfig} />
         </DemoSessionProvider>
       </MembershipGate>

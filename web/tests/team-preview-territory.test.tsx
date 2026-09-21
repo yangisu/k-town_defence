@@ -15,7 +15,7 @@ import {
 } from "@/features/team-preview/demo-session";
 import { GAME_RULES, type MissionAward } from "@/features/team-preview/game-rules";
 import { DemoSessionProvider } from "@/features/team-preview/demo-session-context";
-import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
+import type { AppServices, LiveExpedition, PersistedExpedition } from "@/lib/domain";
 
 beforeEach(() => window.localStorage.clear());
 
@@ -25,6 +25,9 @@ function confirmedSession(overrides: Partial<DemoSession> = {}): DemoSession {
     artistConfirmed: true,
     selectedArtistId: "bts",
     selectedTerritoryId: "busan",
+    // These read the page as a fandom looking at its own ground. The app now
+    // opens on the whole board, so the slice under test is stated here.
+    territoryFilter: "my_fandom",
     ...overrides,
   };
 }
@@ -40,6 +43,34 @@ function renderPreviewWithArtist(overrides: Partial<DemoSession> = {}) {
     </DemoSessionProvider>,
   );
 
+}
+
+const liveRecommendation: LiveExpedition = {
+  id: "recommendation-1",
+  title: "부산 실시간 원정",
+  regionCode: "6",
+  keyword: "방탄소년단",
+  travelDate: "2026-09-21",
+  stops: [],
+};
+
+const persistedExpedition: PersistedExpedition = {
+  ...liveRecommendation,
+  id: "expedition-1",
+  recommendationId: liveRecommendation.id,
+  status: "active",
+  createdAt: "2026-09-21T00:00:00Z",
+};
+
+function integratedServices({ recommendation = vi.fn().mockResolvedValue(liveRecommendation), start = vi.fn().mockResolvedValue(persistedExpedition) } = {}) {
+  return {
+    services: {
+      tourism: { getRecommendedExpedition: recommendation },
+      expeditions: { start },
+    } as unknown as AppServices,
+    recommendation,
+    start,
+  };
 }
 
 const award = (points: number): MissionAward => ({
@@ -72,6 +103,75 @@ it("turns artist choice into a visible tactical recommendation", async () => {
   expect(within(panel).getByRole("link", { name: "출처 확인" })).toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
   expect(within(panel).getByRole("button", { name: /원정 시작/ })).toBeEnabled();
   expect(within(panel).getByRole("img", { name: /거점/ })).toHaveStyle({ "--owner-color": "#7c5ce0" });
+});
+
+it("starts an integrated expedition through the backend before opening the demo route", async () => {
+  const user = userEvent.setup();
+  const { services, recommendation, start } = integratedServices();
+  const onLiveExpedition = vi.fn();
+  const state = confirmedSession();
+  window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(state));
+  render(
+    <DemoSessionProvider storage={window.localStorage}>
+      <TerritoryView
+        mapConfig={null}
+        services={services}
+        integrated
+        expeditionRecoveryStatus="ready"
+        onLiveExpedition={onLiveExpedition}
+      />
+    </DemoSessionProvider>,
+  );
+
+  await user.click(within(await screen.findByRole("complementary", { name: "부산 전술 패널" }))
+    .getByRole("button", { name: "원정 시작" }));
+
+  await waitFor(() => expect(recommendation).toHaveBeenCalledWith(expect.objectContaining({ regionCode: "6", limit: 5 })));
+  expect(start).toHaveBeenCalledWith("recommendation-1", expect.objectContaining({ regionCode: "6", limit: 5 }));
+  expect(onLiveExpedition).toHaveBeenCalledWith(persistedExpedition);
+});
+
+it("shows an integrated start failure and lets the visitor try again", async () => {
+  const user = userEvent.setup();
+  const { services } = integratedServices({
+    recommendation: vi.fn().mockRejectedValue(new Error("Tour API unavailable")),
+  });
+  window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(confirmedSession()));
+  render(
+    <DemoSessionProvider storage={window.localStorage}>
+      <TerritoryView mapConfig={null} services={services} integrated expeditionRecoveryStatus="ready" />
+    </DemoSessionProvider>,
+  );
+
+  const startButton = within(await screen.findByRole("complementary", { name: "부산 전술 패널" }))
+    .getByRole("button", { name: "원정 시작" });
+  await user.click(startButton);
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("원정을 시작하지 못했어요");
+  expect(startButton).toBeEnabled();
+});
+
+it("blocks a new expedition when current-expedition recovery failed", async () => {
+  const retry = vi.fn();
+  const { services } = integratedServices();
+  window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(confirmedSession()));
+  render(
+    <DemoSessionProvider storage={window.localStorage}>
+      <TerritoryView
+        mapConfig={null}
+        services={services}
+        integrated
+        expeditionRecoveryStatus="error"
+        onRetryExpeditionRecovery={retry}
+      />
+    </DemoSessionProvider>,
+  );
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("새 원정 시작을 잠시 막았어요");
+  expect(within(screen.getByRole("complementary", { name: "부산 전술 패널" }))
+    .getByRole("button", { name: "원정 시작" })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+  expect(retry).toHaveBeenCalledOnce();
 });
 
 it("changes results when the user filters to contested territory", async () => {
@@ -186,22 +286,6 @@ it.each([
   });
 });
 
-it("uses summary cards as map navigation and explains the distance anchor", async () => {
-  const user = userEvent.setup();
-  renderPreviewWithArtist({ selectedArtistId: "rescene", selectedTerritoryId: "geoje" });
-
-  const summary = await screen.findByRole("region", { name: "내 팬덤 영토 요약" });
-  const strongest = within(summary).getByRole("button", { name: /가장 강한 소유 영토.*경주/ });
-  const nearest = within(summary).getByRole("button", { name: /내 거점에서 가까운 접전지/ });
-
-  expect(nearest).toHaveTextContent(/거점 기준.*약 .*km/);
-  await user.click(strongest);
-
-  await waitFor(() => expect(JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!)).toMatchObject({
-    selectedTerritoryId: "gyeongju",
-  }));
-  expect(screen.getByRole("button", { name: /^경주/ })).toHaveAttribute("aria-pressed", "true");
-});
 
 it("names the region's own public route in English when there is no tie", async () => {
   renderPreviewWithArtist({ locale: "en", selectedTerritoryId: "yeongwol" });
@@ -215,23 +299,19 @@ it("names the region's own public route in English when there is no tie", async 
 it.each([
   [
     "ko",
-    ["내 팬덤", "접전 지역", "아티스트 연결", "전체"],
-    [["소유 영토", "2"], ["가장 강한 소유 영토", "광주"], ["내 거점에서 가까운 접전지", "원주"], ["추천 행동", "방어 · 원주"]],
+    ["소유 영토", "접전 지역", "아티스트 연결", "전체"],
     "현재 소유",
     "전국 보기",
     "내 팬덤 관리",
-    "내 팬덤 영토 요약",
   ],
   [
     "en",
-    ["My fandom", "Contested", "Artist connection", "All"],
-    [["Owned territories", "2"], ["Strongest owned territory", "Gwangju"], ["Contested territory near my base", "Wonju"], ["Recommended action", "Defend · Wonju"]],
+    ["Owned territories", "Contested", "Artist connection", "All"],
     "Current owner",
     "National view",
     "Manage my fandoms",
-    "My fandom territory summary",
   ],
-] as const)("keeps every personalized summary value and filter order available in %s", async (locale, filterLabels, summaryPairs, owner, nationalView, changeArtist, summary) => {
+] as const)("keeps every personalized value and filter order available in %s", async (locale, filterLabels, owner, nationalView, changeArtist) => {
   const user = userEvent.setup();
   renderPreviewWithArtist({ locale: locale as "ko" | "en", selectedArtistId: "boynextdoor", selectedTerritoryId: "gwangju" });
 
@@ -242,11 +322,6 @@ it.each([
     .filter((button) => filterLabels.includes(button.textContent as typeof filterLabels[number]));
   expect(filters.map((button) => button.textContent)).toEqual(filterLabels);
   expect(filters[0]).toHaveAttribute("aria-pressed", "true");
-  const summaryRegion = screen.getByRole("region", { name: summary });
-  expect(within(summaryRegion).getAllByRole("button").map((button) => [
-    button.querySelector("span")?.textContent,
-    button.querySelector("strong")?.textContent,
-  ])).toEqual(summaryPairs);
   const territoryListLabel = locale === "ko" ? "지도와 같은 영토 목록" : "Map-equivalent territory list";
   // The card names the fandom; "current owner" was a label saying what the
   // position of the name already says.
@@ -304,7 +379,6 @@ it("explains the point breakdown from the award box help toggle", async () => {
   expect(note).toHaveTextContent(`지역 가게에서 쓴 내역을 인증하면 ${GAME_RULES.localSpend}P`);
   expect(note).toHaveTextContent(`숙박을 인증하면 ${GAME_RULES.accommodation}P`);
   expect(note).toHaveTextContent(`씨앗 +${GAME_RULES.strongholdVisitBonus}P`);
-  expect(note).toHaveTextContent(`하루 상한은 ${GAME_RULES.dailyCap.toLocaleString()}P`);
 
   await user.click(help);
   expect(help).toHaveAttribute("aria-expanded", "false");
@@ -457,14 +531,6 @@ it("keeps the filters in the map action row and the camera reset out of it witho
   expect(within(list).getAllByRole("button")).toHaveLength(23);
 });
 
-it("renders the summary cards above the map", async () => {
-  renderPreviewWithArtist();
-
-  const summary = await screen.findByRole("region", { name: "내 팬덤 영토 요약" });
-  const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
-  // The four cards head the page, with the map block underneath them.
-  expect(summary.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-});
 
 it("puts the territory list behind a toggle once it runs long", async () => {
   const user = userEvent.setup();
@@ -504,7 +570,7 @@ it("offers the filters as a select as well as the tag row", async () => {
 
   const filters = await screen.findByRole("group", { name: "영토 필터" });
   // The listbox is the phone control; the tag row stays for wider screens.
-  const trigger = within(filters).getByRole("button", { name: "영토 필터: 내 팬덤" });
+  const trigger = within(filters).getByRole("button", { name: "영토 필터: 소유 영토" });
   expect(within(filters).getByRole("button", { name: "전체", hidden: false })).toBeInTheDocument();
 
   await user.click(trigger);
@@ -514,17 +580,6 @@ it("offers the filters as a select as well as the tag row", async () => {
   expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" })).getAllByRole("button")).toHaveLength(23);
 });
 
-it("brings the map into view when a summary card is used", async () => {
-  const user = userEvent.setup();
-  const scrollIntoView = vi.fn();
-  Element.prototype.scrollIntoView = scrollIntoView;
-  renderPreviewWithArtist();
-
-  await user.click(within(await screen.findByRole("region", { name: "내 팬덤 영토 요약" }))
-    .getAllByRole("button")[0]);
-
-  expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
-});
 
 it("tells the fandom's own tie to the region it is a tie to", async () => {
   // BLINK has no artist-linked route anywhere, but Gunpo is JISOO's birthplace
@@ -637,7 +692,7 @@ it("lets a filter change the list without changing what is chosen", async () => 
   await user.click(screen.getByRole("button", { name: "전체" }));
   expect(screen.queryByRole("complementary", { name: /전술 패널$/ })).not.toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "내 팬덤" }));
+  await user.click(screen.getByRole("button", { name: "소유 영토" }));
   expect(screen.queryByRole("complementary", { name: /전술 패널$/ })).not.toBeInTheDocument();
 
   // A filter decides what the list shows, never what is chosen: the territory

@@ -13,8 +13,8 @@ Copy-Item .env.example .env.local
 npm run dev -- --port 3000
 ```
 
-Use `KTOWN_SERVICE_MODE=demo` for UI-only work or `integrated` with a running
-FastAPI service. `KTOWN_DEV_USER_ID` is accepted only outside production.
+The root route always uses the integrated FastAPI service. Use `/demo` for
+isolated UI-only work. `KTOWN_DEV_USER_ID` is accepted only outside production.
 
 ## Standalone production
 

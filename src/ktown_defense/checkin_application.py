@@ -4,16 +4,23 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .api.errors import ApiError
 from .infrastructure.models import (
     CheckInSessionModel,
+    ExpeditionModel,
+    ExpeditionStopModel,
     GpsSampleModel,
     PhotoModel,
     PlaceModel,
+    SeasonMembershipModel,
+    SeasonModel,
     SubmissionModel,
+    UserModel,
 )
+from .territory_application import territory_id_for
 from .infrastructure.repositories import CheckInRepository, PlaceRepository
 from .verification import (
     VerificationEvidence,
@@ -41,20 +48,42 @@ class CheckInApplication:
         self._checkins = CheckInRepository(session)
         self._places = PlaceRepository(session)
 
-    async def create_session(self, user_id: str, place_id: UUID) -> CheckInSessionModel:
+    async def create_session(
+        self,
+        user_id: str,
+        place_id: UUID,
+        *,
+        verification_type: str = "actual",
+        expedition_id: UUID | None = None,
+        practice: bool = False,
+    ) -> CheckInSessionModel:
         now = self._clock()
         if await self._places.get_public(place_id) is None:
             raise ApiError(404, "PLACE_NOT_FOUND", "장소를 찾을 수 없습니다.")
 
+        expedition_stop = await self._resolve_expedition_stop(
+            user_id, expedition_id, place_id
+        )
         existing = await self._checkins.find_active_session(user_id, place_id, now)
-        if existing is not None:
+        if (
+            existing is not None
+            and existing.verification_type == verification_type
+            and existing.expedition_stop_id == (expedition_stop.id if expedition_stop else None)
+            and existing.is_practice == practice
+        ):
             return existing
+        if existing is not None:
+            existing.status = "cancelled"
+            existing.updated_at = now
 
         checkin = CheckInSessionModel(
             id=uuid4(),
             user_id=user_id,
             place_id=place_id,
-            status="collecting",
+            status="ready" if verification_type == "demo" else "collecting",
+            verification_type=verification_type,
+            expedition_stop_id=expedition_stop.id if expedition_stop else None,
+            is_practice=practice,
             expires_at=now + timedelta(minutes=30),
             created_at=now,
             updated_at=now,
@@ -200,14 +229,19 @@ class CheckInApplication:
                 409, "CHECKIN_NOT_READY", "GPS와 사진 증거가 모두 필요합니다."
             )
 
-        decision, risk_codes = await self._classify(checkin)
+        if checkin.verification_type == "demo":
+            decision, risk_codes = "approved", ()
+        else:
+            decision, risk_codes = await self._classify(checkin)
         awarded_points = 0
-        if decision == "approved":
+        if decision == "approved" and not checkin.is_practice:
             prior_visits = await self._checkins.count_approved_visits(
                 user_id, checkin.place_id
             )
             awarded_points = FIRST_VISIT_POINTS if prior_visits == 0 else 0
 
+        attribution = await self._current_attribution(user_id)
+        place = await self._places.get_public(checkin.place_id)
         submission = SubmissionModel(
             id=uuid4(),
             session_id=session_id,
@@ -215,14 +249,81 @@ class CheckInApplication:
             decision=decision,
             risk_codes=list(risk_codes),
             awarded_points=awarded_points,
+            season_id=attribution.season_id if attribution else None,
+            fandom_id=attribution.fandom_id if attribution else None,
+            territory_id=territory_id_for(place.address_ko) if place else None,
             submitted_at=self._clock(),
         )
         self._checkins.add_submission(submission)
+        if decision == "approved" and not checkin.is_practice and checkin.expedition_stop_id is not None:
+            await self._complete_expedition_stop(checkin.expedition_stop_id)
         checkin.status = "submitted"
         checkin.updated_at = self._clock()
         await self._session.commit()
         await self._session.refresh(submission)
         return submission
+
+    async def _resolve_expedition_stop(
+        self, platform_subject: str, expedition_id: UUID | None, place_id: UUID
+    ) -> ExpeditionStopModel | None:
+        if expedition_id is None:
+            return None
+        stop = await self._session.scalar(
+            select(ExpeditionStopModel)
+            .join(ExpeditionModel, ExpeditionModel.id == ExpeditionStopModel.expedition_id)
+            .join(UserModel, UserModel.id == ExpeditionModel.user_id)
+            .where(
+                ExpeditionModel.id == expedition_id,
+                ExpeditionModel.status == "active",
+                UserModel.platform_subject == platform_subject,
+                ExpeditionStopModel.place_id == place_id,
+            )
+        )
+        if stop is None:
+            raise ApiError(409, "EXPEDITION_STOP_NOT_AVAILABLE", "이 원정에 포함된 체크인 장소가 아닙니다.")
+        if stop.completed_at is not None:
+            raise ApiError(409, "EXPEDITION_STOP_COMPLETED", "이미 완료한 원정 장소입니다.")
+        return stop
+
+    async def _complete_expedition_stop(self, stop_id: UUID) -> None:
+        stop = await self._session.get(ExpeditionStopModel, stop_id)
+        if stop is None or stop.completed_at is not None:
+            return
+        now = self._clock()
+        stop.completed_at = now
+        await self._session.flush()
+        remaining = int(
+            await self._session.scalar(
+                select(func.count(ExpeditionStopModel.id)).where(
+                    ExpeditionStopModel.expedition_id == stop.expedition_id,
+                    ExpeditionStopModel.completed_at.is_(None),
+                )
+            )
+            or 0
+        )
+        if remaining == 0:
+            expedition = await self._session.get(ExpeditionModel, stop.expedition_id)
+            if expedition is not None and expedition.status == "active":
+                expedition.status = "completed"
+                expedition.completed_at = now
+                expedition.updated_at = now
+
+    async def _current_attribution(
+        self, platform_subject: str
+    ) -> SeasonMembershipModel | None:
+        now = self._clock()
+        return await self._session.scalar(
+            select(SeasonMembershipModel)
+            .join(UserModel, UserModel.id == SeasonMembershipModel.user_id)
+            .join(SeasonModel, SeasonModel.id == SeasonMembershipModel.season_id)
+            .where(
+                UserModel.platform_subject == platform_subject,
+                SeasonModel.starts_at <= now,
+                SeasonModel.ends_at > now,
+            )
+            .order_by(SeasonModel.starts_at.desc())
+            .limit(1)
+        )
 
     async def _classify(
         self, checkin: CheckInSessionModel

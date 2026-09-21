@@ -8,6 +8,7 @@ import type { Locale } from "@/features/team-preview/types";
 import { Camera, Check, Footprints, LocateFixed, Shield, X } from "@/components/ui/icons";
 import { checkInReducer, createInitialCheckInState, deriveCheckInProgress } from "./check-in-reducer";
 import { StateMessage } from "@/components/ui/state-message";
+import { randomId } from "@/lib/random-id";
 import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { ShareSheet } from "@/components/share/share-sheet";
@@ -23,6 +24,8 @@ type Props = {
   locale?: Locale;
   demoAwardInput?: DemoAwardInput;
   impact?: CheckInImpact | null;
+  practice?: boolean;
+  expeditionId?: string;
   onApproved?: (result: CheckInResult, award: MissionAward) => void;
   onClose: () => void;
 };
@@ -69,10 +72,12 @@ export function CheckInFlow({
   locale = "ko",
   demoAwardInput,
   impact,
+  practice = false,
+  expeditionId,
   onApproved,
   onClose,
 }: Props) {
-  const [idempotencyKey] = useState(() => globalThis.crypto.randomUUID());
+  const [idempotencyKey] = useState(() => randomId());
   const [state, dispatch] = useReducer(
     checkInReducer,
     createInitialCheckInState(`pending-${place.id}`, place.id, idempotencyKey, mode),
@@ -97,16 +102,19 @@ export function CheckInFlow({
     void service.restore()
       .then((restored) => {
         if (!active) return;
-        if (restored?.placeId === place.id && restored.status === "submitted") {
+        const verificationMode = mode === "demo" ? "demo" : "evidence";
+        const compatible = (restored?.verificationMode === undefined || restored.verificationMode === verificationMode)
+          && Boolean(restored?.practice) === practice;
+        if (compatible && restored?.placeId === place.id && restored.status === "submitted") {
           dispatch({ type: "sessionRestored", sessionId: restored.id, submitted: true });
           setResult({ decision: "pending", message: "체크인 제출이 접수되었습니다. 검토를 기다려 주세요." });
           return;
         }
-        if (restored?.placeId === place.id && restored.status !== "expired" && restored.status !== "cancelled") {
+        if (compatible && restored?.placeId === place.id && restored.status !== "expired" && restored.status !== "cancelled") {
           dispatch({ type: "sessionRestored", sessionId: restored.id, submitted: false });
           return;
         }
-        return service.create(place.id).then((session) => {
+        return service.create(place.id, { verificationMode, practice, expeditionId }).then((session) => {
           if (active) dispatch({ type: "sessionCreated", sessionId: session.id });
         });
       })
@@ -124,7 +132,7 @@ export function CheckInFlow({
         });
       });
     return () => { active = false; };
-  }, [place.id, service]);
+  }, [expeditionId, mode, place.id, practice, service]);
 
   const collectLocation = async () => {
     if (state.sessionId.startsWith("pending-") || busy) return;
@@ -225,11 +233,11 @@ export function CheckInFlow({
             <span className="demo-pill">{mode === "integrated" ? "실제 체크인" : demoLabels.pill}</span>
             <h1 className="sr-only" id="checkin-title" tabIndex={-1} ref={titleRef}>{mode === "integrated" ? "현장 체크인" : demoLabels.title}</h1>
           </div>
-          <button className="icon-button" aria-label={mode === "integrated" ? "체크인 닫기" : demoLabels.close} onClick={onClose}><X /></button>
+          <button className="icon-button" data-guide-close="checkin" aria-label={mode === "integrated" ? "체크인 닫기" : demoLabels.close} onClick={onClose}><X /></button>
         </header>
 
         {result ? (
-          <section className="checkin-result">
+          <section className="checkin-result" data-guide="checkin-result">
             <div className="result-icon"><Check size={40} /></div>
             <span className="eyebrow">{resultEyebrow[result.decision]}</span>
             <h2>{approvedDemo ? demoLabels.approved : result.message}</h2>
@@ -275,7 +283,7 @@ export function CheckInFlow({
               </>
             )}
             {shareCard ? <ShareSheet card={shareCard} /> : null}
-            <button className="primary-button" onClick={onClose}>{mode === "integrated" ? "여행 계속하기" : demoLabels.continue}</button>
+            <button data-guide="checkin-continue" className="primary-button" onClick={onClose}>{mode === "integrated" ? "여행 계속하기" : demoLabels.continue}</button>
           </section>
         ) : (
           <>
@@ -354,10 +362,10 @@ export function CheckInFlow({
               </label>
             ) : null}
             {mode === "demo" && !demoEvidenceComplete ? (
-              <button className="primary-button" disabled={state.sessionId.startsWith("pending-") || busy} onClick={runDemo}>{demoLabels.runDemo}</button>
+              <button data-guide="checkin-run-demo" className="primary-button" disabled={state.sessionId.startsWith("pending-") || busy} onClick={runDemo}>{demoLabels.runDemo}</button>
             ) : null}
             {progress.canSubmit && state.issue !== "network_failed" ? (
-              <button className="primary-button" disabled={busy} onClick={() => void submit()}>{mode === "integrated" ? "체크인 제출" : demoLabels.submit}</button>
+              <button data-guide="checkin-submit" className="primary-button" disabled={busy} onClick={() => void submit()}>{mode === "integrated" ? "체크인 제출" : demoLabels.submit}</button>
             ) : null}
             {state.status === "submitting" && state.issue === "network_failed" ? (
               <button className="primary-button" disabled={busy} onClick={() => void submit()}>{mode === "integrated" ? "다시 제출" : demoLabels.retry}</button>

@@ -6,14 +6,24 @@ import { TacticalPanel } from "@/components/team-preview/tactical-panel";
 import { TerritoryMap } from "@/components/team-preview/territory-map";
 import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
 import { useDemoSession } from "@/features/team-preview/demo-session-context";
+import { isGuideRunning } from "@/features/team-preview/guide-running";
 import { t } from "@/features/team-preview/i18n";
 import { summarizeTerritories } from "@/features/team-preview/territory-summary";
 import type { MapConfig } from "@/lib/map-config";
 import { ShareSheet } from "@/components/share/share-sheet";
 import { buildShareCard } from "@/features/share/build-share-card";
+import type { AppServices, PersistedExpedition } from "@/lib/domain";
+import { territoryRegionCodes } from "@/lib/adapters/expedition";
 
-export function TerritoryView({ mapConfig }: {
+type ExpeditionRecoveryStatus = "ready" | "loading" | "error";
+
+export function TerritoryView({ mapConfig, services, integrated = false, expeditionRecoveryStatus = "ready", onRetryExpeditionRecovery, onLiveExpedition }: {
   mapConfig: MapConfig | null;
+  services?: AppServices;
+  integrated?: boolean;
+  expeditionRecoveryStatus?: ExpeditionRecoveryStatus;
+  onRetryExpeditionRecovery?: () => void;
+  onLiveExpedition?: (expedition: PersistedExpedition) => void;
 }) {
   const session = useDemoSession();
   // The filter is part of where the reader is, so it lives in the session and
@@ -23,6 +33,8 @@ export function TerritoryView({ mapConfig }: {
   const setFilter = (next: TerritoryFilter) => session.dispatch({ type: "setTerritoryFilter", filter: next });
   // Bumped when the map is asked to frame the territory it already has.
   const [recentre, setRecentre] = useState(0);
+  const [expeditionStartPending, setExpeditionStartPending] = useState(false);
+  const [expeditionStartError, setExpeditionStartError] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
   const selectedTerritory = session.state.artistConfirmed ? session.selectedTerritory : null;
@@ -49,7 +61,7 @@ export function TerritoryView({ mapConfig }: {
     const cleared = session.state.selectedTerritoryId === territoryId;
     session.dispatch({ type: "selectTerritory", territoryId: cleared ? null : territoryId });
     // A new selection acts on the map, so follow it there.
-    if (!cleared && follow) mapRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    if (!cleared && follow && !isGuideRunning()) mapRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   };
 
   // A territory picked on the map may sit outside the current filter. Its card
@@ -64,6 +76,7 @@ export function TerritoryView({ mapConfig }: {
     } else {
       setRecentre((count) => count + 1);
     }
+    if (isGuideRunning()) return;
     window.setTimeout(() => {
       // A full-screen map covers the page, so moving the page under it would
       // only surprise whoever closes it. The list and card still follow.
@@ -77,13 +90,6 @@ export function TerritoryView({ mapConfig }: {
   // the reader picked stays picked until they pick another one, here or on the
   // map, even while the filter hides its card.
   const changeFilter = (nextFilter: TerritoryFilter) => setFilter(nextFilter);
-
-  const openSummaryTerritory = (nextFilter: TerritoryFilter, territoryId: string | null) => {
-    setFilter(nextFilter);
-    if (territoryId) selectTerritory(territoryId);
-    // The card acts on the map below it, so bring the map along.
-    mapRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-  };
 
   const territoryName = (territoryId: string | null | undefined) => territoryId
     ? session.state.territories.find((territory) => territory.id === territoryId)?.name[session.state.locale] ?? "—"
@@ -112,11 +118,51 @@ export function TerritoryView({ mapConfig }: {
           expeditionTerritory={expeditionTerritory}
           pageIndex={pageIndex}
           pageCount={visibleTerritories.length}
+          startDisabled={integrated && (expeditionRecoveryStatus !== "ready" || expeditionStartPending)}
+          startPending={expeditionStartPending}
           onPage={(index) => {
             const next = visibleTerritories[index];
             if (next) selectTerritory(next.id, { follow: false });
           }}
-          onStartExpedition={() => session.dispatch({ type: "openExpedition", expeditionId: expedition.id })}
+          onStartExpedition={() => {
+            if (!integrated || !services || isGuideRunning()) {
+              session.dispatch({
+                type: "openRecommendedExpedition",
+                expeditionId: expedition.id,
+                territoryId: expedition.territoryId,
+              });
+              return;
+            }
+            const regionCode = territoryRegionCodes[expedition.territoryId];
+            if (!regionCode) {
+              setExpeditionStartError(true);
+              return;
+            }
+            setExpeditionStartError(false);
+            setExpeditionStartPending(true);
+            void services.tourism.getRecommendedExpedition({
+              regionCode,
+              keyword: selectedArtist.artistName.ko,
+              travelDate: new Date().toISOString().slice(0, 10),
+              limit: 5,
+            }).then((recommendation) => services.expeditions.start(recommendation.id, {
+              regionCode,
+              keyword: selectedArtist.artistName.ko,
+              travelDate: recommendation.travelDate,
+              limit: 5,
+            })).then((persisted) => {
+              onLiveExpedition?.(persisted);
+              session.dispatch({
+                type: "openRecommendedExpedition",
+                expeditionId: expedition.id,
+                territoryId: expedition.territoryId,
+              });
+            }).catch(() => {
+              setExpeditionStartError(true);
+            }).finally(() => {
+              setExpeditionStartPending(false);
+            });
+          }}
         />
       );
     }
@@ -125,40 +171,10 @@ export function TerritoryView({ mapConfig }: {
   return (
     <div className="view territory-view">
       <h1 className="preview-page-title">{t(session.state.locale, "navTerritory")}</h1>
-      {selectedArtist && summary ? (
-        <section data-guide="territory-summary" className="territory-summary" aria-label={t(session.state.locale, "territorySummary")}>
-          <div className="territory-summary-grid">
-            <button type="button" onClick={() => openSummaryTerritory("my_fandom", summary.strongestOwnedTerritoryId)}>
-              <span>{t(session.state.locale, "summaryOwned")}</span>
-              <strong>{summary.ownedCount}</strong>
-              <small>{session.state.locale === "ko" ? "내 영토만 지도에서 보기" : "Show only my territories"}</small>
-            </button>
-            <button type="button" onClick={() => openSummaryTerritory("my_fandom", summary.strongestOwnedTerritoryId)} disabled={!summary.strongestOwnedTerritoryId}>
-              <span>{t(session.state.locale, "summaryStrongest")}</span>
-              <strong>{summary.strongestOwnedTerritoryId ? territoryName(summary.strongestOwnedTerritoryId) : t(session.state.locale, "noOwnedTerritory")}</strong>
-              <small>{session.state.locale === "ko" ? "선택하고 지도로 이동" : "Select and move the map"}</small>
-            </button>
-            <button type="button" onClick={() => openSummaryTerritory("contested", summary.nearestContestedTerritoryId)} disabled={!summary.nearestContestedTerritoryId}>
-              <span>{session.state.locale === "ko" ? "내 거점에서 가까운 접전지" : "Contested territory near my base"}</span>
-              <strong>{territoryName(summary.nearestContestedTerritoryId)}</strong>
-              <small>{summary.nearestContestedAnchorTerritoryId
-                ? `${territoryName(summary.nearestContestedAnchorTerritoryId)} ${session.state.locale === "ko" ? "거점 기준" : "base"} · ${session.state.locale === "ko" ? "약" : "about"} ${summary.nearestContestedDistanceKm ?? "—"}km`
-                : session.state.locale === "ko" ? "대표 연결 지역 기준" : "Based on the representative connected region"}</small>
-            </button>
-            <button className="territory-summary-action" type="button" onClick={() => openSummaryTerritory("contested", summary.recommendation?.territoryId ?? null)} disabled={!summary.recommendation}>
-              <span>{t(session.state.locale, "summaryRecommendation")}</span>
-              <strong>{summary.recommendation
-                ? `${t(session.state.locale, summary.recommendation.kind === "defend" ? "recommendDefend" : "recommendCapture")} · ${territoryName(summary.recommendation.territoryId)}`
-                : "—"}</strong>
-              <small>{summary.recommendation
-                ? summary.recommendation.kind === "defend"
-                  ? session.state.locale === "ko" ? `${summary.recommendation.pointsRequired}P 우위 · 방어가 가장 시급해요` : `${summary.recommendation.pointsRequired}P lead · Most urgent defense`
-                  : session.state.locale === "ko" ? `${summary.recommendation.pointsRequired}P 필요 · 가장 쉽게 탈환할 수 있어요` : `${summary.recommendation.pointsRequired}P needed · Easiest capture opportunity`
-                : ""}</small>
-            </button>
-          </div>
-        </section>
-      ) : null}
+      {/* The summary cards are gone. Every one of them restated what the
+          filter, the list and the map below already say, and the last of them
+          — a single recommended move — was a fifth opinion on a page whose
+          whole job is letting the reader form their own. */}
       {selectedArtist && summary ? (
         <ShareSheet
           label={session.state.locale === "ko" ? "영토 현황 공유하기" : "Share territory status"}
@@ -172,6 +188,30 @@ export function TerritoryView({ mapConfig }: {
             typeof window === "undefined" ? undefined : window.location.origin,
           )}
         />
+      ) : null}
+      {integrated && expeditionRecoveryStatus === "loading" ? (
+        <p className="expedition-service-message" role="status" aria-live="polite">
+          {session.state.locale === "ko" ? "진행 중인 원정을 확인하고 있어요." : "Checking your current expedition."}
+        </p>
+      ) : null}
+      {integrated && expeditionRecoveryStatus === "error" ? (
+        <div className="expedition-service-message expedition-service-message--error" role="alert">
+          <span>{session.state.locale === "ko"
+            ? "진행 중인 원정을 확인하지 못했어요. 중복 원정을 막기 위해 새 원정 시작을 잠시 막았어요."
+            : "We could not check your current expedition. Starting a new one is paused to prevent duplicates."}</span>
+          {onRetryExpeditionRecovery ? (
+            <button type="button" onClick={onRetryExpeditionRecovery}>
+              {session.state.locale === "ko" ? "다시 시도" : "Try again"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {expeditionStartError ? (
+        <p className="expedition-service-message expedition-service-message--error" role="alert">
+          {session.state.locale === "ko"
+            ? "원정을 시작하지 못했어요. 잠시 후 다시 시도해 주세요."
+            : "We could not start the expedition. Please try again shortly."}
+        </p>
       ) : null}
       <div className={tacticalPanel ? "preview-map-layout" : "preview-map-layout preview-map-layout--solo"} ref={mapRef}>
         <TerritoryMap

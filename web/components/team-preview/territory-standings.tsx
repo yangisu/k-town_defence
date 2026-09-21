@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { ChevronRight } from "@/components/ui/icons";
 import { previewContent } from "@/features/team-preview/content";
+import { useDisclosure } from "@/features/team-preview/demo-session-context";
 import { t } from "@/features/team-preview/i18n";
 import type { ArtistId, Locale, PreviewTerritory } from "@/features/team-preview/types";
 
@@ -17,7 +17,8 @@ export function TerritoryStandings({ territory, locale, selectedArtistId, defaul
   selectedArtistId: ArtistId | null;
   defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  // The fold belongs to the territory, so each card remembers its own.
+  const [open, setOpen] = useDisclosure(`standings.${territory.id}`, defaultOpen);
   const ranked = [...territory.standings].sort((left, right) => right.validPoints - left.validPoints);
 
   return (
@@ -26,7 +27,7 @@ export function TerritoryStandings({ territory, locale, selectedArtistId, defaul
         type="button"
         className={open ? "territory-standings-toggle open" : "territory-standings-toggle"}
         aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => setOpen(!open)}
       >
         {/* No running total: the fandoms in a territory are read against each
             other, and their sum is not a number anyone plays against. */}

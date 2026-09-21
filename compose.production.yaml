@@ -59,9 +59,8 @@ services:
       NEXT_PUBLIC_AWS_LOCATION_API_KEY: ${NEXT_PUBLIC_AWS_LOCATION_API_KEY}
       NEXT_PUBLIC_AWS_LOCATION_REGION: ${NEXT_PUBLIC_AWS_LOCATION_REGION:-ap-northeast-1}
       NEXT_PUBLIC_AWS_LOCATION_STYLE: ${NEXT_PUBLIC_AWS_LOCATION_STYLE:-Standard}
-      # integrated runs the season-membership gate and the server-held session;
-      # demo runs the local artist picker and a session the browser owns. The
-      # default is unchanged — set KTOWN_SERVICE_MODE=demo in .env to switch.
+      # Production stays on the authenticated backend. Demo mode is available
+      # only when it is selected explicitly for an isolated demo deployment.
       KTOWN_SERVICE_MODE: ${KTOWN_SERVICE_MODE:-integrated}
       KTOWN_API_BASE_URL: http://api:8000
       KTOWN_SESSION_SECRET: ${KTOWN_SESSION_SECRET}

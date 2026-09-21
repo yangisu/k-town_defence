@@ -20,6 +20,8 @@ EXPECTED_TABLES = {
     "checkin_gps_samples",
     "checkin_photos",
     "checkin_submissions",
+    "expeditions",
+    "expedition_stops",
 }
 
 

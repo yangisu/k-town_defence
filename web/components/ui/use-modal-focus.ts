@@ -23,6 +23,15 @@ function isRadioGroupTabStop(element: HTMLElement, candidates: readonly HTMLElem
   return element === (group.find((radio) => radio.checked) ?? group[0]);
 }
 
+/**
+ * Every trap currently holding the screen, oldest first. Only the last one
+ * acts: two of them at once — the guide's card and the check-in it opens —
+ * each saw focus sitting in the other, pulled it back to itself, and that pull
+ * was a focus the other had to answer. The two of them filled the call stack
+ * inside a single event, and pressing Escape in the inner one closed both.
+ */
+const openTraps: object[] = [];
+
 export function useModalFocus(
   active: boolean,
   containerRef: RefObject<HTMLElement | null>,
@@ -30,6 +39,7 @@ export function useModalFocus(
   onClose: () => void,
 ) {
   const closeRef = useRef(onClose);
+  const trapId = useRef({});
 
   useEffect(() => {
     closeRef.current = onClose;
@@ -38,12 +48,17 @@ export function useModalFocus(
   useEffect(() => {
     if (!active) return;
 
+    const trap = trapId.current;
+    openTraps.push(trap);
+    const isTopmost = () => openTraps[openTraps.length - 1] === trap;
+
     const invokingControl = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
     initialFocusRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isTopmost()) return;
       if (event.key === "Escape") {
         event.preventDefault();
         closeRef.current();
@@ -72,6 +87,7 @@ export function useModalFocus(
     };
 
     const handleFocusIn = (event: FocusEvent) => {
+      if (!isTopmost()) return;
       const container = containerRef.current;
       if (container && event.target instanceof Node && !container.contains(event.target)) {
         event.stopPropagation();
@@ -84,6 +100,8 @@ export function useModalFocus(
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("focusin", handleFocusIn, true);
+      const at = openTraps.indexOf(trap);
+      if (at >= 0) openTraps.splice(at, 1);
       if (invokingControl?.isConnected) invokingControl.focus();
     };
   }, [active, containerRef, initialFocusRef]);

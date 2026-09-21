@@ -286,13 +286,15 @@ describe("demo preview session", () => {
     });
   });
 
-  it("limits a stale award to the remaining daily allowance everywhere it is applied", () => {
-    const nearlyCapped = { ...readySession(), contributedToday: 1190 };
-    const state = approve(nearlyCapped, "busan-1", 100);
+  // A day that has already earned a great deal takes the next award whole:
+  // nothing is held back once a traveller is out on a route.
+  it("applies an award in full however much the day has already earned", () => {
+    const busyDay = { ...readySession(), contributedToday: 1190 };
+    const state = approve(busyDay, "busan-1", 100);
     const busan = state.territories.find((territory) => territory.id === "busan")!;
 
-    expect(busan.standings.find((standing) => standing.artistId === "bts")!.validPoints).toBe(930);
-    expect(state.contributedToday).toBe(1200);
+    expect(busan.standings.find((standing) => standing.artistId === "bts")!.validPoints).toBe(1020);
+    expect(state.contributedToday).toBe(1290);
     expect(state.missionVisitCounts["busan-1"]).toBe(1);
   });
 
@@ -304,7 +306,6 @@ describe("demo preview session", () => {
       artistConfirmed: true,
       selectedArtistId: "bts",
       selectedTerritoryId: "busan",
-      contributedToday: 999,
     };
 
     expect(loadDemoSession(storageWith(null))).toEqual(initial);
@@ -407,7 +408,6 @@ describe("demo preview session", () => {
       balanceMultiplier: 1.8,
       fandomSizeMultiplier: 1,
       repeatCount: 0,
-      contributedToday: 0,
     });
     expect(missionAward.cappedPoints).toBe(468);
 
@@ -520,7 +520,9 @@ it("restores a session saved before the roster existed", () => {
 // used to snap back to "my fandom" on every trip through an expedition.
 it("remembers the slice of the board the reader asked for", () => {
   let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
-  expect(state.territoryFilter).toBe("my_fandom");
+  // Choosing a fandom opens on the whole board — a fandom holding nothing
+  // would otherwise arrive at an empty list.
+  expect(state.territoryFilter).toBe("all");
 
   state = demoSessionReducer(state, { type: "setTerritoryFilter", filter: "artist_connection" });
   state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "busan" });
@@ -532,9 +534,94 @@ it("remembers the slice of the board the reader asked for", () => {
   expect(state.selectedTerritoryId).toBe("busan");
 });
 
+// A running route used to drag the map back to its own territory every time
+// the reader opened the expedition tab, quietly undoing wherever they had just
+// been. The route keeps running; the map keeps the reader's last move.
+it("leaves the map on the reader's last territory while a route runs elsewhere", () => {
+  let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "busan" });
+  state = demoSessionReducer(state, { type: "openExpedition", expeditionId: "bts-busan-artist-linked-expedition" });
+  expect(state.activeExpeditionId).toBe("bts-busan-artist-linked-expedition");
+
+  state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "ulsan" });
+  state = demoSessionReducer(state, { type: "changeTab", tab: "expedition" });
+
+  expect(state.selectedExpeditionId).toBe("bts-busan-artist-linked-expedition");
+  expect(state.selectedTerritoryId).toBe("ulsan");
+
+  state = demoSessionReducer(state, { type: "changeTab", tab: "explore" });
+  expect(state.selectedTerritoryId).toBe("ulsan");
+});
+
+// A section the reader folded shut stays shut across the whole app, and only
+// a new roster starts the reading over.
+it("remembers every fold until the roster changes", () => {
+  let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  expect(state.disclosures).toEqual({});
+
+  state = demoSessionReducer(state, { type: "setDisclosure", key: "ranking.leaderboard", open: false });
+  state = demoSessionReducer(state, { type: "changeTab", tab: "journey" });
+  state = demoSessionReducer(state, { type: "changeTab", tab: "explore" });
+  expect(state.disclosures["ranking.leaderboard"]).toBe(false);
+
+  state = demoSessionReducer(state, { type: "changeProfile", artistId: "seventeen" });
+  expect(state.disclosures).toEqual({});
+});
+
+it("restores a session saved before folds were remembered", () => {
+  const legacy = { ...demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" }) } as Record<string, unknown>;
+  delete legacy.disclosures;
+
+  expect(parseDemoSession(legacy)?.disclosures).toEqual({});
+});
+
 it("restores a session saved before the filter was remembered", () => {
   const legacy = { ...demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" }) } as Record<string, unknown>;
   delete legacy.territoryFilter;
 
-  expect(parseDemoSession(legacy)?.territoryFilter).toBe("my_fandom");
+  expect(parseDemoSession(legacy)?.territoryFilter).toBe("all");
+});
+
+// Yeongwol's 1.8x multiplier used to spend a 1200P daily allowance on its
+// first stop, which left the second worth nothing and the route unfinishable.
+// There is no allowance now: every stop pays what it is worth.
+it("pays every stop on a route in full, however large the first one was", () => {
+  let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "yeongwol" });
+  const route = previewContent.expeditions.find((candidate) => candidate.id === "yeongwol-regional-support-expedition")!;
+  state = demoSessionReducer(state, { type: "openExpedition", expeditionId: route.id });
+  state = demoSessionReducer(state, {
+    type: "completeCheckIn", expeditionId: route.id, placeId: route.stopIds[0], award: award(1116),
+  });
+  expect(state.contributedToday).toBe(1116);
+
+  state = demoSessionReducer(state, {
+    type: "completeCheckIn", expeditionId: route.id, placeId: route.stopIds[1], award: award(1116),
+  });
+
+  expect(state.approvedCheckIns).toHaveLength(2);
+  expect(state.approvedCheckIns[1]?.awardedPoints).toBe(1116);
+  expect(state.contributedToday).toBe(2232);
+  expect(state.completedExpeditionIds).toContain(route.id);
+});
+
+// Every territory has to be walkable end to end, whatever its multiplier.
+it("completes the recommended route in every territory", () => {
+  for (const territory of previewContent.territories) {
+    let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+    state = demoSessionReducer(state, { type: "selectTerritory", territoryId: territory.id });
+    const recommended = selectRecommendedExpedition("bts", territory.id);
+    expect(recommended, territory.id).not.toBeNull();
+    state = demoSessionReducer(state, {
+      type: "openRecommendedExpedition",
+      expeditionId: recommended!.expedition.id,
+      territoryId: recommended!.territoryId,
+    });
+    for (const placeId of recommended!.expedition.stopIds) {
+      state = demoSessionReducer(state, {
+        type: "completeCheckIn", expeditionId: recommended!.expedition.id, placeId, award: award(560),
+      });
+    }
+    expect(state.completedExpeditionIds, territory.id).toContain(recommended!.expedition.id);
+  }
 });

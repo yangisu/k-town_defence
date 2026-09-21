@@ -86,6 +86,20 @@ describe("HTTP services", () => {
     }));
   });
 
+  it("marks demo verification explicitly while keeping the real check-in API", async () => {
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({
+      id: "session-1", placeId: "place-1", status: "ready", verificationType: "demo",
+      expiresAt: "2026-08-21T10:30:00Z",
+    }, 201));
+
+    await createHttpServices(fetcher).checkIn.create("place-1", { verificationMode: "demo" });
+
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
+      placeId: "place-1", verificationType: "demo",
+      practice: false,
+    });
+  });
+
   it("restores the active submitted session after a browser refresh", async () => {
     localStorage.setItem("ktown-active-checkin-v1", JSON.stringify({ sessionId: "session-1", placeId: "place-1" }));
     const fetcher = vi.fn().mockResolvedValue(jsonResponse({
@@ -94,6 +108,7 @@ describe("HTTP services", () => {
 
     await expect(createHttpServices(fetcher).checkIn.restore()).resolves.toEqual({
       id: "session-1", placeId: "place-1", status: "submitted", expiresAt: "2026-08-21T10:30:00Z",
+      verificationMode: "evidence",
     });
     expect(fetcher).toHaveBeenCalledWith("/api/ktown/api/v1/checkins/session-1", expect.any(Object));
   });
@@ -229,6 +244,35 @@ const strictExpedition = {
     expect(fetcher.mock.calls[0][0]).toContain("/api/ktown/api/v1/tourism/route-attractions?");
     expect(fetcher.mock.calls[0][0]).toContain("firstName=");
     expect(fetcher.mock.calls[0][0]).toContain("secondName=");
+  });
+
+  it("starts a persisted expedition through the backend contract", async () => {
+    const body = {
+      id: "expedition-1", recommendationId: "recommendation-1", title: "부산 로컬 원정",
+      regionCode: "6", territoryId: "busan", keyword: null, travelDate: "2026-08-22",
+      status: "active", createdAt: "2026-08-22T03:00:00Z", completedAt: null,
+      stops: [{
+        order: 1, distanceKm: 0, reasons: ["지역 원정 시작점"], completedAt: null,
+        place: {
+          id: "place-1", contentId: "101", nameKo: "감천문화마을", addressKo: "부산",
+          latitude: 35.1, longitude: 129, regionCode: "6", descriptionKo: "공식 설명",
+          category: "culture",
+          homepageUrl: null, telephone: null, openTime: null, restDate: null, parking: null,
+          imageUrls: [], festivalStartDate: null, festivalEndDate: null,
+          discoveryKeywords: [], sourceOperations: [],
+        },
+      }],
+    };
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse(body, 201));
+
+    const started = await createHttpServices(fetcher).expeditions.start("recommendation-1", {
+      regionCode: "6", travelDate: "2026-08-22", limit: 3,
+    });
+
+    expect(started).toMatchObject({ id: "expedition-1", territoryId: "busan", status: "active" });
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
+      recommendationId: "recommendation-1", regionCode: "6", travelDate: "2026-08-22", limit: 3,
+    });
   });
 
   it("maps safe open-data status and rejects malformed expedition stops", async () => {

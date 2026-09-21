@@ -275,10 +275,10 @@ button.record-reward-open:focus-visible{outline:3px solid var(--purple);outline-
 .tutorial-overlay--moving .tutorial-spotlight,.tutorial-overlay--moving .tutorial-beckon{opacity:0}
 .tutorial-overlay--moving .tutorial-card{opacity:0;transform:translateX(-50%) translateY(10px);pointer-events:none}
 @media(prefers-reduced-motion:reduce){.tutorial-mask,.tutorial-spotlight,.tutorial-beckon,.tutorial-card{transition-duration:.01ms}}
-
 /* The reason an empty strip is empty, in the space the cards would fill. */
 .preview-territory-empty{margin:0;padding:22px 16px 24px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px;line-height:1.6;text-align:center;word-break:keep-all}
 
 .tutorial-spotlight,.tutorial-mask{transform-origin:center}
 .tutorial-overlay--moving .tutorial-spotlight{transform:scale(1.035)}
 .tutorial-spotlight{transition:opacity .26s ease,transform .34s cubic-bezier(.22,.68,.3,1)}
+.expedition-service-message{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 0;padding:12px 14px;border-radius:14px;background:#fff0d5;color:#66440d;font-size:12px;line-height:1.5}.expedition-service-message--error{background:rgba(255,107,53,.12);color:#8a3310}.expedition-service-message button{flex-shrink:0;border:1px solid currentColor;border-radius:10px;background:transparent;color:inherit;padding:7px 10px;font:inherit;font-weight:850;cursor:pointer}

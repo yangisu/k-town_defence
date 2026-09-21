@@ -6,7 +6,7 @@ import { calculateMissionAward, GAME_RULES, rankFandoms, stageForPoints } from "
 import { previewContent } from "@/features/team-preview/content";
 import { t } from "@/features/team-preview/i18n";
 import type { DemoSession } from "@/features/team-preview/demo-session";
-import { useDemoSession, useDisclosure } from "@/features/team-preview/demo-session-context";
+import { useDisclosure } from "@/features/team-preview/demo-session-context";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
 import type {
   ArtistConnection,
@@ -179,6 +179,9 @@ export function TacticalPanel({
   pageIndex,
   pageCount,
   onPage,
+  onStartExpedition,
+  startDisabled = false,
+  startPending = false,
 }: {
   session: DemoSession;
   artist: ArtistProfile;
@@ -190,8 +193,9 @@ export function TacticalPanel({
   pageCount: number;
   onPage(index: number): void;
   onStartExpedition(): void;
+  startDisabled?: boolean;
+  startPending?: boolean;
 }) {
-  const demoSession = useDemoSession();
   const swipeOrigin = useRef<{ x: number; y: number } | null>(null);
   const [awardHelpOpen, setAwardHelpOpen] = useDisclosure("tactical.award", false);
   const [impactHelpOpen, setImpactHelpOpen] = useDisclosure("tactical.impact", false);
@@ -225,11 +229,7 @@ export function TacticalPanel({
   const runningExpedition = previewContent.expeditions.find((candidate) => candidate.id === session.activeExpeditionId);
   const runningTerritoryName = session.territories
     .find((candidate) => candidate.id === runningExpedition?.territoryId)?.name[locale] ?? "—";
-  const openThisRoute = () => demoSession.dispatch({
-    type: "openRecommendedExpedition",
-    expeditionId: expedition.id,
-    territoryId: expedition.territoryId,
-  });
+  const openThisRoute = () => onStartExpedition();
   const actionLabel = session.completedExpeditionIds.includes(expedition.id)
     ? copy.finished
     : session.activeExpeditionId === expedition.id
@@ -470,11 +470,11 @@ export function TacticalPanel({
       {/* A route running elsewhere used to lock this button, which left the
           reader to work out where they had to go to unlock it. They can start
           here; the question just makes sure they meant to leave the other. */}
-      <button data-guide="start-expedition" className="primary-button" type="button" onClick={() => {
+      <button data-guide="start-expedition" className="primary-button" type="button" disabled={startDisabled} aria-busy={startPending || undefined} onClick={() => {
         if (blockedByOtherRoute) return setSwitchOpen(true);
         openThisRoute();
       }}>
-        {actionLabel}
+        {startPending ? (locale === "ko" ? "원정 준비 중" : "Preparing expedition") : actionLabel}
       </button>
       {switchOpen ? (
         <div className="reset-dialog-overlay">
@@ -483,7 +483,7 @@ export function TacticalPanel({
             <p>{t(locale, "switchRouteBody").replace("{territory}", runningTerritoryName)}</p>
             <div className="reset-dialog-actions">
               <button type="button" onClick={() => setSwitchOpen(false)}>{t(locale, "switchRouteCancel")}</button>
-              <button type="button" onClick={() => { setSwitchOpen(false); openThisRoute(); }}>{t(locale, "switchRouteConfirm")}</button>
+              <button type="button" disabled={startDisabled} onClick={() => { setSwitchOpen(false); openThisRoute(); }}>{t(locale, "switchRouteConfirm")}</button>
             </div>
           </div>
         </div>

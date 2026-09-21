@@ -143,6 +143,8 @@ export interface CheckInSession {
   placeId: string;
   expiresAt: string;
   status?: "collecting" | "ready" | "submitted" | "expired" | "cancelled";
+  verificationMode?: "evidence" | "demo";
+  practice?: boolean;
 }
 
 export interface CheckInResult {
@@ -179,6 +181,31 @@ export interface PhotoEvidence {
 
 export interface FandomSummary { id: string; name: string; artistName: string | null; }
 export interface SeasonMembership { userId: string; seasonId: string; fandomId: string; lockedAt: string | null; }
+export interface TerritoryStandingSnapshot { fandomId: string; fandomName: string; artistName: string | null; validPoints: number; }
+export interface TerritorySnapshot {
+  id: string;
+  nameKo: string;
+  nameEn: string;
+  latitude: number;
+  longitude: number;
+  populationDecline: boolean;
+  balanceMultiplier: 1 | 1.8;
+  balanceReasonKo: string;
+  balanceReasonEn: string;
+  ownerFandomId: string;
+  strongholdStage: "seed" | "tree" | "landmark";
+  standings: TerritoryStandingSnapshot[];
+}
+
+export interface PersistedExpedition extends LiveExpedition {
+  recommendationId: string;
+  territoryId?: string;
+  status: "active" | "completed" | "abandoned";
+  createdAt: string;
+  completedAt?: string;
+  stops: (LiveExpeditionStop & { completedAt?: string })[];
+}
+export interface TerritoryService { list(): Promise<TerritorySnapshot[]>; }
 export interface MembershipService {
   listFandoms(): Promise<FandomSummary[]>;
   getCurrent(): Promise<SeasonMembership | null>;
@@ -197,10 +224,14 @@ export interface TourismService {
 export interface ExpeditionService {
   listByRegion(regionId: string): Promise<Expedition[]>;
   get(expeditionId: string): Promise<Expedition>;
+  start(recommendationId: string, filter: ExpeditionRecommendationFilter): Promise<PersistedExpedition>;
+  current(): Promise<PersistedExpedition | null>;
+  abandon(expeditionId: string): Promise<PersistedExpedition>;
+  complete(expeditionId: string): Promise<PersistedExpedition>;
 }
 
 export interface CheckInService {
-  create(placeId: string): Promise<CheckInSession>;
+  create(placeId: string, options?: { verificationMode?: "evidence" | "demo"; expeditionId?: string; practice?: boolean }): Promise<CheckInSession>;
   restore(): Promise<CheckInSession | null>;
   recordGps(sessionId: string, evidence: GpsEvidence): Promise<void>;
   recordPhoto(sessionId: string, evidence: PhotoEvidence): Promise<void>;
@@ -214,6 +245,7 @@ export interface BattleService {
 }
 
 export interface AppServices {
+  territories: TerritoryService;
   tourism: TourismService;
   expeditions: ExpeditionService;
   checkIn: CheckInService;

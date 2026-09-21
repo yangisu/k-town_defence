@@ -11,7 +11,9 @@ import type {
   ExpeditionRecommendationFilter,
   LiveExpedition,
   OpenDataStatus,
+  PersistedExpedition,
   SeasonMembership,
+  TerritorySnapshot,
 } from "./domain";
 import { services as demoServices } from "./demo-services";
 import { ApiError } from "./api/api-error";
@@ -46,7 +48,17 @@ type CheckInDto = {
   placeId: string;
   status: CheckInSession["status"];
   expiresAt: string;
+  verificationType?: "actual" | "demo";
+  practice?: boolean;
 };
+
+function mapCheckIn(dto: CheckInDto): CheckInSession {
+  const { verificationType, ...session } = dto;
+  return {
+    ...session,
+    verificationMode: verificationType === "demo" ? "demo" : "evidence",
+  };
+}
 
 const regionIds: Record<string, string> = {
   "1": "seoul",
@@ -267,6 +279,52 @@ function mapExpedition(value: unknown): LiveExpedition {
   };
 }
 
+function mapPersistedExpedition(value: unknown): PersistedExpedition {
+  const dto = object(value);
+  if (!Array.isArray(dto.stops)) invalidResponse();
+  const status = text(dto.status);
+  if (!["active", "completed", "abandoned"].includes(status)) invalidResponse();
+  return {
+    id: text(dto.id),
+    recommendationId: text(dto.recommendationId),
+    title: text(dto.title),
+    regionCode: text(dto.regionCode),
+    territoryId: nullableText(dto.territoryId) ?? undefined,
+    keyword: nullableText(dto.keyword) ?? undefined,
+    travelDate: isoDate(dto.travelDate),
+    dataUpdatedAt: undefined,
+    status: status as PersistedExpedition["status"],
+    createdAt: timestamp(dto.createdAt),
+    completedAt: nullableTimestamp(dto.completedAt) ?? undefined,
+    stops: dto.stops.map((value) => {
+      const stop = object(value);
+      return {
+        order: finiteNumber(stop.order),
+        distanceKm: finiteNumber(stop.distanceKm),
+        reasons: stringArray(stop.reasons),
+        place: mapEnrichedPlace(stop.place),
+        completedAt: nullableTimestamp(stop.completedAt) ?? undefined,
+      };
+    }),
+  };
+}
+
+function asLegacyExpedition(expedition: PersistedExpedition) {
+  return {
+    id: expedition.id,
+    regionId: expedition.territoryId ?? expedition.regionCode,
+    title: expedition.title,
+    kicker: expedition.status === "active" ? "원정 중" : "원정 기록",
+    description: expedition.keyword ?? "공식 관광 데이터 기반 원정",
+    duration: "",
+    transitMode: "",
+    stopIds: expedition.stops.map((stop) => stop.place.id),
+    completedStops: expedition.stops.filter((stop) => stop.completedAt).length,
+    totalPoints: 0,
+    weekendBonus: 0,
+  };
+}
+
 function mapOpenDataStatus(value: unknown): OpenDataStatus {
   const dto = object(value);
   if (!Array.isArray(dto.operations)) invalidResponse();
@@ -287,6 +345,11 @@ function mapOpenDataStatus(value: unknown): OpenDataStatus {
 
 export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
   return {
+    territories: {
+      async list() {
+        return (await requestJson<{ items: TerritorySnapshot[] }>(fetcher, "/api/v1/territories")).items;
+      },
+    },
     tourism: {
       listRegions: () => demoServices.tourism.listRegions(),
       getRegion: (regionId) => demoServices.tourism.getRegion(regionId),
@@ -325,22 +388,61 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
         );
       },
     },
-    expeditions: demoServices.expeditions,
+    expeditions: {
+      async listByRegion(regionId) {
+        const current = await requestJson<unknown>(fetcher, "/api/v1/expeditions/current");
+        if (current === null) return [];
+        const expedition = mapPersistedExpedition(current);
+        return expedition.territoryId === regionId || expedition.regionCode === regionId
+          ? [asLegacyExpedition(expedition)]
+          : [];
+      },
+      async get(expeditionId) {
+        return asLegacyExpedition(mapPersistedExpedition(
+          await requestJson<unknown>(fetcher, `/api/v1/expeditions/${expeditionId}`),
+        ));
+      },
+      async start(recommendationId, filter) {
+        return mapPersistedExpedition(await requestJson<unknown>(fetcher, "/api/v1/expeditions", {
+          method: "POST",
+          body: JSON.stringify({ recommendationId, ...filter }),
+        }));
+      },
+      async current() {
+        const value = await requestJson<unknown>(fetcher, "/api/v1/expeditions/current");
+        return value === null ? null : mapPersistedExpedition(value);
+      },
+      async abandon(expeditionId) {
+        return mapPersistedExpedition(await requestJson<unknown>(
+          fetcher, `/api/v1/expeditions/${expeditionId}/abandon`, { method: "POST" },
+        ));
+      },
+      async complete(expeditionId) {
+        return mapPersistedExpedition(await requestJson<unknown>(
+          fetcher, `/api/v1/expeditions/${expeditionId}/complete`, { method: "POST" },
+        ));
+      },
+    },
     checkIn: {
-      async create(placeId) {
+      async create(placeId, options) {
         const dto = await requestJson<CheckInDto>(fetcher, "/api/v1/checkins", {
           method: "POST",
-          body: JSON.stringify({ placeId }),
+          body: JSON.stringify({
+            placeId,
+            verificationType: options?.verificationMode === "demo" ? "demo" : "actual",
+            ...(options?.expeditionId ? { expeditionId: options.expeditionId } : {}),
+            practice: options?.practice ?? false,
+          }),
         });
         writeStoredCheckIn({ sessionId: dto.id, placeId: dto.placeId });
-        return dto;
+        return mapCheckIn(dto);
       },
       async restore() {
         const stored = readStoredCheckIn();
         if (!stored) return null;
         try {
           const session = await requestJson<CheckInDto>(fetcher, `/api/v1/checkins/${stored.sessionId}`);
-          return structuredClone(session);
+          return structuredClone(mapCheckIn(session));
         } catch (error) {
           if (error instanceof KTownApiError && [404, 409].includes(error.status)) {
             window.localStorage.removeItem(ACTIVE_CHECKIN_KEY);

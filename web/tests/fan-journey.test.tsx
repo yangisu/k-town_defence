@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
-import Page from "@/app/page";
+import Page from "@/app/demo/page";
 
 async function loginToDemo(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: "데모 시작하기" }));

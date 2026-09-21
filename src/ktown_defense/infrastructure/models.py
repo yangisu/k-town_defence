@@ -225,6 +225,10 @@ class CheckInSessionModel(Base):
             "status IN ('collecting', 'ready', 'submitted', 'expired', 'cancelled')",
             name="ck_checkin_sessions_status",
         ),
+        CheckConstraint(
+            "verification_type IN ('actual', 'demo')",
+            name="ck_checkin_sessions_verification_type",
+        ),
         Index("ix_checkin_sessions_user_place_status", "user_id", "place_id", "status"),
     )
 
@@ -236,6 +240,13 @@ class CheckInSessionModel(Base):
         PostgreSQLUUID(as_uuid=True), ForeignKey("places.id", ondelete="RESTRICT")
     )
     status: Mapped[str] = mapped_column(String(20), default="collecting")
+    verification_type: Mapped[str] = mapped_column(String(20), default="actual")
+    is_practice: Mapped[bool] = mapped_column(Boolean, default=False)
+    expedition_stop_id: Mapped[UUID | None] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("expedition_stops.id", ondelete="SET NULL"),
+        index=True,
+    )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
@@ -317,6 +328,74 @@ class SubmissionModel(Base):
     decision: Mapped[str] = mapped_column(String(20), default="pending")
     risk_codes: Mapped[list[str]] = mapped_column(JSONB, default=list)
     awarded_points: Mapped[int] = mapped_column(Integer, default=0)
+    season_id: Mapped[UUID | None] = mapped_column(
+        PostgreSQLUUID(as_uuid=True), ForeignKey("seasons.id", ondelete="RESTRICT"), index=True
+    )
+    fandom_id: Mapped[UUID | None] = mapped_column(
+        PostgreSQLUUID(as_uuid=True), ForeignKey("fandoms.id", ondelete="RESTRICT"), index=True
+    )
+    territory_id: Mapped[str | None] = mapped_column(String(40), index=True)
     submitted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )
+
+
+class ExpeditionModel(Base):
+    __tablename__ = "expeditions"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('active', 'completed', 'abandoned')",
+            name="ck_expeditions_status",
+        ),
+        Index("ix_expeditions_user_status", "user_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+    )
+    season_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True), ForeignKey("seasons.id", ondelete="RESTRICT")
+    )
+    fandom_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True), ForeignKey("fandoms.id", ondelete="RESTRICT")
+    )
+    recommendation_id: Mapped[str] = mapped_column(String(64))
+    region_code: Mapped[str] = mapped_column(String(20))
+    territory_id: Mapped[str | None] = mapped_column(String(40))
+    title: Mapped[str] = mapped_column(String(200))
+    keyword: Mapped[str | None] = mapped_column(String(100))
+    travel_date: Mapped[date] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(20), default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ExpeditionStopModel(Base):
+    __tablename__ = "expedition_stops"
+    __table_args__ = (
+        UniqueConstraint("expedition_id", "stop_order", name="uq_expedition_stop_order"),
+        UniqueConstraint("expedition_id", "place_id", name="uq_expedition_stop_place"),
+        CheckConstraint("stop_order > 0", name="ck_expedition_stop_order_positive"),
+    )
+
+    id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    expedition_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("expeditions.id", ondelete="CASCADE"),
+        index=True,
+    )
+    place_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True), ForeignKey("places.id", ondelete="RESTRICT")
+    )
+    stop_order: Mapped[int] = mapped_column(Integer)
+    distance_km: Mapped[Decimal] = mapped_column(Numeric(8, 3))
+    reasons: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

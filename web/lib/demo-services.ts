@@ -1,5 +1,6 @@
 import type { AppServices, CheckInResult, CheckInSession, MembershipService } from "./domain";
 import { battles, expeditions, journey, leaderboard, places, regions } from "./demo-data";
+import { previewContent } from "@/features/team-preview/content";
 
 const clone = <T,>(value: T): T => structuredClone(value);
 let restoredSession: CheckInSession | null = null;
@@ -21,6 +22,29 @@ function createDemoMembership(): MembershipService {
 }
 
 export const services: AppServices = {
+  territories: {
+    async list() {
+      return clone(previewContent.territories.map((territory) => ({
+        id: territory.id,
+        nameKo: territory.name.ko,
+        nameEn: territory.name.en,
+        latitude: territory.centroid.latitude,
+        longitude: territory.centroid.longitude,
+        populationDecline: territory.populationDecline,
+        balanceMultiplier: territory.balanceMultiplier,
+        balanceReasonKo: territory.balanceReason.ko,
+        balanceReasonEn: territory.balanceReason.en,
+        ownerFandomId: demoFandoms.find((fandom) => fandom.name === previewContent.artists.find((artist) => artist.id === territory.ownerArtistId)?.fandomName)?.id ?? demoFandoms[0].id,
+        strongholdStage: territory.strongholdStage,
+        standings: territory.standings.map((standing) => ({
+          fandomId: demoFandoms.find((fandom) => fandom.name === standing.fandomName)?.id ?? standing.artistId,
+          fandomName: standing.fandomName,
+          artistName: previewContent.artists.find((artist) => artist.id === standing.artistId)?.artistName.ko ?? null,
+          validPoints: standing.validPoints,
+        })),
+      })));
+    },
+  },
   tourism: {
     async listRegions() { return clone(regions); },
     async getRegion(regionId) {
@@ -57,6 +81,24 @@ export const services: AppServices = {
       const expedition = expeditions.find((item) => item.id === expeditionId);
       if (!expedition) throw new Error("EXPEDITION_NOT_FOUND");
       return clone(expedition);
+    },
+    async start(recommendationId, filter) {
+      const recommendation = await services.tourism.getRecommendedExpedition(filter);
+      return clone({
+        ...recommendation,
+        id: `persisted-${recommendationId}`,
+        recommendationId,
+        territoryId: "busan",
+        status: "active" as const,
+        createdAt: new Date().toISOString(),
+      });
+    },
+    async current() { return null; },
+    async abandon(expeditionId) {
+      throw new Error(`EXPEDITION_NOT_FOUND:${expeditionId}`);
+    },
+    async complete(expeditionId) {
+      throw new Error(`EXPEDITION_NOT_FOUND:${expeditionId}`);
     },
   },
   checkIn: {

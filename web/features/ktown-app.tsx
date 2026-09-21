@@ -28,15 +28,17 @@ import { isGuideRunning } from "@/features/team-preview/guide-running";
 import { createRemoteDemoSessionStore } from "@/features/team-preview/remote-session-store";
 import { t } from "@/features/team-preview/i18n";
 import { MembershipGate } from "@/components/membership/membership-gate";
-import type { AppServices, CheckInService } from "@/lib/domain";
+import type { AppServices, CheckInService, PersistedExpedition } from "@/lib/domain";
 import type { MapConfig } from "@/lib/map-config";
 import { createServices, type ServiceMode } from "@/lib/service-factory";
+import { mapTerritorySnapshots } from "@/lib/adapters/territory";
 
-function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", onChangeFandom }: {
+function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", checkInMode, onChangeFandom }: {
   services: AppServices;
   mapConfig: MapConfig | null;
   profileLocked?: boolean;
   mode?: ServiceMode;
+  checkInMode?: "demo" | "integrated";
   /** Integrated mode changes a fandom through the season membership rather
    *  than the local session, and the API may refuse mid-season. */
   onChangeFandom?: (artistId: NonNullable<DemoSessionState["selectedArtistId"]>) => void;
@@ -48,6 +50,11 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const [resetOpen, setResetOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideChecked, setGuideChecked] = useState(false);
+  const [liveExpedition, setLiveExpedition] = useState<PersistedExpedition | null>(null);
+  const [expeditionRecoveryStatus, setExpeditionRecoveryStatus] = useState<"ready" | "loading" | "error">(
+    mode === "integrated" ? "loading" : "ready",
+  );
+  const [expeditionRecoveryAttempt, setExpeditionRecoveryAttempt] = useState(0);
   // The session as it stood when the guide opened, so the practice run it
   // walks the reader through can be undone in full when it closes.
   const guideSnapshot = useRef<DemoSessionState | null>(null);
@@ -58,6 +65,23 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const session = useDemoSession();
   const signOut = useDemoSignOut();
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
+
+  useEffect(() => {
+    if (mode !== "integrated") return;
+    let active = true;
+    void services.expeditions.current()
+      .then((expedition) => {
+        if (!active) return;
+        setLiveExpedition(expedition);
+        setExpeditionRecoveryStatus("ready");
+      })
+      .catch(() => {
+        if (active) setExpeditionRecoveryStatus("error");
+      });
+    return () => {
+      active = false;
+    };
+  }, [expeditionRecoveryAttempt, mode, services]);
 
   const canChangeArtist = !profileLocked || Boolean(onChangeFandom);
   const chooseArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
@@ -189,6 +213,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   useBodyScrollLock(leavingArtistId !== null);
 
   if (!session.hydrated) return <p role="status">{t(session.state.locale, "loading")}</p>;
+  if (session.territoryError) return <main className="membership-gate"><section className="membership-card"><h1>영토 정보를 불러오지 못했어요</h1><button onClick={() => window.location.reload()}>다시 시도</button></section></main>;
 
   return (
     <>
@@ -219,13 +244,29 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
             <TerritoryView
               key={session.state.artistConfirmed ? `artist:${session.state.selectedArtistId}` : "unconfirmed"}
               mapConfig={mapConfig}
+              services={services}
+              integrated={mode === "integrated"}
+              expeditionRecoveryStatus={expeditionRecoveryStatus}
+              onRetryExpeditionRecovery={() => {
+                setExpeditionRecoveryStatus("loading");
+                setExpeditionRecoveryAttempt((attempt) => attempt + 1);
+              }}
+              onLiveExpedition={setLiveExpedition}
             />
         ) : null}
         {session.state.artistConfirmed && session.state.activeTab === "expedition" ? (
             <PreviewExpeditionView
               expeditionId={session.state.selectedExpeditionId}
               checkInService={services.checkIn}
-              checkInMode={mode}
+              checkInMode={checkInMode ?? mode}
+              checkInPractice={mode === "integrated" && guideOpen}
+              liveExpedition={liveExpedition}
+              onEndExpedition={() => {
+                if (liveExpedition?.status === "active") {
+                  void services.expeditions.abandon(liveExpedition.id).catch(() => undefined);
+                }
+                setLiveExpedition(null);
+              }}
               onBack={() => undefined}
             />
         ) : null}
@@ -342,9 +383,9 @@ function LeaveFandomDialog({ locale, artistId, isLastFandom, dialogRef, titleRef
 export function createPreviewCheckInService(services: AppServices): CheckInService {
   return {
     ...services.checkIn,
-    async create(previewPlaceId) {
+    async create(previewPlaceId, options) {
       const previewPlace = previewContent.places.find((place) => place.id === previewPlaceId);
-      if (!previewPlace) throw new Error("PREVIEW_PLACE_NOT_FOUND");
+      if (!previewPlace) return services.checkIn.create(previewPlaceId, options);
       const places = await services.tourism.listPlaces({
         regionId: previewPlace.territoryId,
         query: previewPlace.name.ko,
@@ -354,7 +395,7 @@ export function createPreviewCheckInService(services: AppServices): CheckInServi
         candidate.nameKo.replace(/\s+/g, "").toLocaleLowerCase("ko") === expected
       ));
       if (!place) throw new Error("LIVE_PLACE_NOT_FOUND");
-      return services.checkIn.create(place.id);
+      return services.checkIn.create(place.id, options);
     },
   };
 }
@@ -409,6 +450,7 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
         mapConfig={mapConfig}
         profileLocked
         mode="integrated"
+        checkInMode="demo"
         onChangeFandom={changeFandom}
       />
     </DemoSignOutProvider>
@@ -418,6 +460,9 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
 export function KTownApp({ mode, mapConfig }: { mode: ServiceMode; mapConfig: MapConfig | null }) {
   const services = useMemo(() => createServices(mode), [mode]);
   const remoteStore = useMemo(() => createRemoteDemoSessionStore(), []);
+  const territoryLoader = useMemo(() => mode === "integrated"
+    ? async () => mapTerritorySnapshots(await services.territories.list())
+    : undefined, [mode, services]);
 
   if (mode === "demo") {
     return <DemoSessionProvider><DemoProduct services={services} mapConfig={mapConfig} /></DemoSessionProvider>;
@@ -426,7 +471,7 @@ export function KTownApp({ mode, mapConfig }: { mode: ServiceMode; mapConfig: Ma
   return (
     <MembershipProvider service={services.membership}>
       <MembershipGate>
-        <DemoSessionProvider remote={remoteStore}>
+        <DemoSessionProvider remote={remoteStore} loadTerritories={territoryLoader}>
           <IntegratedModernProduct services={services} mapConfig={mapConfig} />
         </DemoSessionProvider>
       </MembershipGate>

@@ -202,6 +202,10 @@ export function PreviewExpeditionView({
     .map((id) => previewContent.places.find((candidate) => candidate.id === id))
     .filter((place): place is PreviewMissionPlace => Boolean(place)) ?? [];
   const [checkInPlace, setCheckInPlace] = useState<PreviewMissionPlace | null>(null);
+  // Latched when the visit starts, not read live: if the guide were closed
+  // with the check-in still open, a practice visit would finish as a real one
+  // and the server would score it.
+  const [practiceRun, setPracticeRun] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
   const endDialogRef = useRef<HTMLDivElement>(null);
   const endTitleRef = useRef<HTMLHeadingElement>(null);
@@ -245,6 +249,7 @@ export function PreviewExpeditionView({
   const startCheckIn = (place: PreviewMissionPlace) => {
     onStartCheckIn?.(place);
     setImpactBefore(null);
+    setPracticeRun(checkInPractice);
     setCheckInPlace(place);
   };
 
@@ -398,7 +403,7 @@ export function PreviewExpeditionView({
             ownerStrongholdStage,
           }}
           impact={impact}
-          practice={checkInPractice}
+          practice={practiceRun}
           expeditionId={liveExpedition?.id}
           onApproved={applyApprovedAward}
           onClose={() => setCheckInPlace(null)}

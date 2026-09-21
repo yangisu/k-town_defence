@@ -96,11 +96,13 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     // back through a link is not a new account.
     setGuideChecked(true);
     try {
-      if (!hasSeenTutorial(window.localStorage)) setGuideOpen(true);
+      if (!hasSeenTutorial(window.localStorage)) openGuide();
     } catch {
-      setGuideOpen(true);
+      openGuide();
     }
   };
+
+  const openGuide = () => setGuideOpen(true);
 
   // The guide describes controls that only exist on a particular tab, and the
   // tactical panel only renders once a territory is chosen. Put the page into
@@ -153,7 +155,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
 
   const closeGuide = () => {
     setGuideOpen(false);
-    session.seal(false);
+    session.seal(null);
     // The guide has the reader walk a real check-in, so it hands the session
     // back exactly as it found it: the practice points, the route it started
     // and the territory it picked are all put back. Nothing done inside the
@@ -177,10 +179,18 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     // The guide points at the first card in the list, so it needs a list. The
     // reader's own slice comes back with everything else when it closes.
     if (session.state.territoryFilter !== "all") session.dispatch({ type: "setTerritoryFilter", filter: "all" });
-    // Sealed for the whole visit, so a practice check-in never reaches storage
-    // or the server — not even if the tab is closed mid-tutorial.
-    session.seal(true);
+    // Storage and the server keep seeing the state the guide opened on, so a
+    // practice check-in reaches neither — not even if the tab is closed
+    // mid-tutorial — while the choice that opened the guide still persists.
+    session.seal(guideSnapshot.current);
   }, [guideOpen, session]);
+
+  // A seal outlives the guide only if this leaves the screen still holding
+  // one. Unsealing on unmount alone — never on a re-render, which would lift
+  // it mid-tutorial.
+  const sealRef = useRef(session.seal);
+  useEffect(() => { sealRef.current = session.seal; }, [session]);
+  useEffect(() => () => sealRef.current(null), []);
 
   const resetDemo = () => {
     // Resetting asks for the demo from the top, greeting included.
@@ -196,7 +206,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     if (guideChecked || !session.state.artistConfirmed) return;
     setGuideChecked(true);
     try {
-      if (!hasSeenTutorial(window.localStorage)) setGuideOpen(true);
+      if (!hasSeenTutorial(window.localStorage)) openGuide();
     } catch {
       // Blocked storage only means the guide greets this visit too.
     }
@@ -287,7 +297,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
             onChangeArtist={canChangeArtist ? () => setDrawerOpen(true) : undefined}
             onSignOut={signOut ?? undefined}
             onReset={() => setResetOpen(true)}
-            onReplayGuide={() => setGuideOpen(true)}
+            onReplayGuide={openGuide}
           />
         ) : null}
         {canChangeArtist ? (

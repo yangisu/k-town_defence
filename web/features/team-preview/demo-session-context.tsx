@@ -23,9 +23,11 @@ interface DemoSessionContextValue {
   selectedTerritory: DemoSession["territories"][number] | null;
   reset: () => void;
   territoryError: boolean;
-  /** Stops the session being persisted anywhere, for a practice run whose
-   *  every effect is meant to be thrown away. */
-  seal: (sealed: boolean) => void;
+  /** Freezes what gets written down at the given state, for a practice run
+   *  whose every effect is meant to be thrown away. Storage and the server
+   *  keep seeing that state however the live one moves; null lets them see
+   *  the live one again. */
+  seal: (frozen: DemoSession | null) => void;
 }
 
 const DemoSessionContext = createContext<DemoSessionContextValue | null>(null);
@@ -58,8 +60,8 @@ export function DemoSessionProvider({ children, storage, remote, loadTerritories
   const [hydrated, setHydrated] = useState(false);
   const [serverTerritories, setServerTerritories] = useState<PreviewTerritory[] | null>(null);
   const [territoryError, setTerritoryError] = useState(false);
-  // While sealed, the session lives only in memory.
-  const [sealed, setSealed] = useState(false);
+  // While frozen, this is what storage and the server keep seeing.
+  const [frozen, setFrozen] = useState<DemoSession | null>(null);
   const loaded = useRef(false);
   const skipNextSave = useRef(false);
   const sessionStorage = storage ?? (typeof window === "undefined" ? undefined : window.localStorage);
@@ -104,18 +106,21 @@ export function DemoSessionProvider({ children, storage, remote, loadTerritories
   // check-in, and a practice visit must not survive in storage, on the server
   // or in their records — not even if they close the tab halfway through.
   useEffect(() => {
-    if (!sessionStorage || !loaded.current || sealed) return;
+    if (!sessionStorage || !loaded.current) return;
     if (skipNextSave.current) {
       skipNextSave.current = false;
       return;
     }
-    saveDemoSession(sessionStorage, state);
+    // Frozen means a practice run is under way: what was true before it
+    // started is what stays written down, however far the run wanders.
+    const recorded = frozen ?? state;
+    saveDemoSession(sessionStorage, recorded);
     if (!remote) return;
     const timeout = window.setTimeout(() => {
-      void remote.save(state).catch(() => undefined);
+      void remote.save(recorded).catch(() => undefined);
     }, 350);
     return () => window.clearTimeout(timeout);
-  }, [remote, sealed, sessionStorage, state]);
+  }, [frozen, remote, sessionStorage, state]);
 
   const value = useMemo(() => {
     const visibleState = serverTerritories === null ? state : {
@@ -139,7 +144,7 @@ export function DemoSessionProvider({ children, storage, remote, loadTerritories
       selectedTerritory,
       reset,
       territoryError,
-      seal: setSealed,
+      seal: setFrozen,
     };
   }, [hydrated, serverTerritories, sessionStorage, state, territoryError]);
 

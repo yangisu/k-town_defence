@@ -4,7 +4,8 @@ import { beforeEach, expect, it } from "vitest";
 import { KTownApp } from "@/features/ktown-app";
 import { GUIDE_STEPS } from "@/features/team-preview/guide-steps";
 import { GAME_RULES } from "@/features/team-preview/game-rules";
-import { createInitialDemoSession, DEMO_SESSION_KEY } from "@/features/team-preview/demo-session";
+import { createInitialDemoSession, demoSessionReducer, DEMO_SESSION_KEY } from "@/features/team-preview/demo-session";
+import { previewContent } from "@/features/team-preview/content";
 import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
 
 beforeEach(() => {
@@ -223,4 +224,66 @@ it("keeps nothing the practice check-in earned", async () => {
   expect(after.contributedToday).toBe(before.contributedToday);
   expect(after.territories).toEqual(before.territories);
   expect(after.activeExpeditionId).toBe(before.activeExpeditionId);
+}, 30_000);
+
+// The tutorial has the reader walk a real check-in, and a reader replaying it
+// has a history of their own by then. Only the practice visit may be undone.
+it("undoes only the practice check-in, leaving earlier progress alone", async () => {
+  const user = userEvent.setup();
+  // Built through the reducer so it is a history the app could really hold:
+  // a finished Yeongwol route, its points, and the ground they won.
+  const route = previewContent.expeditions.find((candidate) => candidate.territoryId === "yeongwol")!;
+  let played = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  played = demoSessionReducer(played, { type: "selectTerritory", territoryId: "yeongwol" });
+  played = demoSessionReducer(played, { type: "openExpedition", expeditionId: route.id });
+  for (const placeId of route.stopIds) {
+    played = demoSessionReducer(played, {
+      type: "completeCheckIn",
+      expeditionId: route.id,
+      placeId,
+      award: { visit: 1116, dwell: 0, localSpend: 0, accommodation: 0, strongholdBonus: 0, subtotal: 1116, multiplier: 1, validPoints: 1116, cappedPoints: 1116 },
+    });
+  }
+  played = demoSessionReducer(played, { type: "endExpedition" });
+  played = demoSessionReducer(played, { type: "selectTerritory", territoryId: "busan" });
+  window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(played));
+  window.localStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
+  render(<KTownApp mode="demo" mapConfig={null} />);
+
+  expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
+  await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
+  await user.click(screen.getByRole("button", { name: "다시 보기" }));
+
+  const dialog = await screen.findByRole("dialog", { name: "K-Defense 시작하기" });
+  await advance(user);
+  await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
+    .getAllByRole("button")[0]);
+  await within(dialog).findByRole("heading", { name: "지역 점수 현황" });
+
+  for (let index = 2; index < GUIDE_STEPS.findIndex((s) => s.id === "check-in-result"); index += 1) {
+    const step = GUIDE_STEPS[index];
+    if (!step.awaits) { await advance(user); continue; }
+    if (step.id === "start-expedition") await user.click(screen.getAllByRole("button", { name: /^원정 시작$/ })[0]);
+    else if (step.id === "check-in") await user.click(screen.getAllByRole("button", { name: /체크인$/ })[0]);
+    else if (step.id === "check-in-verify") await user.click(screen.getAllByRole("button", { name: /^데모 인증 진행$/ })[0]);
+    else if (step.id === "check-in-submit") await user.click(screen.getAllByRole("button", { name: /^체크인 제출$/ })[0]);
+    await within(dialog).findByText(`${index + 2} / ${GUIDE_STEPS.length}`);
+  }
+  expect(screen.getByText("체크인 승인 완료")).toBeVisible();
+
+  // Closing the tab here would be safe: storage still holds the history the
+  // guide opened on, practice visit and all excluded.
+  const during = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!);
+  expect(during.approvedCheckIns).toEqual(played.approvedCheckIns);
+  expect(during.contributedToday).toBe(2232);
+
+  // Abandoned right there, with the practice points on screen.
+  await user.keyboard("{Escape}");
+
+  const after = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!);
+  expect(after.approvedCheckIns).toEqual(played.approvedCheckIns);
+  expect(after.completedExpeditionIds).toEqual(played.completedExpeditionIds);
+  expect(after.missionVisitCounts).toEqual(played.missionVisitCounts);
+  expect(after.contributedToday).toBe(2232);
+  expect(after.territories).toEqual(played.territories);
 }, 30_000);

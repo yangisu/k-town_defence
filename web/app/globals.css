@@ -201,7 +201,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px soli
 /* Above the app's own dialogs: the end-of-expedition confirmation sits at   130, and the guide's ring was being painted underneath it. */.tutorial-overlay{position:fixed;inset:0;z-index:140;pointer-events:none}
 /* No blur: the visitor has to read the screen the guide is describing. An
    unanchored step dims the page, an anchored one lets the spotlight do it. */
-.tutorial-overlay--center{background:rgba(13,20,16,.66)}
+.tutorial-overlay--center{background:rgba(13,20,16,.66)}.tutorial-overlay{transition:background .34s ease}
 
 
 .tutorial-shutter{position:fixed;z-index:0;padding:0;border:0;background:transparent;cursor:pointer;pointer-events:auto}
@@ -215,7 +215,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px soli
 .tutorial-card>header button>svg{display:block}
 .tutorial-card h2{margin:10px 0 10px;font-size:clamp(20px,4.2vw,25px);font-weight:900;line-height:1.22;letter-spacing:-.04em;word-break:keep-all}
 .tutorial-body{margin:0;color:var(--ink-2);font-size:14px;line-height:1.72;word-break:keep-all}
-.tutorial-fallback{margin:12px 0 0;padding:10px 12px;border-radius:12px;background:var(--paper-2);color:var(--muted);font-size:12px;line-height:1.6;word-break:keep-all}
+
 .tutorial-dots{display:flex;flex-wrap:wrap;gap:6px;margin:26px 0 0;padding:0;list-style:none}
 .tutorial-dots li{width:7px;height:7px;border-radius:999px;background:var(--line)}
 .tutorial-dots li.current{width:20px;background:var(--purple)}
@@ -270,7 +270,7 @@ button.record-reward-open:focus-visible{outline:3px solid var(--purple);outline-
 /* The dim and the outline share one geometry and one easing, so the bright   area is exactly the shape of the ring and both glide to the next target. */
 .tutorial-mask{position:fixed;z-index:0;border-radius:16px;pointer-events:none;box-shadow:0 0 0 9999px rgba(13,20,16,.58)}
 .tutorial-overlay--center .tutorial-mask{display:none}
-/* No easing on the geometry: these are pinned to a real element, and while   the page scrolls they have to move exactly with it. Easing toward a target   that is itself moving is what made every step read as a stutter. They are   hidden while the page travels, so the move between steps is never seen. */.tutorial-mask,.tutorial-spotlight,.tutorial-beckon{transition:opacity .26s ease}
+/* No easing on the geometry: these are pinned to a real element, and while   the page scrolls they have to move exactly with it. Easing toward a target   that is itself moving is what made every step read as a stutter. They are   hidden while the page travels, so the move between steps is never seen. *//* One easing for the hole, the ring and the pulse: they close to a point   between steps and open on the next target, so the bright patch never   teleports across the screen while the card is fading. */.tutorial-mask,.tutorial-spotlight,.tutorial-beckon{transition:top .34s cubic-bezier(.32,.72,.28,1),left .34s cubic-bezier(.32,.72,.28,1),width .34s cubic-bezier(.32,.72,.28,1),height .34s cubic-bezier(.32,.72,.28,1),opacity .26s ease}
 .tutorial-card{transition:opacity .26s ease,transform .34s cubic-bezier(.22,.68,.3,1)}
 .tutorial-overlay--moving .tutorial-spotlight,.tutorial-overlay--moving .tutorial-beckon{opacity:0}
 .tutorial-overlay--moving .tutorial-card{opacity:0;transform:translateX(-50%) translateY(10px);pointer-events:none}
@@ -280,5 +280,5 @@ button.record-reward-open:focus-visible{outline:3px solid var(--purple);outline-
 .preview-territory-empty{margin:0;padding:22px 16px 24px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px;line-height:1.6;text-align:center;word-break:keep-all}
 
 .tutorial-spotlight,.tutorial-mask{transform-origin:center}
-.tutorial-overlay--moving .tutorial-spotlight{transform:scale(1.035)}
-.tutorial-spotlight{transition:opacity .26s ease,transform .34s cubic-bezier(.22,.68,.3,1)}
+
+

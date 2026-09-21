@@ -51,6 +51,9 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
   const [cardHeight, setCardHeight] = useState(0);
   const closeRef = useRef<HTMLButtonElement>(null);
   const prepareRef = useRef(onPrepareStep);
+  // Where the hole last came to rest, so the next step can close it from
+  // there. Captured the moment a step settles, not every frame it follows.
+  const [restRect, setRestRect] = useState<Rect | null>(null);
   const step = GUIDE_STEPS[index];
   const lastStep = index === GUIDE_STEPS.length - 1;
   const waiting = step.awaits !== undefined;
@@ -68,6 +71,17 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
     setGuideRunning(true);
     return () => setGuideRunning(false);
   }, []);
+
+  useEffect(() => {
+    if (!settled) return;
+    const found = readRect(step.target);
+    if (found) setRestRect({
+      top: found.top - SPOTLIGHT_PADDING,
+      left: found.left - SPOTLIGHT_PADDING,
+      width: found.width + SPOTLIGHT_PADDING * 2,
+      height: found.height + SPOTLIGHT_PADDING * 2,
+    });
+  }, [settled, step]);
 
   useModalFocus(true, dialogRef, closeRef, onClose);
 
@@ -144,15 +158,24 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
     // back down mid-glide. Here the target is watched until it holds still,
     // and only then is a single scroll issued, to wherever the step wants it.
     setSettled(false);
+    // Long enough for the hole to close before it opens again. Settling on
+    // the next frame left it half-shut and sliding, which is the stutter.
+    const startedAt = Date.now();
+    let openTimer = 0;
+    const reveal = () => {
+      const left = 220 - (Date.now() - startedAt);
+      if (left <= 0) setSettled(true);
+      else openTimer = window.setTimeout(() => setSettled(true), left);
+    };
     let settleFrame = 0;
     let lastOffset = Number.NaN;
     let stillFor = 0;
     if (!step.target) {
-      // Nothing to point at, so nothing to wait for — and the stale outline
-      // from the step before must not linger over the centred card.
+      // Nothing to point at, so the stale outline from the step before must
+      // not linger over the centred card. The wait is the iris closing.
       setRect(null);
-      setSettled(true);
-      return;
+      const shut = window.setTimeout(() => setSettled(true), 260);
+      return () => window.clearTimeout(shut);
     }
     let waited = 0;
     const place = () => {
@@ -162,7 +185,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
       // page unscrolled, so it waits for the control to arrive.
       if (!element) {
         waited += 1;
-        if (waited > 180) setSettled(true);
+        if (waited > 180) reveal();
         else settleFrame = window.requestAnimationFrame(place);
         return;
       }
@@ -187,7 +210,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
       const wanted = frameBox.top + frameBox.height * anchor - box.height / 2;
       const by = box.top - wanted;
       if (Math.abs(by) <= 4) {
-        setSettled(true);
+        reveal();
         return;
       }
       // jsdom has neither, and a guide that cannot scroll still works.
@@ -202,7 +225,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
         const now = element.getBoundingClientRect().top;
         quiet = Math.abs(now - lastTop) < 0.5 ? quiet + 1 : 0;
         lastTop = now;
-        if (quiet >= 3) setSettled(true);
+        if (quiet >= 3) reveal();
         else settleFrame = window.requestAnimationFrame(waitForStop);
       };
       settleFrame = window.requestAnimationFrame(waitForStop);
@@ -237,6 +260,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
     window.addEventListener("resize", restart);
     window.addEventListener("scroll", restart, true);
     return () => {
+      window.clearTimeout(openTimer);
       window.cancelAnimationFrame(settleFrame);
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", restart);
@@ -250,6 +274,21 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
     width: rect.width + SPOTLIGHT_PADDING * 2,
     height: rect.height + SPOTLIGHT_PADDING * 2,
   } : null;
+  // The hole closes like an iris between steps and opens again on the next
+  // target. Left to jump straight there it flickered: the ring and card were
+  // fading while the bright patch teleported across the screen underneath
+  // them. Closing first is only ever a darkening, so nothing flashes.
+  const shut = restRect;
+  const closed = shut
+    ? { top: shut.top + shut.height / 2, left: shut.left + shut.width / 2, width: 0, height: 0 }
+    : null;
+  // Settled but the target not yet measured is still a moment with a hole in
+  // it: unmounting here dropped the dim for a third of a second and put it
+  // back somewhere else, which is the flicker between submitting a check-in
+  // and reading its result. Hold the iris shut instead.
+  const shownSpotlight = settled
+    ? spotlight ?? (step.target ? closed : null)
+    : closed;
   const viewportHeight = typeof window === "undefined" ? 0 : window.innerHeight;
   const viewportWidth = typeof window === "undefined" ? 0 : window.innerWidth;
   // The card sits in whichever gap the spotlight leaves, right up against it
@@ -316,27 +355,27 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
           ring; they now only block presses and carry no colour. This one stays
           through a step change so the screen never flashes, and eases to the
           next target instead of jumping to it. */}
-      {spotlight ? (
+      {shownSpotlight ? (
         <div
           className="tutorial-mask"
           aria-hidden="true"
-          style={{ top: spotlight.top, left: spotlight.left, width: spotlight.width, height: spotlight.height }}
+          style={{ top: shownSpotlight.top, left: shownSpotlight.left, width: shownSpotlight.width, height: shownSpotlight.height }}
         />
       ) : null}
-      {spotlight ? (
+      {shownSpotlight ? (
         <div
           className={waiting ? "tutorial-spotlight tutorial-spotlight--beckon" : "tutorial-spotlight"}
           aria-hidden="true"
-          style={{ top: spotlight.top, left: spotlight.left, width: spotlight.width, height: spotlight.height }}
+          style={{ top: shownSpotlight.top, left: shownSpotlight.left, width: shownSpotlight.width, height: shownSpotlight.height }}
         />
       ) : null}
       {/* A ring that pulses outward from the target, so the step that waits
           reads as "press this" instead of as the guide having stalled. */}
-      {spotlight && waiting ? (
+      {shownSpotlight && waiting ? (
         <div
           className="tutorial-beckon"
           aria-hidden="true"
-          style={{ top: spotlight.top, left: spotlight.left, width: spotlight.width, height: spotlight.height }}
+          style={{ top: shownSpotlight.top, left: shownSpotlight.left, width: shownSpotlight.width, height: shownSpotlight.height }}
         />
       ) : null}
       <div
@@ -380,11 +419,10 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
         </header>
         <h2 id="tutorial-title">{step.title[locale]}</h2>
         <p className="tutorial-body">{step.body[locale]}</p>
-        {/* Only once the guide has given up looking. Stepping back and forward
-            again, the control is briefly absent and this used to flash. */}
-        {step.target && !rect && settled ? (
-          <p className="tutorial-fallback" role="note">{t(locale, "tutorialOffscreen")}</p>
-        ) : null}
+        {/* No "scrolled out of view" note. The guide waits for its target and
+            then scrolls to it, so by the time anyone could read the note it is
+            already wrong — it only ever appeared in the gap, and unsettled
+            whoever saw it. */}
         <ol className="tutorial-dots" aria-hidden="true">
           {GUIDE_STEPS.map((candidate, candidateIndex) => (
             <li key={candidate.id} className={candidateIndex === index ? "current" : undefined} />

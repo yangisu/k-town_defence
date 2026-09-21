@@ -4,12 +4,14 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .api.errors import ApiError
 from .infrastructure.models import (
     CheckInSessionModel,
+    ExpeditionModel,
+    ExpeditionStopModel,
     GpsSampleModel,
     PhotoModel,
     PlaceModel,
@@ -47,14 +49,26 @@ class CheckInApplication:
         self._places = PlaceRepository(session)
 
     async def create_session(
-        self, user_id: str, place_id: UUID, *, verification_type: str = "actual"
+        self,
+        user_id: str,
+        place_id: UUID,
+        *,
+        verification_type: str = "actual",
+        expedition_id: UUID | None = None,
     ) -> CheckInSessionModel:
         now = self._clock()
         if await self._places.get_public(place_id) is None:
             raise ApiError(404, "PLACE_NOT_FOUND", "장소를 찾을 수 없습니다.")
 
+        expedition_stop = await self._resolve_expedition_stop(
+            user_id, expedition_id, place_id
+        )
         existing = await self._checkins.find_active_session(user_id, place_id, now)
-        if existing is not None and existing.verification_type == verification_type:
+        if (
+            existing is not None
+            and existing.verification_type == verification_type
+            and existing.expedition_stop_id == (expedition_stop.id if expedition_stop else None)
+        ):
             return existing
         if existing is not None:
             existing.status = "cancelled"
@@ -66,6 +80,7 @@ class CheckInApplication:
             place_id=place_id,
             status="ready" if verification_type == "demo" else "collecting",
             verification_type=verification_type,
+            expedition_stop_id=expedition_stop.id if expedition_stop else None,
             expires_at=now + timedelta(minutes=30),
             created_at=now,
             updated_at=now,
@@ -237,11 +252,58 @@ class CheckInApplication:
             submitted_at=self._clock(),
         )
         self._checkins.add_submission(submission)
+        if decision == "approved" and checkin.expedition_stop_id is not None:
+            await self._complete_expedition_stop(checkin.expedition_stop_id)
         checkin.status = "submitted"
         checkin.updated_at = self._clock()
         await self._session.commit()
         await self._session.refresh(submission)
         return submission
+
+    async def _resolve_expedition_stop(
+        self, platform_subject: str, expedition_id: UUID | None, place_id: UUID
+    ) -> ExpeditionStopModel | None:
+        if expedition_id is None:
+            return None
+        stop = await self._session.scalar(
+            select(ExpeditionStopModel)
+            .join(ExpeditionModel, ExpeditionModel.id == ExpeditionStopModel.expedition_id)
+            .join(UserModel, UserModel.id == ExpeditionModel.user_id)
+            .where(
+                ExpeditionModel.id == expedition_id,
+                ExpeditionModel.status == "active",
+                UserModel.platform_subject == platform_subject,
+                ExpeditionStopModel.place_id == place_id,
+            )
+        )
+        if stop is None:
+            raise ApiError(409, "EXPEDITION_STOP_NOT_AVAILABLE", "이 원정에 포함된 체크인 장소가 아닙니다.")
+        if stop.completed_at is not None:
+            raise ApiError(409, "EXPEDITION_STOP_COMPLETED", "이미 완료한 원정 장소입니다.")
+        return stop
+
+    async def _complete_expedition_stop(self, stop_id: UUID) -> None:
+        stop = await self._session.get(ExpeditionStopModel, stop_id)
+        if stop is None or stop.completed_at is not None:
+            return
+        now = self._clock()
+        stop.completed_at = now
+        await self._session.flush()
+        remaining = int(
+            await self._session.scalar(
+                select(func.count(ExpeditionStopModel.id)).where(
+                    ExpeditionStopModel.expedition_id == stop.expedition_id,
+                    ExpeditionStopModel.completed_at.is_(None),
+                )
+            )
+            or 0
+        )
+        if remaining == 0:
+            expedition = await self._session.get(ExpeditionModel, stop.expedition_id)
+            if expedition is not None and expedition.status == "active":
+                expedition.status = "completed"
+                expedition.completed_at = now
+                expedition.updated_at = now
 
     async def _current_attribution(
         self, platform_subject: str

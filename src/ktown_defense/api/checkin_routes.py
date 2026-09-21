@@ -25,6 +25,7 @@ class CreateCheckInRequest(BaseModel):
     verification_type: Literal["actual", "demo"] = Field(
         default="actual", alias="verificationType"
     )
+    expedition_id: UUID | None = Field(default=None, alias="expeditionId")
 
 
 class CheckInResponse(BaseModel):
@@ -97,7 +98,10 @@ async def create_checkin(
     user_id: UserId,
 ) -> CheckInResponse:
     checkin = await CheckInApplication(session).create_session(
-        user_id, payload.place_id, verification_type=payload.verification_type
+        user_id,
+        payload.place_id,
+        verification_type=payload.verification_type,
+        expedition_id=payload.expedition_id,
     )
     return CheckInResponse.from_model(checkin)
 

@@ -39,6 +39,10 @@ def downgrade() -> None:
     op.drop_constraint("ck_submissions_decision", "checkin_submissions", type_="check")
     op.drop_column("checkin_submissions", "awarded_points")
     op.drop_column("checkin_submissions", "risk_codes")
+    # The earlier schema only represented pending submissions. Normalise rows
+    # before restoring that narrower constraint so a populated database can be
+    # rolled back deterministically.
+    op.execute("UPDATE checkin_submissions SET decision = 'pending'")
     op.create_check_constraint(
         "ck_submissions_decision", "checkin_submissions", "decision = 'pending'"
     )

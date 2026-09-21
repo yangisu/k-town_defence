@@ -82,6 +82,24 @@ export const services: AppServices = {
       if (!expedition) throw new Error("EXPEDITION_NOT_FOUND");
       return clone(expedition);
     },
+    async start(recommendationId, filter) {
+      const recommendation = await services.tourism.getRecommendedExpedition(filter);
+      return clone({
+        ...recommendation,
+        id: `persisted-${recommendationId}`,
+        recommendationId,
+        territoryId: "busan",
+        status: "active" as const,
+        createdAt: new Date().toISOString(),
+      });
+    },
+    async current() { return null; },
+    async abandon(expeditionId) {
+      throw new Error(`EXPEDITION_NOT_FOUND:${expeditionId}`);
+    },
+    async complete(expeditionId) {
+      throw new Error(`EXPEDITION_NOT_FOUND:${expeditionId}`);
+    },
   },
   checkIn: {
     async create(placeId) {

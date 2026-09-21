@@ -177,6 +177,35 @@ const strictExpedition = {
     expect(expedition.stops[0].place.openTime).toBe("09:00~18:00");
   });
 
+  it("starts a persisted expedition through the backend contract", async () => {
+    const body = {
+      id: "expedition-1", recommendationId: "recommendation-1", title: "부산 로컬 원정",
+      regionCode: "6", territoryId: "busan", keyword: null, travelDate: "2026-08-22",
+      status: "active", createdAt: "2026-08-22T03:00:00Z", completedAt: null,
+      stops: [{
+        order: 1, distanceKm: 0, reasons: ["지역 원정 시작점"], completedAt: null,
+        place: {
+          id: "place-1", contentId: "101", nameKo: "감천문화마을", addressKo: "부산",
+          latitude: 35.1, longitude: 129, regionCode: "6", descriptionKo: "공식 설명",
+          category: "culture",
+          homepageUrl: null, telephone: null, openTime: null, restDate: null, parking: null,
+          imageUrls: [], festivalStartDate: null, festivalEndDate: null,
+          discoveryKeywords: [], sourceOperations: [],
+        },
+      }],
+    };
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse(body, 201));
+
+    const started = await createHttpServices(fetcher).expeditions.start("recommendation-1", {
+      regionCode: "6", travelDate: "2026-08-22", limit: 3,
+    });
+
+    expect(started).toMatchObject({ id: "expedition-1", territoryId: "busan", status: "active" });
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
+      recommendationId: "recommendation-1", regionCode: "6", travelDate: "2026-08-22", limit: 3,
+    });
+  });
+
   it("maps safe open-data status and rejects malformed expedition stops", async () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(jsonResponse({

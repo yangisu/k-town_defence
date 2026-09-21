@@ -24,7 +24,7 @@ async def _truncate(session_factory: async_sessionmaker[AsyncSession]) -> None:
     async with session_factory() as session:
         await session.execute(
             text(
-                "TRUNCATE TABLE season_memberships, users, catalog_sync_runs, "
+                "TRUNCATE TABLE expedition_stops, expeditions, season_memberships, users, catalog_sync_runs, "
                 "checkin_submissions, checkin_photos, "
                 "checkin_gps_samples, checkin_sessions, places CASCADE"
             )

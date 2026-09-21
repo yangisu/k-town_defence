@@ -195,6 +195,15 @@ export interface TerritorySnapshot {
   strongholdStage: "seed" | "tree" | "landmark";
   standings: TerritoryStandingSnapshot[];
 }
+
+export interface PersistedExpedition extends LiveExpedition {
+  recommendationId: string;
+  territoryId?: string;
+  status: "active" | "completed" | "abandoned";
+  createdAt: string;
+  completedAt?: string;
+  stops: (LiveExpeditionStop & { completedAt?: string })[];
+}
 export interface TerritoryService { list(): Promise<TerritorySnapshot[]>; }
 export interface MembershipService {
   listFandoms(): Promise<FandomSummary[]>;
@@ -214,10 +223,14 @@ export interface TourismService {
 export interface ExpeditionService {
   listByRegion(regionId: string): Promise<Expedition[]>;
   get(expeditionId: string): Promise<Expedition>;
+  start(recommendationId: string, filter: ExpeditionRecommendationFilter): Promise<PersistedExpedition>;
+  current(): Promise<PersistedExpedition | null>;
+  abandon(expeditionId: string): Promise<PersistedExpedition>;
+  complete(expeditionId: string): Promise<PersistedExpedition>;
 }
 
 export interface CheckInService {
-  create(placeId: string, options?: { verificationMode?: "evidence" | "demo" }): Promise<CheckInSession>;
+  create(placeId: string, options?: { verificationMode?: "evidence" | "demo"; expeditionId?: string }): Promise<CheckInSession>;
   restore(): Promise<CheckInSession | null>;
   recordGps(sessionId: string, evidence: GpsEvidence): Promise<void>;
   recordPhoto(sessionId: string, evidence: PhotoEvidence): Promise<void>;

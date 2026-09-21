@@ -297,6 +297,7 @@ class CheckInApplication:
                 select(func.count(ExpeditionStopModel.id)).where(
                     ExpeditionStopModel.expedition_id == stop.expedition_id,
                     ExpeditionStopModel.completed_at.is_(None),
+                    ExpeditionStopModel.is_required.is_(True),
                 )
             )
             or 0

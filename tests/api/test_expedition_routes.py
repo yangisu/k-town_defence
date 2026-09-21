@@ -2,13 +2,16 @@ from datetime import date, datetime, timezone
 import inspect
 from uuid import uuid4
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ktown_defense.infrastructure.models import (
     CatalogSyncRunModel,
     OpenApiCallLogModel,
+    ExpeditionStopModel,
 )
 from ktown_defense.api.expedition_routes import recommended_expedition
+from ktown_defense.seed_demo import seed_demo_places
 
 
 NOW = datetime(2026, 8, 22, 3, 0, tzinfo=timezone.utc)
@@ -295,3 +298,78 @@ async def test_persisted_expedition_rejects_a_stale_recommendation_id(
 
 def test_recommended_expedition_date_default_is_calculated_per_request() -> None:
     assert inspect.signature(recommended_expedition).parameters["travel_date"].default is None
+
+
+async def test_bts_route_falls_back_to_two_fixed_anchors(api_client, session_factory) -> None:
+    await seed_demo_places(session_factory)
+
+    response = await api_client.get(
+        "/api/v1/expeditions/recommended",
+        params={"routeKey": "bts-busan", "regionCode": "6", "travelDate": "2026-09-21", "limit": 5},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["routeKey"] == "bts-busan"
+    assert body["routeVersion"].endswith(":RELATED_UNAVAILABLE")
+    assert [item["place"]["contentId"] for item in body["stops"]] == [
+        "operator:bts-busan-asiad", "operator:busan-gamcheon"
+    ]
+    assert all(item["required"] for item in body["stops"])
+
+
+async def test_bts_route_persists_only_selected_recommendations(
+    member_client, place_factory, session_factory
+) -> None:
+    await seed_demo_places(session_factory)
+    recommendation = await place_factory(
+        source="KTOUR_API", content_id="selected-place", name_ko="선택 명소",
+        latitude=35.1600, longitude=129.0430, content_type_id="14",
+        source_operations=["locationBasedList2"],
+    )
+    await member_client.put(
+        "/api/v1/me/season-membership",
+        json={"fandomId": "10000000-0000-4000-8000-000000000001"},
+    )
+    preview = (
+        await member_client.get(
+            "/api/v1/expeditions/recommended",
+            params={"routeKey": "bts-busan", "travelDate": "2026-09-21", "limit": 5},
+        )
+    ).json()
+
+    response = await member_client.post(
+        "/api/v1/expeditions",
+        json={
+            "recommendationId": preview["id"], "routeKey": "bts-busan",
+            "routeVersion": preview["routeVersion"],
+            "selectedRecommendationPlaceIds": [str(recommendation.id)],
+            "regionCode": "6", "travelDate": "2026-09-21", "limit": 5,
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["routeKey"] == "bts-busan"
+    assert len(body["stops"]) == 3
+    assert sum(item["required"] for item in body["stops"]) == 2
+    assert all(item["selectedByDefault"] for item in body["stops"])
+
+    async with session_factory() as session:
+        stops = (
+            await session.scalars(
+                select(ExpeditionStopModel)
+                .where(ExpeditionStopModel.expedition_id == body["id"])
+                .order_by(ExpeditionStopModel.stop_order)
+            )
+        ).all()
+        for stop in stops:
+            if stop.is_required:
+                stop.completed_at = NOW
+        await session.commit()
+
+    completed = await member_client.post(f"/api/v1/expeditions/{body['id']}/complete")
+    assert completed.status_code == 200
+    assert completed.json()["status"] == "completed"
+    optional = next(item for item in completed.json()["stops"] if not item["required"])
+    assert optional["completedAt"] is None

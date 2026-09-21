@@ -36,11 +36,29 @@ class ExpeditionApplication:
         keyword: str | None,
         travel_date: date,
         limit: int,
+        route_key: str | None = None,
+        route_version: str | None = None,
+        selected_recommendation_place_ids: list[UUID] | None = None,
     ) -> ExpeditionModel:
+        if route_key is not None and route_key != "bts-busan":
+            raise ValueError("route not supported")
         user, membership = await self._membership(platform_subject)
         active = await self._active_for_user(user.id)
         if active is not None:
             if active.recommendation_id == recommendation_id:
+                if route_key == "bts-busan":
+                    if active.route_version != route_version:
+                        raise ApiError(409, "EXPEDITION_RECOMMENDATION_CHANGED", "추천 경로가 갱신되었습니다. 다시 확인해 주세요.")
+                    stored = set(
+                        await self._session.scalars(
+                            select(ExpeditionStopModel.place_id).where(
+                                ExpeditionStopModel.expedition_id == active.id,
+                                ExpeditionStopModel.stop_kind == "recommendation",
+                            )
+                        )
+                    )
+                    if stored != set(selected_recommendation_place_ids or []):
+                        raise ApiError(409, "ACTIVE_EXPEDITION_EXISTS", "진행 중인 원정의 선택 장소와 다릅니다.")
                 return active
             raise ApiError(409, "ACTIVE_EXPEDITION_EXISTS", "진행 중인 원정을 먼저 종료해 주세요.")
 
@@ -50,18 +68,34 @@ class ExpeditionApplication:
             keyword=keyword,
             travel_date=travel_date,
             limit=limit,
+            route_key=route_key,
         )
-        if recommendation.id != recommendation_id:
+        if recommendation.id != recommendation_id or (
+            route_key == "bts-busan" and recommendation.route_version != route_version
+        ):
             raise ApiError(409, "EXPEDITION_RECOMMENDATION_CHANGED", "추천 경로가 갱신되었습니다. 다시 확인해 주세요.")
 
+        chosen_ids = set(selected_recommendation_place_ids or [])
+        recommendation_ids = {
+            stop.candidate.id for stop in recommendation.stops if not stop.required
+        }
+        anchor_ids = {stop.candidate.id for stop in recommendation.stops if stop.required}
+        if route_key == "bts-busan" and (
+            not chosen_ids <= recommendation_ids or bool(chosen_ids & anchor_ids)
+        ):
+            raise ApiError(409, "EXPEDITION_SELECTION_INVALID", "현재 추천에 포함된 선택 장소만 추가할 수 있습니다.")
+
         now = utc_now()
-        first_place = places[recommendation.stops[0].candidate.id]
+        first_stop = next(stop for stop in recommendation.stops if stop.required)
+        first_place = places[first_stop.candidate.id]
         expedition = ExpeditionModel(
             id=uuid4(),
             user_id=user.id,
             season_id=membership.season_id,
             fandom_id=membership.fandom_id,
             recommendation_id=recommendation.id,
+            route_key=recommendation.route_key,
+            route_version=recommendation.route_version,
             region_code=recommendation.region_code,
             territory_id=territory_id_for(first_place.address_ko),
             title="부산 로컬 원정" if region_code == "6" else "지역 로컬 원정",
@@ -73,7 +107,12 @@ class ExpeditionApplication:
         )
         self._session.add(expedition)
         await self._session.flush()
-        for order, stop in enumerate(recommendation.stops, start=1):
+        persisted_stops = [
+            stop for stop in recommendation.stops
+            if stop.required or stop.candidate.id in chosen_ids or route_key is None
+        ]
+        for order, stop in enumerate(persisted_stops, start=1):
+            evidence = stop.evidence or {}
             self._session.add(ExpeditionStopModel(
                 id=uuid4(),
                 expedition_id=expedition.id,
@@ -81,6 +120,12 @@ class ExpeditionApplication:
                 stop_order=order,
                 distance_km=stop.distance_km,
                 reasons=list(stop.reasons),
+                stop_kind=stop.kind,
+                is_required=stop.required,
+                placement=stop.placement,
+                recommendation_source=(str(evidence.get("source")) if evidence else None),
+                recommendation_reason=(str(evidence.get("reason")) if evidence else None),
+                recommendation_metadata=evidence,
             ))
         await self._session.commit()
         await self._session.refresh(expedition)
@@ -112,6 +157,7 @@ class ExpeditionApplication:
                     select(func.count(ExpeditionStopModel.id)).where(
                         ExpeditionStopModel.expedition_id == expedition.id,
                         ExpeditionStopModel.completed_at.is_(None),
+                        ExpeditionStopModel.is_required.is_(True),
                     )
                 )
                 or 0

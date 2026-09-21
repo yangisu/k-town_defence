@@ -18,6 +18,14 @@ from .infrastructure.models import (
     OpenApiCallLogModel,
     PlaceModel,
 )
+from .bts_route import (
+    BTS_ALGORITHM_VERSION,
+    BTS_BUSAN_ROUTE,
+    BTS_ROUTE_KEY,
+    RouteCandidate,
+    compose_bts_route,
+    recommendation_digest,
+)
 
 
 @dataclass(frozen=True)
@@ -54,6 +62,11 @@ class RecommendedStop:
     candidate: ExpeditionCandidate
     distance_km: float
     reasons: tuple[str, ...]
+    kind: str = "anchor"
+    placement: str = "main"
+    required: bool = True
+    selected_by_default: bool = True
+    evidence: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -65,6 +78,8 @@ class RecommendedExpedition:
     snapshot_version: str
     stops: tuple[RecommendedStop, ...]
     data_updated_at: datetime | None
+    route_key: str | None = None
+    route_version: str | None = None
 
 
 def select_expedition(
@@ -170,6 +185,7 @@ class ExpeditionRecommendationService:
         keyword: str | None,
         travel_date: date,
         limit: int,
+        route_key: str | None = None,
     ) -> tuple[RecommendedExpedition, dict[UUID, PlaceModel]]:
         visit_count = (
             select(func.count(CheckInSessionModel.id))
@@ -180,6 +196,8 @@ class ExpeditionRecommendationService:
             .correlate(PlaceModel)
             .scalar_subquery()
         )
+        if route_key is not None and route_key != BTS_ROUTE_KEY:
+            raise ValueError("route not supported")
         rows = (
             await session.execute(
                 select(PlaceModel, visit_count.label("submitted_visit_count"))
@@ -225,6 +243,89 @@ class ExpeditionRecommendationService:
             if latest_run and latest_run.snapshot_version
             else _fallback_snapshot(candidates)
         )
+        if route_key == BTS_ROUTE_KEY:
+            anchors = (
+                await session.scalars(
+                    select(PlaceModel).where(
+                        PlaceModel.content_id.in_(
+                            [item.content_id for item in BTS_BUSAN_ROUTE.anchors]
+                        ),
+                        PlaceModel.source == "operator",
+                        PlaceModel.is_public.is_(True),
+                        PlaceModel.is_active.is_(True),
+                    )
+                )
+            ).all()
+            by_content_id = {item.content_id: item for item in anchors}
+            try:
+                ordered_anchors = tuple(
+                    by_content_id[item.content_id] for item in BTS_BUSAN_ROUTE.anchors
+                )
+            except KeyError as exc:
+                raise ValueError("BTS anchors are not seeded") from exc
+            route_anchors = tuple(_route_candidate(item) for item in ordered_anchors)
+            route_candidates = tuple(_route_candidate(place) for place, _ in rows)
+            composed = compose_bts_route(
+                route_anchors, route_candidates, recommendation_limit=min(3, limit - 2)
+            )
+            models.update({item.id: item for item in ordered_anchors})
+            related_months = sorted(
+                {
+                    stop.candidate.related_base_ym
+                    for stop in composed
+                    if stop.kind == "recommendation"
+                    and stop.candidate.related_base_ym
+                    and "KTOUR_RELATED_ATTRACTION" in stop.candidate.sources
+                },
+                reverse=True,
+            )
+            related_state = related_months[0] if related_months else "RELATED_UNAVAILABLE"
+            catalog_snapshot = (
+                latest_run.snapshot_version
+                if latest_run and latest_run.snapshot_version
+                else _bts_fallback_snapshot(tuple(models.values()))
+            )
+            route_version = f"{BTS_ALGORITHM_VERSION}:{catalog_snapshot}:{related_state}"
+            route_stops = tuple(
+                RecommendedStop(
+                    candidate=ExpeditionCandidate(
+                        id=stop.candidate.id,
+                        content_id=stop.candidate.content_id,
+                        name_ko=stop.candidate.name_ko,
+                        category=_category(stop.candidate.content_type_id),
+                        latitude=stop.candidate.latitude,
+                        longitude=stop.candidate.longitude,
+                        discovery_keywords=(),
+                        festival_start_date=None,
+                        festival_end_date=None,
+                        submitted_visit_count=0,
+                        synced_at=models[stop.candidate.id].synced_at,
+                    ),
+                    distance_km=stop.distance_km,
+                    reasons=stop.reasons,
+                    kind=stop.kind,
+                    placement=stop.placement,
+                    required=stop.required,
+                    selected_by_default=stop.selected_by_default,
+                    evidence=stop.evidence,
+                )
+                for stop in composed
+            )
+            digest = recommendation_digest(route_version=route_version, stops=composed)
+            return RecommendedExpedition(
+                id=digest,
+                region_code=region_code,
+                keyword=keyword.strip() if keyword and keyword.strip() else None,
+                travel_date=travel_date,
+                snapshot_version=snapshot_version,
+                stops=route_stops,
+                data_updated_at=max(
+                    (item.synced_at for item in models.values() if item.synced_at),
+                    default=None,
+                ),
+                route_key=route_key,
+                route_version=route_version,
+            ), models
         return (
             select_expedition(
                 candidates,
@@ -271,3 +372,52 @@ def _fallback_snapshot(candidates: tuple[ExpeditionCandidate, ...]) -> str:
         default=None,
     )
     return newest.isoformat() if newest else "unversioned"
+
+
+def _bts_fallback_snapshot(places: tuple[PlaceModel, ...]) -> str:
+    values = [
+        (
+            place.content_id or str(place.id),
+            (place.source_modified_at or place.synced_at).isoformat()
+            if (place.source_modified_at or place.synced_at)
+            else "none",
+        )
+        for place in sorted(places, key=lambda item: item.content_id or str(item.id))
+        if place.region_code == "6" and place.is_public and place.is_active
+    ]
+    canonical = json.dumps(values, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()[:16]
+
+
+def _route_candidate(place: PlaceModel) -> RouteCandidate:
+    operations = set(place.source_operations or ())
+    sources: list[str] = []
+    if "related_attraction" in operations or "KTOUR_RELATED_ATTRACTION" in operations:
+        sources.append("KTOUR_RELATED_ATTRACTION")
+    if "locationBasedList2" in operations or "KTOUR_LOCATION_BASED" in operations:
+        sources.append("KTOUR_LOCATION_BASED")
+    # Catalog entries without explicit observation metadata remain usable as
+    # deterministic location fallback candidates.
+    if place.source == "KTOUR_API" and not sources:
+        sources.append("KTOUR_LOCATION_BASED")
+    intro = place.intro_json or {}
+    rank = intro.get("relatedRank")
+    try:
+        related_rank = int(rank) if rank is not None else None
+    except (TypeError, ValueError):
+        related_rank = None
+    return RouteCandidate(
+        id=place.id,
+        content_id=place.content_id or str(place.id),
+        name_ko=place.name_ko,
+        latitude=float(place.latitude),
+        longitude=float(place.longitude),
+        content_type_id=place.content_type_id,
+        address_ko=place.address_ko,
+        category_code=place.category_code,
+        description_ko=place.description_ko,
+        image_url=place.image_url,
+        sources=tuple(sorted(sources)),
+        related_rank=related_rank,
+        related_base_ym=str(intro.get("relatedBaseYm") or "") or None,
+    )

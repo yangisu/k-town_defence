@@ -44,11 +44,59 @@ async def _table_names() -> set[str]:
         await engine.dispose()
 
 
+async def _route_columns() -> tuple[set[str], set[str]]:
+    engine = create_async_engine(DATABASE_URL)
+    try:
+        async with engine.connect() as connection:
+            return await connection.run_sync(
+                lambda value: (
+                    {item["name"] for item in inspect(value).get_columns("expeditions")},
+                    {item["name"] for item in inspect(value).get_columns("expedition_stops")},
+                )
+            )
+    finally:
+        await engine.dispose()
+
+
+async def _route_schema_contract() -> tuple[set[str], dict[str, str | None]]:
+    engine = create_async_engine(DATABASE_URL)
+    try:
+        async with engine.connect() as connection:
+            return await connection.run_sync(
+                lambda value: (
+                    {
+                        item["name"]
+                        for item in inspect(value).get_check_constraints("expedition_stops")
+                    },
+                    {
+                        item["name"]: item.get("default")
+                        for item in inspect(value).get_columns("expedition_stops")
+                    },
+                )
+            )
+    finally:
+        await engine.dispose()
+
+
 def test_upgrade_downgrade_and_reupgrade_manage_the_mvp_schema() -> None:
     config = _config()
 
     command.upgrade(config, "head")
     assert EXPECTED_TABLES <= asyncio.run(_table_names())
+    expedition_columns, stop_columns = asyncio.run(_route_columns())
+    assert {"route_key", "route_version"} <= expedition_columns
+    assert {
+        "stop_kind", "is_required", "placement", "recommendation_source",
+        "recommendation_reason", "recommendation_metadata",
+    } <= stop_columns
+    constraints, defaults = asyncio.run(_route_schema_contract())
+    assert {
+        "ck_expedition_stop_kind", "ck_expedition_stop_placement",
+        "ck_expedition_stop_semantics",
+    } <= constraints
+    assert all(defaults[name] is not None for name in (
+        "stop_kind", "is_required", "placement", "recommendation_metadata"
+    ))
 
     command.downgrade(config, "base")
     assert asyncio.run(_table_names()) == {"alembic_version"}

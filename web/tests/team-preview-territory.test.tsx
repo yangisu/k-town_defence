@@ -15,7 +15,7 @@ import {
 } from "@/features/team-preview/demo-session";
 import { GAME_RULES, type MissionAward } from "@/features/team-preview/game-rules";
 import { DemoSessionProvider } from "@/features/team-preview/demo-session-context";
-import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
+import type { AppServices, LiveExpedition, PersistedExpedition } from "@/lib/domain";
 
 beforeEach(() => window.localStorage.clear());
 
@@ -43,6 +43,34 @@ function renderPreviewWithArtist(overrides: Partial<DemoSession> = {}) {
     </DemoSessionProvider>,
   );
 
+}
+
+const liveRecommendation: LiveExpedition = {
+  id: "recommendation-1",
+  title: "부산 실시간 원정",
+  regionCode: "6",
+  keyword: "방탄소년단",
+  travelDate: "2026-09-21",
+  stops: [],
+};
+
+const persistedExpedition: PersistedExpedition = {
+  ...liveRecommendation,
+  id: "expedition-1",
+  recommendationId: liveRecommendation.id,
+  status: "active",
+  createdAt: "2026-09-21T00:00:00Z",
+};
+
+function integratedServices({ recommendation = vi.fn().mockResolvedValue(liveRecommendation), start = vi.fn().mockResolvedValue(persistedExpedition) } = {}) {
+  return {
+    services: {
+      tourism: { getRecommendedExpedition: recommendation },
+      expeditions: { start },
+    } as unknown as AppServices,
+    recommendation,
+    start,
+  };
 }
 
 const award = (points: number): MissionAward => ({
@@ -75,6 +103,75 @@ it("turns artist choice into a visible tactical recommendation", async () => {
   expect(within(panel).getByRole("link", { name: "출처 확인" })).toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
   expect(within(panel).getByRole("button", { name: /원정 시작/ })).toBeEnabled();
   expect(within(panel).getByRole("img", { name: /거점/ })).toHaveStyle({ "--owner-color": "#7c5ce0" });
+});
+
+it("starts an integrated expedition through the backend before opening the demo route", async () => {
+  const user = userEvent.setup();
+  const { services, recommendation, start } = integratedServices();
+  const onLiveExpedition = vi.fn();
+  const state = confirmedSession();
+  window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(state));
+  render(
+    <DemoSessionProvider storage={window.localStorage}>
+      <TerritoryView
+        mapConfig={null}
+        services={services}
+        integrated
+        expeditionRecoveryStatus="ready"
+        onLiveExpedition={onLiveExpedition}
+      />
+    </DemoSessionProvider>,
+  );
+
+  await user.click(within(await screen.findByRole("complementary", { name: "부산 전술 패널" }))
+    .getByRole("button", { name: "원정 시작" }));
+
+  await waitFor(() => expect(recommendation).toHaveBeenCalledWith(expect.objectContaining({ regionCode: "6", limit: 5 })));
+  expect(start).toHaveBeenCalledWith("recommendation-1", expect.objectContaining({ regionCode: "6", limit: 5 }));
+  expect(onLiveExpedition).toHaveBeenCalledWith(persistedExpedition);
+});
+
+it("shows an integrated start failure and lets the visitor try again", async () => {
+  const user = userEvent.setup();
+  const { services } = integratedServices({
+    recommendation: vi.fn().mockRejectedValue(new Error("Tour API unavailable")),
+  });
+  window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(confirmedSession()));
+  render(
+    <DemoSessionProvider storage={window.localStorage}>
+      <TerritoryView mapConfig={null} services={services} integrated expeditionRecoveryStatus="ready" />
+    </DemoSessionProvider>,
+  );
+
+  const startButton = within(await screen.findByRole("complementary", { name: "부산 전술 패널" }))
+    .getByRole("button", { name: "원정 시작" });
+  await user.click(startButton);
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("원정을 시작하지 못했어요");
+  expect(startButton).toBeEnabled();
+});
+
+it("blocks a new expedition when current-expedition recovery failed", async () => {
+  const retry = vi.fn();
+  const { services } = integratedServices();
+  window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(confirmedSession()));
+  render(
+    <DemoSessionProvider storage={window.localStorage}>
+      <TerritoryView
+        mapConfig={null}
+        services={services}
+        integrated
+        expeditionRecoveryStatus="error"
+        onRetryExpeditionRecovery={retry}
+      />
+    </DemoSessionProvider>,
+  );
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("새 원정 시작을 잠시 막았어요");
+  expect(within(screen.getByRole("complementary", { name: "부산 전술 패널" }))
+    .getByRole("button", { name: "원정 시작" })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+  expect(retry).toHaveBeenCalledOnce();
 });
 
 it("changes results when the user filters to contested territory", async () => {

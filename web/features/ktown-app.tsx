@@ -51,6 +51,10 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideChecked, setGuideChecked] = useState(false);
   const [liveExpedition, setLiveExpedition] = useState<PersistedExpedition | null>(null);
+  const [expeditionRecoveryStatus, setExpeditionRecoveryStatus] = useState<"ready" | "loading" | "error">(
+    mode === "integrated" ? "loading" : "ready",
+  );
+  const [expeditionRecoveryAttempt, setExpeditionRecoveryAttempt] = useState(0);
   // The session as it stood when the guide opened, so the practice run it
   // walks the reader through can be undone in full when it closes.
   const guideSnapshot = useRef<DemoSessionState | null>(null);
@@ -67,13 +71,17 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     let active = true;
     void services.expeditions.current()
       .then((expedition) => {
-        if (active) setLiveExpedition(expedition);
+        if (!active) return;
+        setLiveExpedition(expedition);
+        setExpeditionRecoveryStatus("ready");
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (active) setExpeditionRecoveryStatus("error");
+      });
     return () => {
       active = false;
     };
-  }, [mode, services]);
+  }, [expeditionRecoveryAttempt, mode, services]);
 
   const canChangeArtist = !profileLocked || Boolean(onChangeFandom);
   const chooseArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
@@ -235,6 +243,11 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
               mapConfig={mapConfig}
               services={services}
               integrated={mode === "integrated"}
+              expeditionRecoveryStatus={expeditionRecoveryStatus}
+              onRetryExpeditionRecovery={() => {
+                setExpeditionRecoveryStatus("loading");
+                setExpeditionRecoveryAttempt((attempt) => attempt + 1);
+              }}
               onLiveExpedition={setLiveExpedition}
             />
         ) : null}

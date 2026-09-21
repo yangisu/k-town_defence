@@ -73,6 +73,37 @@ class Recommendation:
         }
 
 
+@dataclass(frozen=True)
+class RouteRecommendation:
+    name: str
+    content_id: str
+    category: str | None
+    latitude: float
+    longitude: float
+    from_start_km: float
+    to_destination_km: float
+    via_distance_km: float
+    detour_km: float
+    image_url: str | None
+    reasons: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "contentId": self.content_id,
+            "category": self.category,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "fromStartKm": self.from_start_km,
+            "toDestinationKm": self.to_destination_km,
+            "viaDistanceKm": self.via_distance_km,
+            "detourKm": self.detour_km,
+            "imageUrl": self.image_url,
+            "source": "KOREAN_TOURISM_LOCATION_API",
+            "reasons": list(self.reasons),
+        }
+
+
 class PrototypeTourismClient(KTourOpenAPIClient):
     """The two KorService operations needed only by this prototype."""
 
@@ -164,6 +195,94 @@ class StandaloneTourismRecommender:
                 key=lambda item: (-item.score, item.distance_km or 9999, item.name),
             )[:limit]
         )
+
+    def recommend_between(
+        self,
+        start_name: str,
+        destination_name: str,
+        *,
+        limit: int = 5,
+        max_detour_km: float = 5.0,
+    ) -> tuple[RouteRecommendation, ...]:
+        """Recommend tourism stops ranked by extra straight-line detour distance."""
+        if limit < 1 or limit > 10:
+            raise ValueError("limit must be between 1 and 10")
+        if max_detour_km < 0:
+            raise ValueError("max_detour_km must not be negative")
+        start = self._resolve_place(start_name)
+        destination = self._resolve_place(destination_name)
+        if start is None:
+            raise LookupError(f"국문 관광정보에서 장소를 찾지 못했습니다: {start_name}")
+        if destination is None:
+            raise LookupError(f"국문 관광정보에서 장소를 찾지 못했습니다: {destination_name}")
+
+        direct_distance = _distance_km(start, destination)
+        midpoint = {
+            "mapy": (float(start["mapy"]) + float(destination["mapy"])) / 2,
+            "mapx": (float(start["mapx"]) + float(destination["mapx"])) / 2,
+        }
+        midpoint_radius = min(20000, max(5000, int(direct_distance * 500 + 3000)))
+        searches = (
+            (start, min(10000, max(3000, midpoint_radius // 2))),
+            (midpoint, midpoint_radius),
+            (destination, min(10000, max(3000, midpoint_radius // 2))),
+        )
+        candidates: dict[str, Mapping[str, object]] = {}
+        for center, radius in searches:
+            records = self.tourism.location_based_list(
+                longitude=float(center["mapx"]),
+                latitude=float(center["mapy"]),
+                radius=radius,
+                limit=100,
+            )
+            for item in records:
+                if _valid_place(item):
+                    content_id = str(item.get("contentid", "")).strip()
+                    if content_id:
+                        candidates.setdefault(content_id, item)
+
+        endpoint_ids = {
+            str(start.get("contentid", "")).strip(),
+            str(destination.get("contentid", "")).strip(),
+        }
+        ranked: list[RouteRecommendation] = []
+        for content_id, item in candidates.items():
+            if content_id in endpoint_ids:
+                continue
+            from_start = _distance_km(start, item)
+            to_destination = _distance_km(item, destination)
+            via_distance = from_start + to_destination
+            detour = max(0.0, via_distance - direct_distance)
+            if detour > max_detour_km:
+                continue
+            title = str(item.get("title", "")).strip()
+            ranked.append(
+                RouteRecommendation(
+                    name=title,
+                    content_id=content_id,
+                    category=_category(item),
+                    latitude=float(item["mapy"]),
+                    longitude=float(item["mapx"]),
+                    from_start_km=round(from_start, 2),
+                    to_destination_km=round(to_destination, 2),
+                    via_distance_km=round(via_distance, 2),
+                    detour_km=round(detour, 2),
+                    image_url=str(item.get("firstimage", "")).strip() or None,
+                    reasons=(
+                        f"예상 직선 우회거리 +{detour:.1f}km",
+                        f"출발지에서 {from_start:.1f}km",
+                        f"도착지까지 {to_destination:.1f}km",
+                    ),
+                )
+            )
+        ranked.sort(
+            key=lambda item: (
+                item.detour_km,
+                item.via_distance_km,
+                item.content_id,
+            )
+        )
+        return tuple(ranked[:limit])
 
     def _resolve_place(self, name: str) -> Mapping[str, object] | None:
         target = _normalize(name)
@@ -381,6 +500,17 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("places", nargs="+", help="예: 부산아시아드주경기장 감천문화마을")
     parser.add_argument("--limit", type=int, default=3, help="장소별 추천 개수 (기본 3)")
+    parser.add_argument(
+        "--route",
+        action="store_true",
+        help="두 장소 사이에 거쳐 갈 관광지를 우회거리순으로 추천",
+    )
+    parser.add_argument(
+        "--max-detour-km",
+        type=float,
+        default=5.0,
+        help="경유 시 허용할 최대 직선 우회거리 (기본 5km)",
+    )
     parser.add_argument("--base-ym", default=None, help="연관 관광지 기준월 YYYYMM")
     parser.add_argument("--json", action="store_true", help="JSON으로 출력")
     return parser
@@ -397,12 +527,35 @@ def main(argv: list[str] | None = None) -> int:
         service_key,
         base_ym=args.base_ym or os.getenv("KTOUR_RELATED_BASE_YM", DEFAULT_BASE_YM),
     )
-    output: dict[str, object] = {}
-    for place in args.places:
+    output: dict[str, object]
+    if args.route:
+        if len(args.places) != 2:
+            print("--route는 출발지와 도착지 두 장소가 필요합니다.", file=sys.stderr)
+            return 2
+        route_key = f"{args.places[0]} → {args.places[1]}"
         try:
-            output[place] = [item.to_dict() for item in recommender.recommend(place, limit=args.limit)]
+            output = {
+                route_key: [
+                    item.to_dict()
+                    for item in recommender.recommend_between(
+                        args.places[0],
+                        args.places[1],
+                        limit=args.limit,
+                        max_detour_km=args.max_detour_km,
+                    )
+                ]
+            }
         except Exception as exc:
-            output[place] = {"error": str(exc)}
+            output = {route_key: {"error": str(exc)}}
+    else:
+        output = {}
+        for place in args.places:
+            try:
+                output[place] = [
+                    item.to_dict() for item in recommender.recommend(place, limit=args.limit)
+                ]
+            except Exception as exc:
+                output[place] = {"error": str(exc)}
     if args.json:
         print(json.dumps(output, ensure_ascii=False, indent=2))
     else:
@@ -413,7 +566,10 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             for index, item in enumerate(result, start=1):
                 reasons = " · ".join(item["reasons"])
-                print(f"  {index}. {item['name']} ({item['score']:.3f})")
+                if "detourKm" in item:
+                    print(f"  {index}. {item['name']} (우회 +{item['detourKm']:.2f}km)")
+                else:
+                    print(f"  {index}. {item['name']} ({item['score']:.3f})")
                 print(f"     {reasons} · 출처: {item['source']}")
     return 0
 

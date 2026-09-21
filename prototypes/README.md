@@ -20,6 +20,17 @@ JSON 출력은 `--json`을 추가합니다.
   감천문화마을 --limit 3 --json
 ```
 
+두 장소 사이에 거쳐 갈 만한 관광지는 `--route`로 조회합니다. 후보를 들렀을 때
+추가되는 직선 우회거리가 짧은 순서로 정렬합니다.
+
+```powershell
+.\.venv\Scripts\python.exe -m prototypes.related_tourism_recommender `
+  부산아시아드주경기장 감천문화마을 --route --limit 5
+```
+
+기본적으로 우회거리 5km 이내만 보여줍니다. `--max-detour-km 8`처럼 조정할 수
+있습니다.
+
 연관 관광지 데이터는 `2024-05`부터 `2025-04`까지의 역사 데이터이며 모든 관광지가
 기준 관광지로 포함되지는 않습니다. 입력 장소가 기준 관광지로 조회되지 않으면
 국문 관광정보의 `locationBasedList2`를 이용해 반경 5km 관광지를 추천하고, 결과가

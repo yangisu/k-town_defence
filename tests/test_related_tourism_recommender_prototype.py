@@ -66,3 +66,56 @@ def test_falls_back_to_location_api_when_related_dataset_has_no_anchor():
     assert result[0].name == "가까운 문화시설"
     assert result[0].source == "KOREAN_TOURISM_LOCATION_API"
     assert result[0].distance_km is not None
+
+
+class RouteTourismStub(TourismStub):
+    def search_keyword(self, keyword, *, limit):
+        places = {
+            "출발지": {
+                "contentid": "start",
+                "title": "출발지",
+                "contenttypeid": "12",
+                "mapx": "129.0",
+                "mapy": "35.0",
+            },
+            "도착지": {
+                "contentid": "destination",
+                "title": "도착지",
+                "contenttypeid": "12",
+                "mapx": "129.1",
+                "mapy": "35.0",
+            },
+        }
+        return [places[keyword]] if keyword in places else []
+
+    def location_based_list(self, **kwargs):
+        return [
+            {
+                "contentid": "on-route",
+                "title": "경로 위 관광지",
+                "contenttypeid": "14",
+                "mapx": "129.05",
+                "mapy": "35.0",
+            },
+            {
+                "contentid": "off-route",
+                "title": "우회 관광지",
+                "contenttypeid": "12",
+                "mapx": "129.05",
+                "mapy": "35.02",
+            },
+        ]
+
+
+def test_route_recommendations_are_ranked_by_added_detour_distance():
+    recommender = StandaloneTourismRecommender(
+        "key",
+        tourism_client=RouteTourismStub(),
+        related_client=RelatedStub(),
+    )
+
+    result = recommender.recommend_between("출발지", "도착지", limit=2)
+
+    assert [item.content_id for item in result] == ["on-route", "off-route"]
+    assert result[0].detour_km == 0
+    assert result[1].detour_km > result[0].detour_km

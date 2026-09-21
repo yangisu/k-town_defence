@@ -54,6 +54,8 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
   const lastStep = index === GUIDE_STEPS.length - 1;
   const waiting = step.awaits !== undefined;
   const [domDone, setDomDone] = useState(false);
+  // False while the page is still moving into place for this step.
+  const [settled, setSettled] = useState(false);
   const done = step.awaits === "territory"
     ? territorySelected
     : step.awaits === "expedition"
@@ -128,9 +130,14 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
     // something first — the phone's territory list — slid up and was yanked
     // back down mid-glide. Here the target is watched until it holds still,
     // and only then is a single scroll issued, to wherever the step wants it.
+    setSettled(false);
     let settleFrame = 0;
     let lastOffset = Number.NaN;
     let stillFor = 0;
+    if (!step.target) {
+      setSettled(true);
+      return;
+    }
     const place = () => {
       const element = document.querySelector<HTMLElement>(`[data-guide="${step.target}"]`);
       if (!element) return;
@@ -154,10 +161,26 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
       const frameBox = scroller ? scroller.getBoundingClientRect() : { top: 0, height: window.innerHeight };
       const wanted = frameBox.top + frameBox.height * anchor - box.height / 2;
       const by = box.top - wanted;
-      if (Math.abs(by) <= 4) return;
+      if (Math.abs(by) <= 4) {
+        setSettled(true);
+        return;
+      }
       // jsdom has neither, and a guide that cannot scroll still works.
       if (scroller) scroller.scrollBy?.({ top: by, behavior: "smooth" });
       else window.scrollBy?.({ top: by, behavior: "smooth" });
+      // Hold the reveal until the scroll has actually stopped. Showing the
+      // ring and the card first made them chase the page: the ring redrawn
+      // every frame, the card re-laid out under it.
+      let quiet = 0;
+      let lastTop = Number.NaN;
+      const waitForStop = () => {
+        const now = element.getBoundingClientRect().top;
+        quiet = Math.abs(now - lastTop) < 0.5 ? quiet + 1 : 0;
+        lastTop = now;
+        if (quiet >= 4) setSettled(true);
+        else settleFrame = window.requestAnimationFrame(waitForStop);
+      };
+      settleFrame = window.requestAnimationFrame(waitForStop);
     };
     settleFrame = window.requestAnimationFrame(place);
 
@@ -247,7 +270,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
   ] : [{ top: 0, left: 0, width: viewportWidth, height: viewportHeight }];
 
   return (
-    <div className={`tutorial-overlay tutorial-overlay--${placement}`}>
+    <div className={`tutorial-overlay tutorial-overlay--${placement}${settled ? "" : " tutorial-overlay--moving"}${step.cardless ? " tutorial-overlay--cardless" : ""}`}>
       {/* Off a waiting step, the sealed-off area is also the "next" control, so
           a reader can tap wherever they are already looking. While the guide
           waits, it only blocks. */}
@@ -281,6 +304,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
       ) : null}
       <div
         className={waiting ? "tutorial-card tutorial-card--waiting" : "tutorial-card"}
+        aria-hidden={step.cardless ? "true" : undefined}
         role="dialog"
         aria-modal="true"
         aria-labelledby="tutorial-title"

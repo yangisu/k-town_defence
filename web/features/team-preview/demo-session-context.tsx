@@ -21,6 +21,9 @@ interface DemoSessionContextValue {
   selectedArtist: (typeof previewContent.artists)[number] | null;
   selectedTerritory: DemoSession["territories"][number] | null;
   reset: () => void;
+  /** Stops the session being persisted anywhere, for a practice run whose
+   *  every effect is meant to be thrown away. */
+  seal: (sealed: boolean) => void;
 }
 
 const DemoSessionContext = createContext<DemoSessionContextValue | null>(null);
@@ -33,6 +36,8 @@ export interface RemoteDemoSessionStore {
 export function DemoSessionProvider({ children, storage, remote }: { children: ReactNode; storage?: Storage; remote?: RemoteDemoSessionStore }) {
   const [state, dispatch] = useReducer(demoSessionReducer, undefined, createInitialDemoSession);
   const [hydrated, setHydrated] = useState(false);
+  // While sealed, the session lives only in memory.
+  const [sealed, setSealed] = useState(false);
   const loaded = useRef(false);
   const skipNextSave = useRef(false);
   const sessionStorage = storage ?? (typeof window === "undefined" ? undefined : window.localStorage);
@@ -62,8 +67,11 @@ export function DemoSessionProvider({ children, storage, remote }: { children: R
     return () => { active = false; };
   }, [remote, sessionStorage]);
 
+  // Nothing the tutorial does is written down. It has the reader walk a real
+  // check-in, and a practice visit must not survive in storage, on the server
+  // or in their records — not even if they close the tab halfway through.
   useEffect(() => {
-    if (!sessionStorage || !loaded.current) return;
+    if (!sessionStorage || !loaded.current || sealed) return;
     if (skipNextSave.current) {
       skipNextSave.current = false;
       return;
@@ -74,7 +82,7 @@ export function DemoSessionProvider({ children, storage, remote }: { children: R
       void remote.save(state).catch(() => undefined);
     }, 350);
     return () => window.clearTimeout(timeout);
-  }, [remote, sessionStorage, state]);
+  }, [remote, sealed, sessionStorage, state]);
 
   const value = useMemo(() => {
     const selectedArtist = previewContent.artists.find((artist) => artist.id === state.selectedArtistId) ?? null;
@@ -85,7 +93,7 @@ export function DemoSessionProvider({ children, storage, remote }: { children: R
       skipNextSave.current = true;
       dispatch({ type: "reset" });
     };
-    return { state, hydrated, dispatch, selectedArtist, selectedTerritory, reset };
+    return { state, hydrated, dispatch, selectedArtist, selectedTerritory, reset, seal: setSealed };
   }, [hydrated, sessionStorage, state]);
 
   return <DemoSessionContext.Provider value={value}>{children}</DemoSessionContext.Provider>;

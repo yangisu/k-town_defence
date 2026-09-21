@@ -89,6 +89,18 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
       document.querySelector<HTMLButtonElement>(".territory-list-toggle[aria-expanded='false']")?.click();
       return;
     }
+    // Asking someone to press Start Expedition while a route is already
+    // running answers itself: the step saw the route and moved straight on.
+    // Clearing it first means the press is theirs to make.
+    if (step.awaits === "expedition") {
+      if (session.state.activeTab !== step.tab) session.dispatch({ type: "changeTab", tab: step.tab });
+      if (session.state.activeExpeditionId) session.dispatch({ type: "endExpedition" });
+      if (!session.state.selectedTerritoryId) {
+        const first = session.state.territories[0];
+        if (first) session.dispatch({ type: "selectTerritory", territoryId: first.id });
+      }
+      return;
+    }
     // The expedition chapter needs a route open. The reader starts it
     // themselves on the step before; this only covers a replay that jumps
     // straight in, and picks the route for whatever territory they are on.
@@ -116,6 +128,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
 
   const closeGuide = () => {
     setGuideOpen(false);
+    session.seal(false);
     // The guide has the reader walk a real check-in, so it hands the session
     // back exactly as it found it: the practice points, the route it started
     // and the territory it picked are all put back. Nothing done inside the
@@ -134,8 +147,12 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   // a first fandom asks in the same breath as choosing one, and the state at
   // that moment has no fandom on it yet.
   useEffect(() => {
-    if (guideOpen) guideSnapshot.current ??= session.state;
-  }, [guideOpen, session.state]);
+    if (!guideOpen) return;
+    guideSnapshot.current ??= session.state;
+    // Sealed for the whole visit, so a practice check-in never reaches storage
+    // or the server — not even if the tab is closed mid-tutorial.
+    session.seal(true);
+  }, [guideOpen, session]);
 
   const resetDemo = () => {
     // Resetting asks for the demo from the top, greeting included.

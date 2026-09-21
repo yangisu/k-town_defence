@@ -520,7 +520,9 @@ it("restores a session saved before the roster existed", () => {
 // used to snap back to "my fandom" on every trip through an expedition.
 it("remembers the slice of the board the reader asked for", () => {
   let state = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
-  expect(state.territoryFilter).toBe("my_fandom");
+  // Choosing a fandom opens on the whole board — a fandom holding nothing
+  // would otherwise arrive at an empty list.
+  expect(state.territoryFilter).toBe("all");
 
   state = demoSessionReducer(state, { type: "setTerritoryFilter", filter: "artist_connection" });
   state = demoSessionReducer(state, { type: "selectTerritory", territoryId: "busan" });
@@ -577,7 +579,7 @@ it("restores a session saved before the filter was remembered", () => {
   const legacy = { ...demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" }) } as Record<string, unknown>;
   delete legacy.territoryFilter;
 
-  expect(parseDemoSession(legacy)?.territoryFilter).toBe("my_fandom");
+  expect(parseDemoSession(legacy)?.territoryFilter).toBe("all");
 });
 
 // Yeongwol's 1.8x multiplier used to spend a 1200P daily allowance on its

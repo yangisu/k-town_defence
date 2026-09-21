@@ -76,6 +76,9 @@ beforeEach(() => {
     artistConfirmed: true,
     selectedArtistId: "bts",
     selectedTerritoryId: null,
+    // A narrowed board, so there is something for the map to reach past. The
+    // app opens on the whole board, where nothing is hidden to begin with.
+    territoryFilter: "my_fandom",
   }));
   render(
     <DemoSessionProvider storage={window.localStorage}>

@@ -116,8 +116,11 @@ it("opens in the product shell and enters the service after explicit profile con
   expect(screen.getByRole("heading", { name: "영토 지도" })).toBeVisible();
   expect(screen.getByRole("navigation", { name: "주요 메뉴" })).toBeVisible();
   expect(screen.getByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).toBeVisible();
+  // A fresh reader opens on the whole board, not on the ground their fandom
+  // already holds — which for most fandoms is none of it.
   const fallbackList = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
-  expect(within(fallbackList).getAllByRole("button")).toHaveLength(3);
+  expect(within(fallbackList).getAllByRole("button")).toHaveLength(previewContent.territories.length);
+  expect(screen.getByRole("button", { name: "전체" })).toHaveAttribute("aria-pressed", "true");
   await user.click(screen.getByRole("button", { name: "전체" }));
   expect(within(fallbackList).getAllByRole("button")).toHaveLength(previewContent.territories.length);
   expect(within(screen.getByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();

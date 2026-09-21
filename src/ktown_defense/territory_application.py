@@ -4,17 +4,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .infrastructure.models import (
-    CheckInSessionModel,
     FandomModel,
-    PlaceModel,
-    SeasonMembershipModel,
     SeasonModel,
     SubmissionModel,
-    UserModel,
 )
 
 
@@ -88,32 +84,20 @@ class TerritoryApplication:
 
         rows = (await self._session.execute(
             select(
-                PlaceModel.address_ko,
+                SubmissionModel.territory_id,
                 FandomModel.id,
                 func.coalesce(func.sum(SubmissionModel.awarded_points), 0),
             )
-            .join(CheckInSessionModel, SubmissionModel.session_id == CheckInSessionModel.id)
-            .join(PlaceModel, PlaceModel.id == CheckInSessionModel.place_id)
-            .join(UserModel, UserModel.platform_subject == CheckInSessionModel.user_id)
-            .join(
-                SeasonMembershipModel,
-                and_(
-                    SeasonMembershipModel.user_id == UserModel.id,
-                    SeasonMembershipModel.season_id == season.id,
-                ),
-            )
-            .join(FandomModel, FandomModel.id == SeasonMembershipModel.fandom_id)
+            .join(FandomModel, FandomModel.id == SubmissionModel.fandom_id)
             .where(
                 SubmissionModel.decision == "approved",
-                SubmissionModel.submitted_at >= season.starts_at,
-                SubmissionModel.submitted_at < season.ends_at,
+                SubmissionModel.season_id == season.id,
+                SubmissionModel.territory_id.is_not(None),
             )
-            .group_by(PlaceModel.address_ko, FandomModel.id)
+            .group_by(SubmissionModel.territory_id, FandomModel.id)
         )).all()
         scores: dict[tuple[str, UUID], int] = {}
-        for address, fandom_id, points in rows:
-            territory_id = territory_id_for(address)
-            if territory_id is not None:
-                key = (territory_id, fandom_id)
-                scores[key] = scores.get(key, 0) + int(points)
+        for territory_id, fandom_id, points in rows:
+            key = (territory_id, fandom_id)
+            scores[key] = scores.get(key, 0) + int(points)
         return fandoms, scores

@@ -86,6 +86,19 @@ describe("HTTP services", () => {
     }));
   });
 
+  it("marks demo verification explicitly while keeping the real check-in API", async () => {
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({
+      id: "session-1", placeId: "place-1", status: "ready", verificationType: "demo",
+      expiresAt: "2026-08-21T10:30:00Z",
+    }, 201));
+
+    await createHttpServices(fetcher).checkIn.create("place-1", { verificationMode: "demo" });
+
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
+      placeId: "place-1", verificationType: "demo",
+    });
+  });
+
   it("restores the active submitted session after a browser refresh", async () => {
     localStorage.setItem("ktown-active-checkin-v1", JSON.stringify({ sessionId: "session-1", placeId: "place-1" }));
     const fetcher = vi.fn().mockResolvedValue(jsonResponse({
@@ -94,6 +107,7 @@ describe("HTTP services", () => {
 
     await expect(createHttpServices(fetcher).checkIn.restore()).resolves.toEqual({
       id: "session-1", placeId: "place-1", status: "submitted", expiresAt: "2026-08-21T10:30:00Z",
+      verificationMode: "evidence",
     });
     expect(fetcher).toHaveBeenCalledWith("/api/ktown/api/v1/checkins/session-1", expect.any(Object));
   });

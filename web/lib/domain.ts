@@ -143,6 +143,7 @@ export interface CheckInSession {
   placeId: string;
   expiresAt: string;
   status?: "collecting" | "ready" | "submitted" | "expired" | "cancelled";
+  verificationMode?: "evidence" | "demo";
 }
 
 export interface CheckInResult {
@@ -216,7 +217,7 @@ export interface ExpeditionService {
 }
 
 export interface CheckInService {
-  create(placeId: string): Promise<CheckInSession>;
+  create(placeId: string, options?: { verificationMode?: "evidence" | "demo" }): Promise<CheckInSession>;
   restore(): Promise<CheckInSession | null>;
   recordGps(sessionId: string, evidence: GpsEvidence): Promise<void>;
   recordPhoto(sessionId: string, evidence: PhotoEvidence): Promise<void>;

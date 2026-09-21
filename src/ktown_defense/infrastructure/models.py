@@ -225,6 +225,10 @@ class CheckInSessionModel(Base):
             "status IN ('collecting', 'ready', 'submitted', 'expired', 'cancelled')",
             name="ck_checkin_sessions_status",
         ),
+        CheckConstraint(
+            "verification_type IN ('actual', 'demo')",
+            name="ck_checkin_sessions_verification_type",
+        ),
         Index("ix_checkin_sessions_user_place_status", "user_id", "place_id", "status"),
     )
 
@@ -236,6 +240,7 @@ class CheckInSessionModel(Base):
         PostgreSQLUUID(as_uuid=True), ForeignKey("places.id", ondelete="RESTRICT")
     )
     status: Mapped[str] = mapped_column(String(20), default="collecting")
+    verification_type: Mapped[str] = mapped_column(String(20), default="actual")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
@@ -317,6 +322,13 @@ class SubmissionModel(Base):
     decision: Mapped[str] = mapped_column(String(20), default="pending")
     risk_codes: Mapped[list[str]] = mapped_column(JSONB, default=list)
     awarded_points: Mapped[int] = mapped_column(Integer, default=0)
+    season_id: Mapped[UUID | None] = mapped_column(
+        PostgreSQLUUID(as_uuid=True), ForeignKey("seasons.id", ondelete="RESTRICT"), index=True
+    )
+    fandom_id: Mapped[UUID | None] = mapped_column(
+        PostgreSQLUUID(as_uuid=True), ForeignKey("fandoms.id", ondelete="RESTRICT"), index=True
+    )
+    territory_id: Mapped[str | None] = mapped_column(String(40), index=True)
     submitted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now
     )

@@ -4,6 +4,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .api.errors import ApiError
@@ -12,8 +13,12 @@ from .infrastructure.models import (
     GpsSampleModel,
     PhotoModel,
     PlaceModel,
+    SeasonMembershipModel,
+    SeasonModel,
     SubmissionModel,
+    UserModel,
 )
+from .territory_application import territory_id_for
 from .infrastructure.repositories import CheckInRepository, PlaceRepository
 from .verification import (
     VerificationEvidence,
@@ -41,20 +46,26 @@ class CheckInApplication:
         self._checkins = CheckInRepository(session)
         self._places = PlaceRepository(session)
 
-    async def create_session(self, user_id: str, place_id: UUID) -> CheckInSessionModel:
+    async def create_session(
+        self, user_id: str, place_id: UUID, *, verification_type: str = "actual"
+    ) -> CheckInSessionModel:
         now = self._clock()
         if await self._places.get_public(place_id) is None:
             raise ApiError(404, "PLACE_NOT_FOUND", "장소를 찾을 수 없습니다.")
 
         existing = await self._checkins.find_active_session(user_id, place_id, now)
-        if existing is not None:
+        if existing is not None and existing.verification_type == verification_type:
             return existing
+        if existing is not None:
+            existing.status = "cancelled"
+            existing.updated_at = now
 
         checkin = CheckInSessionModel(
             id=uuid4(),
             user_id=user_id,
             place_id=place_id,
-            status="collecting",
+            status="ready" if verification_type == "demo" else "collecting",
+            verification_type=verification_type,
             expires_at=now + timedelta(minutes=30),
             created_at=now,
             updated_at=now,
@@ -200,7 +211,10 @@ class CheckInApplication:
                 409, "CHECKIN_NOT_READY", "GPS와 사진 증거가 모두 필요합니다."
             )
 
-        decision, risk_codes = await self._classify(checkin)
+        if checkin.verification_type == "demo":
+            decision, risk_codes = "approved", ()
+        else:
+            decision, risk_codes = await self._classify(checkin)
         awarded_points = 0
         if decision == "approved":
             prior_visits = await self._checkins.count_approved_visits(
@@ -208,6 +222,8 @@ class CheckInApplication:
             )
             awarded_points = FIRST_VISIT_POINTS if prior_visits == 0 else 0
 
+        attribution = await self._current_attribution(user_id)
+        place = await self._places.get_public(checkin.place_id)
         submission = SubmissionModel(
             id=uuid4(),
             session_id=session_id,
@@ -215,6 +231,9 @@ class CheckInApplication:
             decision=decision,
             risk_codes=list(risk_codes),
             awarded_points=awarded_points,
+            season_id=attribution.season_id if attribution else None,
+            fandom_id=attribution.fandom_id if attribution else None,
+            territory_id=territory_id_for(place.address_ko) if place else None,
             submitted_at=self._clock(),
         )
         self._checkins.add_submission(submission)
@@ -223,6 +242,23 @@ class CheckInApplication:
         await self._session.commit()
         await self._session.refresh(submission)
         return submission
+
+    async def _current_attribution(
+        self, platform_subject: str
+    ) -> SeasonMembershipModel | None:
+        now = self._clock()
+        return await self._session.scalar(
+            select(SeasonMembershipModel)
+            .join(UserModel, UserModel.id == SeasonMembershipModel.user_id)
+            .join(SeasonModel, SeasonModel.id == SeasonMembershipModel.season_id)
+            .where(
+                UserModel.platform_subject == platform_subject,
+                SeasonModel.starts_at <= now,
+                SeasonModel.ends_at > now,
+            )
+            .order_by(SeasonModel.starts_at.desc())
+            .limit(1)
+        )
 
     async def _classify(
         self, checkin: CheckInSessionModel

@@ -47,7 +47,16 @@ type CheckInDto = {
   placeId: string;
   status: CheckInSession["status"];
   expiresAt: string;
+  verificationType?: "actual" | "demo";
 };
+
+function mapCheckIn(dto: CheckInDto): CheckInSession {
+  const { verificationType, ...session } = dto;
+  return {
+    ...session,
+    verificationMode: verificationType === "demo" ? "demo" : "evidence",
+  };
+}
 
 const regionIds: Record<string, string> = {
   "1": "seoul",
@@ -333,20 +342,20 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
     },
     expeditions: demoServices.expeditions,
     checkIn: {
-      async create(placeId) {
+      async create(placeId, options) {
         const dto = await requestJson<CheckInDto>(fetcher, "/api/v1/checkins", {
           method: "POST",
-          body: JSON.stringify({ placeId }),
+          body: JSON.stringify({ placeId, verificationType: options?.verificationMode === "demo" ? "demo" : "actual" }),
         });
         writeStoredCheckIn({ sessionId: dto.id, placeId: dto.placeId });
-        return dto;
+        return mapCheckIn(dto);
       },
       async restore() {
         const stored = readStoredCheckIn();
         if (!stored) return null;
         try {
           const session = await requestJson<CheckInDto>(fetcher, `/api/v1/checkins/${stored.sessionId}`);
-          return structuredClone(session);
+          return structuredClone(mapCheckIn(session));
         } catch (error) {
           if (error instanceof KTownApiError && [404, 409].includes(error.status)) {
             window.localStorage.removeItem(ACTIVE_CHECKIN_KEY);

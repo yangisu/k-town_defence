@@ -29,12 +29,12 @@ it("resolves a preview stop to its PostgreSQL place id before creating a real ch
     checkIn: { ...services.checkIn, create },
   });
 
-  await expect(bridge.create(previewPlace.id)).resolves.toMatchObject({ id: "session-1" });
+  await expect(bridge.create(previewPlace.id, { verificationMode: "demo" })).resolves.toMatchObject({ id: "session-1" });
   expect(listPlaces).toHaveBeenCalledWith({
     regionId: previewPlace.territoryId,
     query: previewPlace.name.ko,
   });
-  expect(create).toHaveBeenCalledWith("10000000-0000-4000-8000-000000000099");
+  expect(create).toHaveBeenCalledWith("10000000-0000-4000-8000-000000000099", { verificationMode: "demo" });
 });
 
 it("does not fake an approval when the preview stop is absent from PostgreSQL", async () => {

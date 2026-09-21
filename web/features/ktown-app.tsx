@@ -32,11 +32,12 @@ import type { MapConfig } from "@/lib/map-config";
 import { createServices, type ServiceMode } from "@/lib/service-factory";
 import { mapTerritorySnapshots } from "@/lib/adapters/territory";
 
-function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", onChangeFandom }: {
+function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", checkInMode, onChangeFandom }: {
   services: AppServices;
   mapConfig: MapConfig | null;
   profileLocked?: boolean;
   mode?: ServiceMode;
+  checkInMode?: "demo" | "integrated";
   /** Integrated mode changes a fandom through the season membership rather
    *  than the local session, and the API may refuse mid-season. */
   onChangeFandom?: (artistId: NonNullable<DemoSessionState["selectedArtistId"]>) => void;
@@ -203,7 +204,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
             <PreviewExpeditionView
               expeditionId={session.state.selectedExpeditionId}
               checkInService={services.checkIn}
-              checkInMode={mode}
+              checkInMode={checkInMode ?? mode}
               onBack={() => undefined}
             />
         ) : null}
@@ -320,7 +321,7 @@ function LeaveFandomDialog({ locale, artistId, isLastFandom, dialogRef, titleRef
 export function createPreviewCheckInService(services: AppServices): CheckInService {
   return {
     ...services.checkIn,
-    async create(previewPlaceId) {
+    async create(previewPlaceId, options) {
       const previewPlace = previewContent.places.find((place) => place.id === previewPlaceId);
       if (!previewPlace) throw new Error("PREVIEW_PLACE_NOT_FOUND");
       const places = await services.tourism.listPlaces({
@@ -332,7 +333,7 @@ export function createPreviewCheckInService(services: AppServices): CheckInServi
         candidate.nameKo.replace(/\s+/g, "").toLocaleLowerCase("ko") === expected
       ));
       if (!place) throw new Error("LIVE_PLACE_NOT_FOUND");
-      return services.checkIn.create(place.id);
+      return services.checkIn.create(place.id, options);
     },
   };
 }
@@ -387,6 +388,7 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
         mapConfig={mapConfig}
         profileLocked
         mode="integrated"
+        checkInMode="demo"
         onChangeFandom={changeFandom}
       />
     </DemoSignOutProvider>

@@ -97,16 +97,18 @@ export function CheckInFlow({
     void service.restore()
       .then((restored) => {
         if (!active) return;
-        if (restored?.placeId === place.id && restored.status === "submitted") {
+        const verificationMode = mode === "demo" ? "demo" : "evidence";
+        const compatible = restored?.verificationMode === undefined || restored.verificationMode === verificationMode;
+        if (compatible && restored?.placeId === place.id && restored.status === "submitted") {
           dispatch({ type: "sessionRestored", sessionId: restored.id, submitted: true });
           setResult({ decision: "pending", message: "체크인 제출이 접수되었습니다. 검토를 기다려 주세요." });
           return;
         }
-        if (restored?.placeId === place.id && restored.status !== "expired" && restored.status !== "cancelled") {
+        if (compatible && restored?.placeId === place.id && restored.status !== "expired" && restored.status !== "cancelled") {
           dispatch({ type: "sessionRestored", sessionId: restored.id, submitted: false });
           return;
         }
-        return service.create(place.id).then((session) => {
+        return service.create(place.id, { verificationMode }).then((session) => {
           if (active) dispatch({ type: "sessionCreated", sessionId: session.id });
         });
       })

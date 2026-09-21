@@ -122,4 +122,35 @@ describe("K-Town gateway", () => {
     );
     expect(fetcher.mock.calls[1][0]).toBe("http://backend/api/v1/open-data/status");
   });
+
+  it("forwards the persistent expedition lifecycle used by the integrated UI", async () => {
+    const expeditionId = "123e4567-e89b-42d3-a456-426614174000";
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ id: expeditionId }));
+    const requests = [
+      ["POST", "api/v1/expeditions"],
+      ["GET", "api/v1/expeditions/current"],
+      ["GET", `api/v1/expeditions/${expeditionId}`],
+      ["POST", `api/v1/expeditions/${expeditionId}/abandon`],
+      ["POST", `api/v1/expeditions/${expeditionId}/complete`],
+    ] as const;
+
+    for (const [method, path] of requests) {
+      const response = await proxyKtownRequest(
+        new Request(`http://site/api/ktown/${path}`, {
+          method,
+          ...(method === "POST" && path === "api/v1/expeditions"
+            ? { headers: { "content-type": "application/json" }, body: "{}" }
+            : {}),
+        }),
+        path.split("/"),
+        { baseUrl: "http://backend", platformUserId: "trusted-user", fetcher },
+      );
+
+      expect(response.status).toBe(200);
+    }
+
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual(
+      requests.map(([, path]) => `http://backend/${path}`),
+    );
+  });
 });

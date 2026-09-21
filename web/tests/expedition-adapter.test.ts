@@ -28,8 +28,8 @@ it("omits live stops without coordinates instead of placing them at 0,0", () => 
     status: "active",
     createdAt: "2026-09-21T00:00:00Z",
     stops: [
-      { order: 1, distanceKm: 0, reasons: [], place: place("missing") },
-      { order: 2, distanceKm: 1, reasons: [], place: place("valid", { latitude: 35.1796, longitude: 129.0756 }) },
+      { order: 1, distanceKm: 0, reasons: [], place: place("missing"), kind: "anchor", placement: "main", required: true, selectedByDefault: true, evidence: null },
+      { order: 2, distanceKm: 1, reasons: [], place: place("valid", { latitude: 35.1796, longitude: 129.0756 }), kind: "anchor", placement: "main", required: true, selectedByDefault: true, evidence: null },
     ],
   };
 

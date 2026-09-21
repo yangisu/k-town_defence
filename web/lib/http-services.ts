@@ -177,6 +177,11 @@ function stringArray(value: unknown): string[] {
   return value as string[];
 }
 
+function boolean(value: unknown): boolean {
+  if (typeof value !== "boolean") invalidResponse();
+  return value;
+}
+
 function nullableText(value: unknown): string | undefined {
   if (value === null || value === undefined) return undefined;
   return text(value);
@@ -267,6 +272,8 @@ function mapExpedition(value: unknown): LiveExpedition {
     keyword: nullableText(dto.keyword),
     travelDate: isoDate(dto.travelDate),
     dataUpdatedAt: nullableTimestamp(dto.dataUpdatedAt),
+    routeKey: nullableText(dto.routeKey),
+    routeVersion: nullableText(dto.routeVersion),
     stops: dto.stops.map((value) => {
       const stop = object(value);
       return {
@@ -274,8 +281,36 @@ function mapExpedition(value: unknown): LiveExpedition {
         distanceKm: finiteNumber(stop.distanceKm),
         reasons: stringArray(stop.reasons),
         place: mapEnrichedPlace(stop.place),
+        kind: stop.kind === undefined ? "anchor" : stopKind(stop.kind),
+        placement: stop.placement === undefined ? "main" : stopPlacement(stop.placement),
+        required: stop.required === undefined ? true : boolean(stop.required),
+        selectedByDefault: stop.selectedByDefault === undefined ? true : boolean(stop.selectedByDefault),
+        evidence: stop.evidence == null ? null : mapStopEvidence(stop.evidence),
       };
     }),
+  };
+}
+
+function stopKind(value: unknown): "anchor" | "recommendation" {
+  const parsed = text(value);
+  if (parsed !== "anchor" && parsed !== "recommendation") invalidResponse();
+  return parsed;
+}
+
+function stopPlacement(value: unknown): "before" | "main" | "between" | "after" {
+  const parsed = text(value);
+  if (!["before", "main", "between", "after"].includes(parsed)) invalidResponse();
+  return parsed as "before" | "main" | "between" | "after";
+}
+
+function mapStopEvidence(value: unknown) {
+  const dto = object(value);
+  return {
+    source: text(dto.source),
+    reason: text(dto.reason),
+    relatedRank: dto.relatedRank == null ? null : finiteNumber(dto.relatedRank),
+    baseYm: dto.baseYm == null ? null : text(dto.baseYm),
+    sources: dto.sources === undefined ? [] : stringArray(dto.sources),
   };
 }
 
@@ -296,6 +331,8 @@ function mapPersistedExpedition(value: unknown): PersistedExpedition {
     status: status as PersistedExpedition["status"],
     createdAt: timestamp(dto.createdAt),
     completedAt: nullableTimestamp(dto.completedAt) ?? undefined,
+    routeKey: nullableText(dto.routeKey),
+    routeVersion: nullableText(dto.routeVersion),
     stops: dto.stops.map((value) => {
       const stop = object(value);
       return {
@@ -304,6 +341,11 @@ function mapPersistedExpedition(value: unknown): PersistedExpedition {
         reasons: stringArray(stop.reasons),
         place: mapEnrichedPlace(stop.place),
         completedAt: nullableTimestamp(stop.completedAt) ?? undefined,
+        kind: stop.kind === undefined ? "anchor" : stopKind(stop.kind),
+        placement: stop.placement === undefined ? "main" : stopPlacement(stop.placement),
+        required: stop.required === undefined ? true : boolean(stop.required),
+        selectedByDefault: stop.selectedByDefault === undefined ? true : boolean(stop.selectedByDefault),
+        evidence: stop.evidence == null ? null : mapStopEvidence(stop.evidence),
       };
     }),
   };
@@ -376,6 +418,7 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
           limit: String(filter.limit),
         });
         if (filter.keyword?.trim()) params.set("keyword", filter.keyword.trim());
+        if (filter.routeKey) params.set("routeKey", filter.routeKey);
         const response = await requestJson<unknown>(
           fetcher,
           `/api/v1/expeditions/recommended?${params.toString()}`,
@@ -402,10 +445,19 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
           await requestJson<unknown>(fetcher, `/api/v1/expeditions/${expeditionId}`),
         ));
       },
-      async start(recommendationId, filter) {
+      async start(recommendationId, filter, selectedRecommendationPlaceIds, routeVersion) {
+        const { routeKey, ...legacyFilter } = filter;
         return mapPersistedExpedition(await requestJson<unknown>(fetcher, "/api/v1/expeditions", {
           method: "POST",
-          body: JSON.stringify({ recommendationId, ...filter }),
+          body: JSON.stringify({
+            recommendationId,
+            ...legacyFilter,
+            ...(routeKey ? {
+              routeKey,
+              routeVersion,
+              selectedRecommendationPlaceIds: selectedRecommendationPlaceIds ?? [],
+            } : {}),
+          }),
         }));
       },
       async current() {

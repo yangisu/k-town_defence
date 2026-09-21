@@ -56,6 +56,18 @@ export interface ExpeditionRecommendationFilter {
   keyword?: string;
   travelDate: string;
   limit: 3 | 4 | 5;
+  routeKey?: string;
+}
+
+export type ExpeditionStopKind = "anchor" | "recommendation";
+export type ExpeditionStopPlacement = "before" | "main" | "between" | "after";
+
+export interface ExpeditionStopEvidence {
+  source: string;
+  reason: string;
+  relatedRank?: number | null;
+  baseYm?: string | null;
+  sources?: string[];
 }
 
 export interface LiveExpeditionStop {
@@ -63,6 +75,11 @@ export interface LiveExpeditionStop {
   distanceKm: number;
   reasons: string[];
   place: Place;
+  kind: ExpeditionStopKind;
+  placement: ExpeditionStopPlacement;
+  required: boolean;
+  selectedByDefault: boolean;
+  evidence: ExpeditionStopEvidence | null;
 }
 
 export interface LiveExpedition {
@@ -73,6 +90,8 @@ export interface LiveExpedition {
   travelDate: string;
   dataUpdatedAt?: string;
   stops: LiveExpeditionStop[];
+  routeKey?: string;
+  routeVersion?: string;
 }
 
 export interface OpenDataOperationStatus {
@@ -224,7 +243,12 @@ export interface TourismService {
 export interface ExpeditionService {
   listByRegion(regionId: string): Promise<Expedition[]>;
   get(expeditionId: string): Promise<Expedition>;
-  start(recommendationId: string, filter: ExpeditionRecommendationFilter): Promise<PersistedExpedition>;
+  start(
+    recommendationId: string,
+    filter: ExpeditionRecommendationFilter,
+    selectedRecommendationPlaceIds?: string[],
+    routeVersion?: string,
+  ): Promise<PersistedExpedition>;
   current(): Promise<PersistedExpedition | null>;
   abandon(expeditionId: string): Promise<PersistedExpedition>;
   complete(expeditionId: string): Promise<PersistedExpedition>;

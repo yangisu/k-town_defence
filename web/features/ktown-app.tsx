@@ -49,7 +49,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const [leavingArtistId, setLeavingArtistId] = useState<ArtistId | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
-  const [guideChecked, setGuideChecked] = useState(false);
+  const guideChecked = useRef(false);
   const [liveExpedition, setLiveExpedition] = useState<PersistedExpedition | null>(null);
   const [expeditionRecoveryStatus, setExpeditionRecoveryStatus] = useState<"ready" | "loading" | "error">(
     mode === "integrated" ? "loading" : "ready",
@@ -94,7 +94,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     // Choosing a first fandom is when the territory page appears, so the guide
     // opens here — but only for a visitor who has never finished it. Coming
     // back through a link is not a new account.
-    setGuideChecked(true);
+    guideChecked.current = true;
     try {
       if (!hasSeenTutorial(window.localStorage)) setGuideOpen(true);
     } catch {
@@ -185,7 +185,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const resetDemo = () => {
     // Resetting asks for the demo from the top, greeting included.
     forgetTutorial(window.localStorage);
-    setGuideChecked(false);
+    guideChecked.current = false;
     session.reset();
     setDrawerOpen(false);
     setResetOpen(false);
@@ -193,14 +193,18 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   // The guide explains the territory page, so it waits for a fandom instead
   // of greeting a visitor who is still choosing one.
   useEffect(() => {
-    if (guideChecked || !session.state.artistConfirmed) return;
-    setGuideChecked(true);
+    if (guideChecked.current || !session.state.artistConfirmed) return;
+    guideChecked.current = true;
+    let active = true;
     try {
-      if (!hasSeenTutorial(window.localStorage)) setGuideOpen(true);
+      if (!hasSeenTutorial(window.localStorage)) queueMicrotask(() => {
+        if (active) setGuideOpen(true);
+      });
     } catch {
       // Blocked storage only means the guide greets this visit too.
     }
-  }, [guideChecked, session.state.artistConfirmed]);
+    return () => { active = false; };
+  }, [session.state.artistConfirmed]);
   useEffect(() => {
     // Changing tab normally means starting at the top, but the guide decides
     // where each of its steps sits and this snapped the page away from it.
@@ -261,9 +265,14 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
               checkInMode={checkInMode ?? mode}
               checkInPractice={mode === "integrated" && guideOpen}
               liveExpedition={liveExpedition}
-              onEndExpedition={() => {
+              onCheckInApproved={async () => {
+                const refreshed = await services.expeditions.current();
+                if (refreshed) setLiveExpedition(refreshed);
+              }}
+              onEndExpedition={async (complete) => {
                 if (liveExpedition?.status === "active") {
-                  void services.expeditions.abandon(liveExpedition.id).catch(() => undefined);
+                  if (complete) await services.expeditions.complete(liveExpedition.id);
+                  else await services.expeditions.abandon(liveExpedition.id);
                 }
                 setLiveExpedition(null);
               }}

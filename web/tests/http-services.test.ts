@@ -207,6 +207,25 @@ const strictExpedition = {
     });
   });
 
+  it("sends the BTS route version and selected recommendation IDs", async () => {
+    const body = {
+      id: "expedition-1", recommendationId: "recommendation-1", title: "BTS 부산 원정", regionCode: "6",
+      territoryId: "busan", keyword: "BTS", travelDate: "2026-09-21", status: "active",
+      createdAt: "2026-09-21T00:00:00Z", completedAt: null, routeKey: "bts-busan",
+      routeVersion: "bts-busan-v1:snapshot:202504", stops: [],
+    };
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse(body, 201));
+    await createHttpServices(fetcher).expeditions.start("recommendation-1", {
+      regionCode: "6", keyword: "BTS", travelDate: "2026-09-21", limit: 5, routeKey: "bts-busan",
+    }, ["88b6c58d-032d-499a-b5e0-d619e38d7ccb"], "bts-busan-v1:snapshot:202504");
+
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
+      recommendationId: "recommendation-1", regionCode: "6", keyword: "BTS", travelDate: "2026-09-21", limit: 5,
+      routeKey: "bts-busan", routeVersion: "bts-busan-v1:snapshot:202504",
+      selectedRecommendationPlaceIds: ["88b6c58d-032d-499a-b5e0-d619e38d7ccb"],
+    });
+  });
+
   it("maps safe open-data status and rejects malformed expedition stops", async () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(jsonResponse({

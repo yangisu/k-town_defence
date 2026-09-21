@@ -25,6 +25,8 @@ const copy = {
     route: "원정 코스",
     estimated: "예상 시간",
     publicTag: "공공 관광 추천지",
+    requiredTag: "필수",
+    optionalTag: "선택",
     direct: "아티스트 연관 장소",
     source: "출처",
     dwell: "체류 인정 시간",
@@ -63,6 +65,8 @@ const copy = {
     route: "Expedition route",
     estimated: "Estimated",
     publicTag: "Public tourism pick",
+    requiredTag: "Required",
+    optionalTag: "Optional",
     direct: "Artist-linked place",
     source: "source",
     dwell: "Credited dwell",
@@ -171,6 +175,7 @@ export function PreviewExpeditionView({
   checkInPractice = false,
   liveExpedition = null,
   onEndExpedition,
+  onCheckInApproved,
 }: {
   expeditionId: string | null;
   checkInService: CheckInService;
@@ -179,7 +184,8 @@ export function PreviewExpeditionView({
   onStartCheckIn?: (place: PreviewMissionPlace) => void;
   checkInPractice?: boolean;
   liveExpedition?: PersistedExpedition | null;
-  onEndExpedition?: () => void;
+  onEndExpedition?: (complete: boolean) => Promise<void> | void;
+  onCheckInApproved?: () => Promise<void> | void;
 }) {
   const session = useDemoSession();
   const locale = session.state.locale;
@@ -234,10 +240,14 @@ export function PreviewExpeditionView({
     return <div className="panel-loading">{labels.missing}</div>;
   }
 
-  // Every stop checked in turns the closing action into a completion.
-  const allStopsCheckedIn = places.length > 0 && places.every((place) => session.state.approvedCheckIns.some((record) => (
-    record.expeditionId === expedition.id && record.placeId === place.id
-  )));
+  const stopCheckedIn = (placeId: string) => Boolean(
+    liveExpedition?.stops.find((stop) => stop.place.id === placeId)?.completedAt
+    || session.state.approvedCheckIns.some((record) => record.expeditionId === expedition.id && record.placeId === placeId),
+  );
+  const requiredPlaceIds = liveExpedition
+    ? liveExpedition.stops.filter((stop) => stop.required).map((stop) => stop.place.id)
+    : places.map((place) => place.id);
+  const allStopsCheckedIn = requiredPlaceIds.length > 0 && requiredPlaceIds.every(stopCheckedIn);
   const ownerStrongholdStage = territory.ownerArtistId === session.state.selectedArtistId ? territory.strongholdStage : null;
   const awards = places.map((place) => maximumAward(place, territory.balanceMultiplier, ownerStrongholdStage));
   const totalAward = awards.reduce((total, award) => total + award.cappedPoints, 0);
@@ -252,6 +262,7 @@ export function PreviewExpeditionView({
     if (!checkInPlace) return;
     setImpactBefore(session.state);
     session.dispatch({ type: "completeCheckIn", expeditionId: expedition.id, placeId: checkInPlace.id, award });
+    void onCheckInApproved?.();
   };
 
   return (
@@ -317,9 +328,8 @@ export function PreviewExpeditionView({
               const member = place.artistConnectionId
                 ? previewContent.connections.find((candidate) => candidate.id === place.artistConnectionId)?.memberName[locale]
                 : null;
-              const checkedIn = session.state.approvedCheckIns.some((record) => (
-                record.expeditionId === expedition.id && record.placeId === place.id
-              ));
+              const liveStop = liveExpedition?.stops.find((stop) => stop.place.id === place.id);
+              const checkedIn = stopCheckedIn(place.id);
               return (
                 <li key={place.id} className={checkedIn ? "done" : undefined} aria-label={place.name[locale]} {...(index === 0 ? { "data-guide": "expedition-stop-first" } : {})}>
                   <a
@@ -333,6 +343,7 @@ export function PreviewExpeditionView({
                   </a>
                   <div className="stop-copy">
                     <h3>{place.name[locale]}</h3>
+                    {liveStop ? <span className="stop-tag">{liveStop.required ? labels.requiredTag : labels.optionalTag}</span> : null}
                     <span className="stop-tag">{member ?? labels.publicTag}</span>
                     {place.description[locale] ? <p>{place.description[locale]}</p> : null}
                     <div className="stop-meta">
@@ -373,9 +384,9 @@ export function PreviewExpeditionView({
             <p>{allStopsCheckedIn ? labels.endCompleteBody : labels.endConfirmLost}</p>
             <div className="reset-dialog-actions">
               <button type="button" data-guide-close="expedition-end" onClick={() => setEndOpen(false)}>{labels.endCancel}</button>
-              <button type="button" className="danger" data-guide="expedition-end-confirm" onClick={() => {
+              <button type="button" className="danger" data-guide="expedition-end-confirm" onClick={async () => {
                 setEndOpen(false);
-                onEndExpedition?.();
+                await onEndExpedition?.(allStopsCheckedIn);
                 session.dispatch({ type: "endExpedition" });
               }}>{allStopsCheckedIn ? labels.endComplete : labels.end}</button>
             </div>

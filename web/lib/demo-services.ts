@@ -68,6 +68,8 @@ export const services: AppServices = {
         stops: stops.map((place, index) => ({
           order: index + 1, distanceKm: index * 0.8,
           reasons: [index === 0 && filter.keyword ? "키워드 일치" : "다른 유형의 지역 명소"], place,
+          kind: "anchor" as const, placement: "main" as const, required: true,
+          selectedByDefault: true, evidence: null,
         })),
       });
     },

@@ -12,8 +12,9 @@ import { summarizeTerritories } from "@/features/team-preview/territory-summary"
 import type { MapConfig } from "@/lib/map-config";
 import { ShareSheet } from "@/components/share/share-sheet";
 import { buildShareCard } from "@/features/share/build-share-card";
-import type { AppServices, PersistedExpedition } from "@/lib/domain";
+import type { AppServices, LiveExpedition, PersistedExpedition } from "@/lib/domain";
 import { territoryRegionCodes } from "@/lib/adapters/expedition";
+import { RouteRecommendationPicker } from "@/components/team-preview/route-recommendation-picker";
 
 type ExpeditionRecoveryStatus = "ready" | "loading" | "error";
 
@@ -35,6 +36,7 @@ export function TerritoryView({ mapConfig, services, integrated = false, expedit
   const [recentre, setRecentre] = useState(0);
   const [expeditionStartPending, setExpeditionStartPending] = useState(false);
   const [expeditionStartError, setExpeditionStartError] = useState(false);
+  const [routeRecommendation, setRouteRecommendation] = useState<LiveExpedition | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
   const selectedTerritory = session.state.artistConfirmed ? session.selectedTerritory : null;
@@ -140,17 +142,22 @@ export function TerritoryView({ mapConfig, services, integrated = false, expedit
             }
             setExpeditionStartError(false);
             setExpeditionStartPending(true);
-            void services.tourism.getRecommendedExpedition({
+            const routeKey = selectedArtist.id === "bts" && expedition.territoryId === "busan" ? "bts-busan" : undefined;
+            const filter = {
               regionCode,
               keyword: selectedArtist.artistName.ko,
               travelDate: new Date().toISOString().slice(0, 10),
-              limit: 5,
-            }).then((recommendation) => services.expeditions.start(recommendation.id, {
-              regionCode,
-              keyword: selectedArtist.artistName.ko,
-              travelDate: recommendation.travelDate,
-              limit: 5,
-            })).then((persisted) => {
+              limit: 5 as const,
+              routeKey,
+            };
+            void services.tourism.getRecommendedExpedition(filter).then((recommendation) => {
+              if (routeKey) {
+                setRouteRecommendation(recommendation);
+                return null;
+              }
+              return services.expeditions.start(recommendation.id, { ...filter, travelDate: recommendation.travelDate });
+            }).then((persisted) => {
+              if (!persisted) return;
               onLiveExpedition?.(persisted);
               session.dispatch({
                 type: "openRecommendedExpedition",
@@ -212,6 +219,34 @@ export function TerritoryView({ mapConfig, services, integrated = false, expedit
             ? "원정을 시작하지 못했어요. 잠시 후 다시 시도해 주세요."
             : "We could not start the expedition. Please try again shortly."}
         </p>
+      ) : null}
+      {integrated && routeRecommendation && services && selectedArtist && selectedTerritory ? (
+        <RouteRecommendationPicker
+          key={routeRecommendation.id}
+          recommendation={routeRecommendation}
+          locale={session.state.locale}
+          pending={expeditionStartPending}
+          onStart={(selectedRecommendationPlaceIds) => {
+            if (!routeRecommendation.routeKey || !routeRecommendation.routeVersion) {
+              setExpeditionStartError(true);
+              return;
+            }
+            setExpeditionStartError(false);
+            setExpeditionStartPending(true);
+            void services.expeditions.start(routeRecommendation.id, {
+              regionCode: routeRecommendation.regionCode,
+              keyword: routeRecommendation.keyword,
+              travelDate: routeRecommendation.travelDate,
+              limit: 5,
+              routeKey: routeRecommendation.routeKey,
+            }, selectedRecommendationPlaceIds, routeRecommendation.routeVersion).then((persisted) => {
+              setRouteRecommendation(null);
+              onLiveExpedition?.(persisted);
+              const selected = getPlayableExpedition(selectedArtist.id, selectedTerritory.id);
+              if (selected) session.dispatch({ type: "openRecommendedExpedition", expeditionId: selected.id, territoryId: selected.territoryId });
+            }).catch(() => setExpeditionStartError(true)).finally(() => setExpeditionStartPending(false));
+          }}
+        />
       ) : null}
       <div className={tacticalPanel ? "preview-map-layout" : "preview-map-layout preview-map-layout--solo"} ref={mapRef}>
         <TerritoryMap

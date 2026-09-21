@@ -11,6 +11,8 @@ const focusableSelector = [
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
 
+const activeFocusTraps: symbol[] = [];
+
 function isRadioGroupTabStop(element: HTMLElement, candidates: readonly HTMLElement[]) {
   if (!(element instanceof HTMLInputElement) || element.type !== "radio" || !element.name) return true;
 
@@ -38,12 +40,16 @@ export function useModalFocus(
   useEffect(() => {
     if (!active) return;
 
+    const trap = Symbol("modal-focus-trap");
+    activeFocusTraps.push(trap);
+    const ownsFocus = () => activeFocusTraps.at(-1) === trap;
     const invokingControl = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
     initialFocusRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (!ownsFocus()) return;
       if (event.key === "Escape") {
         event.preventDefault();
         closeRef.current();
@@ -72,6 +78,7 @@ export function useModalFocus(
     };
 
     const handleFocusIn = (event: FocusEvent) => {
+      if (!ownsFocus()) return;
       const container = containerRef.current;
       if (container && event.target instanceof Node && !container.contains(event.target)) {
         event.stopPropagation();
@@ -84,7 +91,12 @@ export function useModalFocus(
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("focusin", handleFocusIn, true);
-      if (invokingControl?.isConnected) invokingControl.focus();
+      const index = activeFocusTraps.lastIndexOf(trap);
+      if (index >= 0) activeFocusTraps.splice(index, 1);
+      // Restoring behind another open modal makes its trap and this cleanup
+      // bounce focus between containers. The remaining top trap already owns
+      // focus; restore only after the modal stack is empty.
+      if (activeFocusTraps.length === 0 && invokingControl?.isConnected) invokingControl.focus();
     };
   }, [active, containerRef, initialFocusRef]);
 }

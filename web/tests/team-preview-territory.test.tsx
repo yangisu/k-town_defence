@@ -51,6 +51,8 @@ const liveRecommendation: LiveExpedition = {
   regionCode: "6",
   keyword: "방탄소년단",
   travelDate: "2026-09-21",
+  routeKey: "bts-busan",
+  routeVersion: "bts-busan-v1:snapshot:RELATED_NONE",
   stops: [],
 };
 
@@ -127,7 +129,14 @@ it("starts an integrated expedition through the backend before opening the demo 
     .getByRole("button", { name: "원정 시작" }));
 
   await waitFor(() => expect(recommendation).toHaveBeenCalledWith(expect.objectContaining({ regionCode: "6", limit: 5 })));
-  expect(start).toHaveBeenCalledWith("recommendation-1", expect.objectContaining({ regionCode: "6", limit: 5 }));
+  expect(screen.getByText("현재는 선택 추천지가 없습니다")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "선택한 코스로 원정 시작" }));
+  expect(start).toHaveBeenCalledWith(
+    "recommendation-1",
+    expect.objectContaining({ regionCode: "6", limit: 5, routeKey: "bts-busan" }),
+    [],
+    "bts-busan-v1:snapshot:RELATED_NONE",
+  );
   expect(onLiveExpedition).toHaveBeenCalledWith(persistedExpedition);
 });
 

@@ -243,6 +243,23 @@ async def test_member_can_persist_restore_and_abandon_verified_recommendation(
     assert current.json()["status"] == "active"
     assert current.json()["territoryId"] == "busan"
     assert len(current.json()["stops"]) == 3
+    assert current.json()["routeKey"] is None
+    assert current.json()["routeVersion"] is None
+    assert all(
+        {
+            "kind": stop["kind"],
+            "placement": stop["placement"],
+            "required": stop["required"],
+            "selectedByDefault": stop["selectedByDefault"],
+        }
+        == {
+            "kind": "anchor",
+            "placement": "main",
+            "required": True,
+            "selectedByDefault": True,
+        }
+        for stop in current.json()["stops"]
+    )
 
     checkin = await member_client.post(
         "/api/v1/checkins",

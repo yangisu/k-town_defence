@@ -13,17 +13,23 @@ async def test_active_fandoms_are_listed_for_selection(api_client) -> None:
     response = await api_client.get("/api/v1/fandoms")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "items": [
-            {"id": ARMY_ID, "name": "ARMY", "artistName": "방탄소년단"},
-            {"id": BLINK_ID, "name": "BLINK", "artistName": "BLACKPINK"},
-            {
-                "id": "10000000-0000-4000-8000-000000000003",
-                "name": "CARAT",
-                "artistName": "SEVENTEEN",
-            },
-        ]
-    }
+    items = response.json()["items"]
+    assert items[:3] == [
+        {"id": ARMY_ID, "name": "ARMY", "artistName": "방탄소년단"},
+        {"id": BLINK_ID, "name": "BLINK", "artistName": "BLACKPINK"},
+        {
+            "id": "10000000-0000-4000-8000-000000000003",
+            "name": "CARAT",
+            "artistName": "SEVENTEEN",
+        },
+    ]
+    # Every artist the web roster offers has to appear here by name: the app
+    # matches an artist to a fandom on this name, and one that is missing is an
+    # artist a member can pick but never actually join.
+    assert [item["name"] for item in items] == [
+        "ARMY", "BLINK", "CARAT", "REMINE", "COER", "MELODY", "DIVE", "TiiiKiii",
+        "BRIIZE", "ZEROSE", "ONEDOOR", "FEARNOT", "MY", "Bunnies", "UAENA",
+    ]
 
 
 async def test_member_can_select_once_and_read_the_persisted_membership(

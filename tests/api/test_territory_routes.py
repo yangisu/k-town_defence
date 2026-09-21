@@ -11,7 +11,10 @@ async def test_territory_board_comes_from_backend_contract(api_client) -> None:
     assert busan["nameKo"] == "부산"
     assert busan["ownerFandomId"] == ARMY_ID
     assert busan["strongholdStage"] == "seed"
-    assert [standing["fandomName"] for standing in busan["standings"]] == [
+    # Every active fandom stands on every territory, so the board grew with the
+    # catalog; the three seeded first still lead it in id order.
+    assert [standing["fandomName"] for standing in busan["standings"]][:3] == [
         "ARMY", "BLINK", "CARAT"
     ]
+    assert len(busan["standings"]) == 15
     assert all(standing["validPoints"] == 0 for standing in busan["standings"])

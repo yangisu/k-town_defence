@@ -58,5 +58,17 @@ def test_membership_migration_creates_constraints_and_seed_catalog() -> None:
         ("ARMY", "방탄소년단"),
         ("BLINK", "BLACKPINK"),
         ("CARAT", "SEVENTEEN"),
+        ("REMINE", "리센느"),
+        ("COER", "코르티스"),
+        ("MELODY", "비투비"),
+        ("DIVE", "아이브"),
+        ("TiiiKiii", "키키"),
+        ("BRIIZE", "라이즈"),
+        ("ZEROSE", "제로베이스원"),
+        ("ONEDOOR", "보이넥스트도어"),
+        ("FEARNOT", "르세라핌"),
+        ("MY", "에스파"),
+        ("Bunnies", "뉴진스"),
+        ("UAENA", "아이유"),
     ]
     assert current_seasons == 1

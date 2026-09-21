@@ -1,4 +1,4 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
 
@@ -75,6 +75,52 @@ async def test_collecting_session_cannot_submit(member_client, public_place) -> 
 
     assert response.status_code == 409
     assert response.json()["code"] == "CHECKIN_NOT_READY"
+
+
+async def test_demo_verification_bypasses_only_evidence_and_snapshots_membership(
+    member_client, public_place, session_factory
+) -> None:
+    fandom_id = "10000000-0000-4000-8000-000000000001"
+    membership = await member_client.put(
+        "/api/v1/me/season-membership", json={"fandomId": fandom_id}
+    )
+    assert membership.status_code == 200
+    created = await member_client.post(
+        "/api/v1/checkins",
+        json={"placeId": str(public_place.id), "verificationType": "demo"},
+    )
+    assert created.status_code == 201
+    assert created.json()["status"] == "ready"
+    assert created.json()["verificationType"] == "demo"
+
+    response = await member_client.post(
+        f"/api/v1/checkins/{created.json()['id']}/submit",
+        headers={"Idempotency-Key": str(uuid4())},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["decision"] == "approved"
+    assert response.json()["awardedPoints"] == 100
+    async with session_factory() as session:
+        persisted = await session.get(SubmissionModel, UUID(response.json()["id"]))
+        assert persisted is not None
+        assert str(persisted.fandom_id) == fandom_id
+        assert persisted.season_id is not None
+        assert persisted.territory_id == "busan"
+
+
+async def test_practice_demo_uses_pipeline_without_awarding_points(member_client, public_place) -> None:
+    created = await member_client.post(
+        "/api/v1/checkins",
+        json={"placeId": str(public_place.id), "verificationType": "demo", "practice": True},
+    )
+    response = await member_client.post(
+        f"/api/v1/checkins/{created.json()['id']}/submit",
+        headers={"Idempotency-Key": str(uuid4())},
+    )
+    assert created.json()["practice"] is True
+    assert response.json()["decision"] == "approved"
+    assert response.json()["awardedPoints"] == 0
 
 
 async def test_gps_inside_geofence_auto_approves_and_awards_first_visit_points(

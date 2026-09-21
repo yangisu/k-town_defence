@@ -2,6 +2,7 @@
 
 import { createContext, type Dispatch, type ReactNode, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { previewContent } from "./content";
+import type { FandomStanding, PreviewTerritory } from "./types";
 import {
   createInitialDemoSession,
   DEMO_SESSION_KEY,
@@ -21,6 +22,7 @@ interface DemoSessionContextValue {
   selectedArtist: (typeof previewContent.artists)[number] | null;
   selectedTerritory: DemoSession["territories"][number] | null;
   reset: () => void;
+  territoryError: boolean;
   /** Stops the session being persisted anywhere, for a practice run whose
    *  every effect is meant to be thrown away. */
   seal: (sealed: boolean) => void;
@@ -33,9 +35,29 @@ export interface RemoteDemoSessionStore {
   save(state: DemoSession): Promise<void>;
 }
 
-export function DemoSessionProvider({ children, storage, remote }: { children: ReactNode; storage?: Storage; remote?: RemoteDemoSessionStore }) {
+function fandomsFor(territories: PreviewTerritory[]): FandomStanding[] {
+  return previewContent.artists.map((artist) => ({
+    artistId: artist.id,
+    fandomName: artist.fandomName,
+    strongholds: territories.filter((territory) => territory.ownerArtistId === artist.id).length,
+    validPoints: territories.reduce(
+      (total, territory) => total + (territory.standings.find((standing) => standing.artistId === artist.id)?.validPoints ?? 0),
+      0,
+    ),
+    trend: "same",
+  }));
+}
+
+export function DemoSessionProvider({ children, storage, remote, loadTerritories }: {
+  children: ReactNode;
+  storage?: Storage;
+  remote?: RemoteDemoSessionStore;
+  loadTerritories?: () => Promise<PreviewTerritory[]>;
+}) {
   const [state, dispatch] = useReducer(demoSessionReducer, undefined, createInitialDemoSession);
   const [hydrated, setHydrated] = useState(false);
+  const [serverTerritories, setServerTerritories] = useState<PreviewTerritory[] | null>(null);
+  const [territoryError, setTerritoryError] = useState(false);
   // While sealed, the session lives only in memory.
   const [sealed, setSealed] = useState(false);
   const loaded = useRef(false);
@@ -59,13 +81,24 @@ export function DemoSessionProvider({ children, storage, remote }: { children: R
           persistenceReady = false;
         }
       }
+      if (loadTerritories) {
+        try {
+          const territories = await loadTerritories();
+          if (!active) return;
+          setServerTerritories(territories);
+        } catch {
+          if (!active) return;
+          setServerTerritories([]);
+          setTerritoryError(true);
+        }
+      }
       if (!active) return;
       dispatch({ type: "hydrate", state: savedState });
       loaded.current = persistenceReady;
       setHydrated(true);
     })();
     return () => { active = false; };
-  }, [remote, sessionStorage]);
+  }, [loadTerritories, remote, sessionStorage]);
 
   // Nothing the tutorial does is written down. It has the reader walk a real
   // check-in, and a practice visit must not survive in storage, on the server
@@ -85,16 +118,30 @@ export function DemoSessionProvider({ children, storage, remote }: { children: R
   }, [remote, sealed, sessionStorage, state]);
 
   const value = useMemo(() => {
-    const selectedArtist = previewContent.artists.find((artist) => artist.id === state.selectedArtistId) ?? null;
-    const selectedTerritory = state.territories.find((territory) => territory.id === state.selectedTerritoryId) ?? null;
+    const visibleState = serverTerritories === null ? state : {
+      ...state,
+      territories: serverTerritories,
+      fandoms: fandomsFor(serverTerritories),
+    };
+    const selectedArtist = previewContent.artists.find((artist) => artist.id === visibleState.selectedArtistId) ?? null;
+    const selectedTerritory = visibleState.territories.find((territory) => territory.id === visibleState.selectedTerritoryId) ?? null;
     const reset = () => {
       sessionStorage?.removeItem(DEMO_SESSION_KEY);
       sessionStorage?.removeItem(LEGACY_DEMO_SESSION_KEY);
       skipNextSave.current = true;
       dispatch({ type: "reset" });
     };
-    return { state, hydrated, dispatch, selectedArtist, selectedTerritory, reset, seal: setSealed };
-  }, [hydrated, sessionStorage, state]);
+    return {
+      state: visibleState,
+      hydrated,
+      dispatch,
+      selectedArtist,
+      selectedTerritory,
+      reset,
+      territoryError,
+      seal: setSealed,
+    };
+  }, [hydrated, serverTerritories, sessionStorage, state, territoryError]);
 
   return <DemoSessionContext.Provider value={value}>{children}</DemoSessionContext.Provider>;
 }

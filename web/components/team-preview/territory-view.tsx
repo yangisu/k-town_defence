@@ -12,9 +12,18 @@ import { summarizeTerritories } from "@/features/team-preview/territory-summary"
 import type { MapConfig } from "@/lib/map-config";
 import { ShareSheet } from "@/components/share/share-sheet";
 import { buildShareCard } from "@/features/share/build-share-card";
+import type { AppServices, PersistedExpedition } from "@/lib/domain";
+import { territoryRegionCodes } from "@/lib/adapters/expedition";
 
-export function TerritoryView({ mapConfig }: {
+type ExpeditionRecoveryStatus = "ready" | "loading" | "error";
+
+export function TerritoryView({ mapConfig, services, integrated = false, expeditionRecoveryStatus = "ready", onRetryExpeditionRecovery, onLiveExpedition }: {
   mapConfig: MapConfig | null;
+  services?: AppServices;
+  integrated?: boolean;
+  expeditionRecoveryStatus?: ExpeditionRecoveryStatus;
+  onRetryExpeditionRecovery?: () => void;
+  onLiveExpedition?: (expedition: PersistedExpedition) => void;
 }) {
   const session = useDemoSession();
   // The filter is part of where the reader is, so it lives in the session and
@@ -24,6 +33,8 @@ export function TerritoryView({ mapConfig }: {
   const setFilter = (next: TerritoryFilter) => session.dispatch({ type: "setTerritoryFilter", filter: next });
   // Bumped when the map is asked to frame the territory it already has.
   const [recentre, setRecentre] = useState(0);
+  const [expeditionStartPending, setExpeditionStartPending] = useState(false);
+  const [expeditionStartError, setExpeditionStartError] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
   const selectedTerritory = session.state.artistConfirmed ? session.selectedTerritory : null;
@@ -107,11 +118,51 @@ export function TerritoryView({ mapConfig }: {
           expeditionTerritory={expeditionTerritory}
           pageIndex={pageIndex}
           pageCount={visibleTerritories.length}
+          startDisabled={integrated && (expeditionRecoveryStatus !== "ready" || expeditionStartPending)}
+          startPending={expeditionStartPending}
           onPage={(index) => {
             const next = visibleTerritories[index];
             if (next) selectTerritory(next.id, { follow: false });
           }}
-          onStartExpedition={() => session.dispatch({ type: "openExpedition", expeditionId: expedition.id })}
+          onStartExpedition={() => {
+            if (!integrated || !services || isGuideRunning()) {
+              session.dispatch({
+                type: "openRecommendedExpedition",
+                expeditionId: expedition.id,
+                territoryId: expedition.territoryId,
+              });
+              return;
+            }
+            const regionCode = territoryRegionCodes[expedition.territoryId];
+            if (!regionCode) {
+              setExpeditionStartError(true);
+              return;
+            }
+            setExpeditionStartError(false);
+            setExpeditionStartPending(true);
+            void services.tourism.getRecommendedExpedition({
+              regionCode,
+              keyword: selectedArtist.artistName.ko,
+              travelDate: new Date().toISOString().slice(0, 10),
+              limit: 5,
+            }).then((recommendation) => services.expeditions.start(recommendation.id, {
+              regionCode,
+              keyword: selectedArtist.artistName.ko,
+              travelDate: recommendation.travelDate,
+              limit: 5,
+            })).then((persisted) => {
+              onLiveExpedition?.(persisted);
+              session.dispatch({
+                type: "openRecommendedExpedition",
+                expeditionId: expedition.id,
+                territoryId: expedition.territoryId,
+              });
+            }).catch(() => {
+              setExpeditionStartError(true);
+            }).finally(() => {
+              setExpeditionStartPending(false);
+            });
+          }}
         />
       );
     }
@@ -137,6 +188,30 @@ export function TerritoryView({ mapConfig }: {
             typeof window === "undefined" ? undefined : window.location.origin,
           )}
         />
+      ) : null}
+      {integrated && expeditionRecoveryStatus === "loading" ? (
+        <p className="expedition-service-message" role="status" aria-live="polite">
+          {session.state.locale === "ko" ? "진행 중인 원정을 확인하고 있어요." : "Checking your current expedition."}
+        </p>
+      ) : null}
+      {integrated && expeditionRecoveryStatus === "error" ? (
+        <div className="expedition-service-message expedition-service-message--error" role="alert">
+          <span>{session.state.locale === "ko"
+            ? "진행 중인 원정을 확인하지 못했어요. 중복 원정을 막기 위해 새 원정 시작을 잠시 막았어요."
+            : "We could not check your current expedition. Starting a new one is paused to prevent duplicates."}</span>
+          {onRetryExpeditionRecovery ? (
+            <button type="button" onClick={onRetryExpeditionRecovery}>
+              {session.state.locale === "ko" ? "다시 시도" : "Try again"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {expeditionStartError ? (
+        <p className="expedition-service-message expedition-service-message--error" role="alert">
+          {session.state.locale === "ko"
+            ? "원정을 시작하지 못했어요. 잠시 후 다시 시도해 주세요."
+            : "We could not start the expedition. Please try again shortly."}
+        </p>
       ) : null}
       <div className={tacticalPanel ? "preview-map-layout" : "preview-map-layout preview-map-layout--solo"} ref={mapRef}>
         <TerritoryMap

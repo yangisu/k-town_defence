@@ -24,6 +24,7 @@ import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/dem
 import type { DemoSession as DemoSessionState } from "@/features/team-preview/demo-session";
 import type { ArtistId } from "@/features/team-preview/types";
 import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
+import { isGuideRunning } from "@/features/team-preview/guide-running";
 import { createRemoteDemoSessionStore } from "@/features/team-preview/remote-session-store";
 import { t } from "@/features/team-preview/i18n";
 import { MembershipGate } from "@/components/membership/membership-gate";
@@ -91,6 +92,18 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
       document.querySelector<HTMLButtonElement>(".territory-list-toggle[aria-expanded='false']")?.click();
       return;
     }
+    // Asking someone to press Start Expedition while a route is already
+    // running answers itself: the step saw the route and moved straight on.
+    // Clearing it first means the press is theirs to make.
+    if (step.awaits === "expedition") {
+      if (session.state.activeTab !== step.tab) session.dispatch({ type: "changeTab", tab: step.tab });
+      if (session.state.activeExpeditionId) session.dispatch({ type: "endExpedition" });
+      if (!session.state.selectedTerritoryId) {
+        const first = session.state.territories[0];
+        if (first) session.dispatch({ type: "selectTerritory", territoryId: first.id });
+      }
+      return;
+    }
     // The expedition chapter needs a route open. The reader starts it
     // themselves on the step before; this only covers a replay that jumps
     // straight in, and picks the route for whatever territory they are on.
@@ -118,6 +131,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
 
   const closeGuide = () => {
     setGuideOpen(false);
+    session.seal(false);
     // The guide has the reader walk a real check-in, so it hands the session
     // back exactly as it found it: the practice points, the route it started
     // and the territory it picked are all put back. Nothing done inside the
@@ -136,8 +150,12 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   // a first fandom asks in the same breath as choosing one, and the state at
   // that moment has no fandom on it yet.
   useEffect(() => {
-    if (guideOpen) guideSnapshot.current ??= session.state;
-  }, [guideOpen, session.state]);
+    if (!guideOpen) return;
+    guideSnapshot.current ??= session.state;
+    // Sealed for the whole visit, so a practice check-in never reaches storage
+    // or the server — not even if the tab is closed mid-tutorial.
+    session.seal(true);
+  }, [guideOpen, session]);
 
   const resetDemo = () => {
     // Resetting asks for the demo from the top, greeting included.
@@ -159,6 +177,9 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     }
   }, [guideChecked, session.state.artistConfirmed]);
   useEffect(() => {
+    // Changing tab normally means starting at the top, but the guide decides
+    // where each of its steps sits and this snapped the page away from it.
+    if (isGuideRunning()) return;
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [session.state.activeTab, session.state.artistConfirmed]);
   useModalFocus(resetOpen, resetDialogRef, resetTitleRef, () => setResetOpen(false));

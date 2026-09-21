@@ -23,6 +23,9 @@ interface DemoSessionContextValue {
   selectedTerritory: DemoSession["territories"][number] | null;
   reset: () => void;
   territoryError: boolean;
+  /** Stops the session being persisted anywhere, for a practice run whose
+   *  every effect is meant to be thrown away. */
+  seal: (sealed: boolean) => void;
 }
 
 const DemoSessionContext = createContext<DemoSessionContextValue | null>(null);
@@ -55,6 +58,8 @@ export function DemoSessionProvider({ children, storage, remote, loadTerritories
   const [hydrated, setHydrated] = useState(false);
   const [serverTerritories, setServerTerritories] = useState<PreviewTerritory[] | null>(null);
   const [territoryError, setTerritoryError] = useState(false);
+  // While sealed, the session lives only in memory.
+  const [sealed, setSealed] = useState(false);
   const loaded = useRef(false);
   const skipNextSave = useRef(false);
   const sessionStorage = storage ?? (typeof window === "undefined" ? undefined : window.localStorage);
@@ -95,8 +100,11 @@ export function DemoSessionProvider({ children, storage, remote, loadTerritories
     return () => { active = false; };
   }, [loadTerritories, remote, sessionStorage]);
 
+  // Nothing the tutorial does is written down. It has the reader walk a real
+  // check-in, and a practice visit must not survive in storage, on the server
+  // or in their records — not even if they close the tab halfway through.
   useEffect(() => {
-    if (!sessionStorage || !loaded.current) return;
+    if (!sessionStorage || !loaded.current || sealed) return;
     if (skipNextSave.current) {
       skipNextSave.current = false;
       return;
@@ -107,7 +115,7 @@ export function DemoSessionProvider({ children, storage, remote, loadTerritories
       void remote.save(state).catch(() => undefined);
     }, 350);
     return () => window.clearTimeout(timeout);
-  }, [remote, sessionStorage, state]);
+  }, [remote, sealed, sessionStorage, state]);
 
   const value = useMemo(() => {
     const visibleState = serverTerritories === null ? state : {
@@ -123,7 +131,16 @@ export function DemoSessionProvider({ children, storage, remote, loadTerritories
       skipNextSave.current = true;
       dispatch({ type: "reset" });
     };
-    return { state: visibleState, hydrated, dispatch, selectedArtist, selectedTerritory, reset, territoryError };
+    return {
+      state: visibleState,
+      hydrated,
+      dispatch,
+      selectedArtist,
+      selectedTerritory,
+      reset,
+      territoryError,
+      seal: setSealed,
+    };
   }, [hydrated, serverTerritories, sessionStorage, state, territoryError]);
 
   return <DemoSessionContext.Provider value={value}>{children}</DemoSessionContext.Provider>;

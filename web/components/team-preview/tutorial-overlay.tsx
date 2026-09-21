@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, X } from "@/components/ui/icons";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { GUIDE_STEPS, type GuideStep } from "@/features/team-preview/guide-steps";
+import { setGuideRunning } from "@/features/team-preview/guide-running";
 import { t } from "@/features/team-preview/i18n";
 import type { Locale } from "@/features/team-preview/types";
 
@@ -54,11 +55,19 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
   const lastStep = index === GUIDE_STEPS.length - 1;
   const waiting = step.awaits !== undefined;
   const [domDone, setDomDone] = useState(false);
+  // False while the page is still moving into place for this step.
+  const [settled, setSettled] = useState(false);
   const done = step.awaits === "territory"
     ? territorySelected
     : step.awaits === "expedition"
       ? expeditionOpen
       : step.awaits === "dom" ? domDone : false;
+
+  // The app stops scrolling the page on its own while the guide is driving.
+  useEffect(() => {
+    setGuideRunning(true);
+    return () => setGuideRunning(false);
+  }, []);
 
   useModalFocus(true, dialogRef, closeRef, onClose);
 
@@ -84,6 +93,12 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
     setDomDone(false);
     const selector = step.awaits === "dom" ? step.advanceWhen : undefined;
     if (!selector) return;
+    // Stepping back onto "press check-in" with the check-in already open would
+    // see its own condition met and bounce straight forward again, so the step
+    // puts the page back the way it needs it first.
+    if (step.undoWith && document.querySelector(selector)) {
+      document.querySelector<HTMLElement>(step.undoWith)?.click();
+    }
     let frame = 0;
     const look = () => {
       const gone = selector.startsWith("!");
@@ -128,12 +143,29 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
     // something first — the phone's territory list — slid up and was yanked
     // back down mid-glide. Here the target is watched until it holds still,
     // and only then is a single scroll issued, to wherever the step wants it.
+    setSettled(false);
     let settleFrame = 0;
     let lastOffset = Number.NaN;
     let stillFor = 0;
+    if (!step.target) {
+      // Nothing to point at, so nothing to wait for — and the stale outline
+      // from the step before must not linger over the centred card.
+      setRect(null);
+      setSettled(true);
+      return;
+    }
+    let waited = 0;
     const place = () => {
       const element = document.querySelector<HTMLElement>(`[data-guide="${step.target}"]`);
-      if (!element) return;
+      // Stepping back onto a page the guide has to rebuild first, the target
+      // is briefly absent. Giving up here left the guide invisible and the
+      // page unscrolled, so it waits for the control to arrive.
+      if (!element) {
+        waited += 1;
+        if (waited > 180) setSettled(true);
+        else settleFrame = window.requestAnimationFrame(place);
+        return;
+      }
       const box = element.getBoundingClientRect();
       const offset = box.top + window.scrollY;
       stillFor = Math.abs(offset - lastOffset) < 0.5 ? stillFor + 1 : 0;
@@ -154,10 +186,26 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
       const frameBox = scroller ? scroller.getBoundingClientRect() : { top: 0, height: window.innerHeight };
       const wanted = frameBox.top + frameBox.height * anchor - box.height / 2;
       const by = box.top - wanted;
-      if (Math.abs(by) <= 4) return;
+      if (Math.abs(by) <= 4) {
+        setSettled(true);
+        return;
+      }
       // jsdom has neither, and a guide that cannot scroll still works.
       if (scroller) scroller.scrollBy?.({ top: by, behavior: "smooth" });
       else window.scrollBy?.({ top: by, behavior: "smooth" });
+      // Hold the reveal until the scroll has actually stopped. Showing the
+      // ring and the card first made them chase the page: the ring redrawn
+      // every frame, the card re-laid out under it.
+      let quiet = 0;
+      let lastTop = Number.NaN;
+      const waitForStop = () => {
+        const now = element.getBoundingClientRect().top;
+        quiet = Math.abs(now - lastTop) < 0.5 ? quiet + 1 : 0;
+        lastTop = now;
+        if (quiet >= 4) setSettled(true);
+        else settleFrame = window.requestAnimationFrame(waitForStop);
+      };
+      settleFrame = window.requestAnimationFrame(waitForStop);
     };
     settleFrame = window.requestAnimationFrame(place);
 
@@ -247,7 +295,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
   ] : [{ top: 0, left: 0, width: viewportWidth, height: viewportHeight }];
 
   return (
-    <div className={`tutorial-overlay tutorial-overlay--${placement}`}>
+    <div className={`tutorial-overlay tutorial-overlay--${placement}${settled ? "" : " tutorial-overlay--moving"}${step.cardless ? " tutorial-overlay--cardless" : ""}`}>
       {/* Off a waiting step, the sealed-off area is also the "next" control, so
           a reader can tap wherever they are already looking. While the guide
           waits, it only blocks. */}
@@ -263,6 +311,18 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
           onClick={waiting ? undefined : advance}
         />
       ))}
+      {/* The dim itself, with the hole cut to the same rounded shape as the
+          outline. Four square panels left bright corners sticking out past the
+          ring; they now only block presses and carry no colour. This one stays
+          through a step change so the screen never flashes, and eases to the
+          next target instead of jumping to it. */}
+      {spotlight ? (
+        <div
+          className="tutorial-mask"
+          aria-hidden="true"
+          style={{ top: spotlight.top, left: spotlight.left, width: spotlight.width, height: spotlight.height }}
+        />
+      ) : null}
       {spotlight ? (
         <div
           className={waiting ? "tutorial-spotlight tutorial-spotlight--beckon" : "tutorial-spotlight"}
@@ -281,6 +341,7 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
       ) : null}
       <div
         className={waiting ? "tutorial-card tutorial-card--waiting" : "tutorial-card"}
+        aria-hidden={step.cardless ? "true" : undefined}
         role="dialog"
         aria-modal="true"
         aria-labelledby="tutorial-title"
@@ -293,7 +354,9 @@ export function TutorialOverlay({ locale, onClose, onPrepareStep, territorySelec
             type="button"
             className="tutorial-back"
             aria-label={t(locale, "tutorialBack")}
-            disabled={index === 0}
+            // Past a check-in there is nothing to go back to: the evidence
+            // cannot be un-gathered, nor the submission recalled.
+            disabled={index === 0 || step.noBack === true}
             onClick={(event) => {
               event.stopPropagation();
               setIndex((current) => Math.max(0, current - 1));

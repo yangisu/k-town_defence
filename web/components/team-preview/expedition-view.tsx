@@ -334,11 +334,11 @@ export function PreviewExpeditionView({
                       <span className="benefit">{place.localBenefit[locale]}</span>
                     </div>
                   </div>
-                  <div className="stop-action" {...(index === 0 ? { "data-guide": "expedition-check-in" } : {})}>
+                  <div className="stop-action">
                     <strong>{labels.maximum} {stopAward.cappedPoints}P</strong>
                     {checkedIn
                       ? <span className="stop-done">{labels.checkInDone}</span>
-                      : <button type="button" onClick={() => startCheckIn(place)} aria-label={`${place.name[locale]} ${labels.checkIn}`}>{labels.checkIn}</button>}
+                      : <button type="button" {...(index === 0 ? { "data-guide": "expedition-check-in" } : {})} onClick={() => startCheckIn(place)} aria-label={`${place.name[locale]} ${labels.checkIn}`}>{labels.checkIn}</button>}
                   </div>
                 </li>
               );
@@ -365,7 +365,7 @@ export function PreviewExpeditionView({
             <p>{labels.endConfirmKept}</p>
             <p>{allStopsCheckedIn ? labels.endCompleteBody : labels.endConfirmLost}</p>
             <div className="reset-dialog-actions">
-              <button type="button" onClick={() => setEndOpen(false)}>{labels.endCancel}</button>
+              <button type="button" data-guide-close="expedition-end" onClick={() => setEndOpen(false)}>{labels.endCancel}</button>
               <button type="button" className="danger" data-guide="expedition-end-confirm" onClick={() => {
                 setEndOpen(false);
                 session.dispatch({ type: "endExpedition" });

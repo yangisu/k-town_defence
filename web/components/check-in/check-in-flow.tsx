@@ -230,7 +230,7 @@ export function CheckInFlow({
             <span className="demo-pill">{mode === "integrated" ? "실제 체크인" : demoLabels.pill}</span>
             <h1 className="sr-only" id="checkin-title" tabIndex={-1} ref={titleRef}>{mode === "integrated" ? "현장 체크인" : demoLabels.title}</h1>
           </div>
-          <button className="icon-button" aria-label={mode === "integrated" ? "체크인 닫기" : demoLabels.close} onClick={onClose}><X /></button>
+          <button className="icon-button" data-guide-close="checkin" aria-label={mode === "integrated" ? "체크인 닫기" : demoLabels.close} onClick={onClose}><X /></button>
         </header>
 
         {result ? (

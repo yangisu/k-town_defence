@@ -208,10 +208,15 @@ it("keeps nothing the practice check-in earned", async () => {
     else if (step.id === "check-in-submit") await user.click(screen.getAllByRole("button", { name: /^체크인 제출$/ })[0]);
     await within(dialog).findByText(`${index + 2} / ${GUIDE_STEPS.length}`);
   }
+  // The check-in really happened — the reader is looking at the points it
+  // earned — and yet nothing of it reached storage. A practice run is sealed
+  // in memory, so closing the tab halfway through leaves no trace either.
+  expect(screen.getByText("체크인 승인 완료")).toBeVisible();
   const during = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!);
-  expect(during.approvedCheckIns.length).toBe(1);
+  expect(during.approvedCheckIns).toEqual(before.approvedCheckIns);
+  expect(during.activeExpeditionId).toBe(before.activeExpeditionId);
 
-  // Leaving the guide hands the session back exactly as it was found.
+  // Leaving the guide hands the in-memory session back as it was found too.
   await user.keyboard("{Escape}");
   const after = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!);
   expect(after.approvedCheckIns).toEqual(before.approvedCheckIns);

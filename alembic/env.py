@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -8,7 +9,6 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from ktown_defense.infrastructure.models import Base
-from ktown_defense.settings import Settings
 
 
 config = context.config
@@ -16,7 +16,10 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
-config.set_main_option("sqlalchemy.url", Settings().database_url)
+# Keep an explicit URL supplied by Alembic callers (notably the isolated test
+# database) authoritative.  The CLI default remains the URL in alembic.ini.
+if database_url := os.getenv("KTOWN_DATABASE_URL"):
+    config.set_main_option("sqlalchemy.url", database_url)
 
 
 def run_migrations_offline() -> None:

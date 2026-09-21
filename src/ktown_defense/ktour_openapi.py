@@ -100,6 +100,7 @@ class KTourOpenAPIClient:
         # data.go.kr exposes both encoded and decoded keys. Normalize, then
         # urlencode exactly once when building each request.
         self._service_key = unquote(service_key.strip())
+        self._base_url = KTOUR_BASE_URL
         self._mobile_app = mobile_app.strip()
         self._page_size = page_size
         self._timeout_seconds = timeout_seconds
@@ -247,7 +248,7 @@ class KTourOpenAPIClient:
             "_type": "json",
         }
         params.update(operation_params)
-        url = f"{KTOUR_BASE_URL}/{operation}?{urlencode(params)}"
+        url = f"{self._base_url}/{operation}?{urlencode(params)}"
         payload: bytes | None = None
         for attempt in range(1, self._max_attempts + 1):
             try:

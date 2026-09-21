@@ -18,6 +18,16 @@ from .infrastructure.models import (
     OpenApiCallLogModel,
     PlaceModel,
 )
+from .bts_busan_route import (
+    ALGORITHM_VERSION,
+    BTS_BUSAN_ROUTE,
+    Candidate as BtsCandidate,
+    Observation,
+    ROUTE_KEY,
+    compose_candidates,
+    haversine_km,
+    recommendation_digest,
+)
 
 
 @dataclass(frozen=True)
@@ -54,6 +64,11 @@ class RecommendedStop:
     candidate: ExpeditionCandidate
     distance_km: float
     reasons: tuple[str, ...]
+    kind: str = "anchor"
+    placement: str = "main"
+    required: bool = True
+    selected_by_default: bool = True
+    evidence: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -65,6 +80,8 @@ class RecommendedExpedition:
     snapshot_version: str
     stops: tuple[RecommendedStop, ...]
     data_updated_at: datetime | None
+    route_key: str | None = None
+    route_version: str | None = None
 
 
 def select_expedition(
@@ -170,7 +187,15 @@ class ExpeditionRecommendationService:
         keyword: str | None,
         travel_date: date,
         limit: int,
+        route_key: str | None = None,
     ) -> tuple[RecommendedExpedition, dict[UUID, PlaceModel]]:
+        if route_key is not None:
+            if route_key != ROUTE_KEY:
+                raise ValueError("route not supported")
+            return await self._recommend_bts(
+                session, region_code=region_code, keyword=keyword,
+                travel_date=travel_date, limit=limit,
+            )
         visit_count = (
             select(func.count(CheckInSessionModel.id))
             .where(
@@ -234,6 +259,129 @@ class ExpeditionRecommendationService:
             models,
         )
 
+    async def _recommend_bts(
+        self,
+        session: AsyncSession,
+        *,
+        region_code: str,
+        keyword: str | None,
+        travel_date: date,
+        limit: int,
+    ) -> tuple[RecommendedExpedition, dict[UUID, PlaceModel]]:
+        if region_code != "6":
+            raise ValueError("route not supported")
+        anchor_content_ids = [anchor.content_id for anchor in BTS_BUSAN_ROUTE.anchors]
+        anchor_rows = (await session.execute(
+            select(PlaceModel).where(
+                PlaceModel.content_id.in_(anchor_content_ids),
+                PlaceModel.is_public.is_(True),
+                PlaceModel.is_active.is_(True),
+            )
+        )).scalars().all()
+        anchors_by_content = {place.content_id: place for place in anchor_rows}
+        if any(content_id not in anchors_by_content for content_id in anchor_content_ids):
+            raise ValueError("route anchors unavailable")
+        anchor_models = [anchors_by_content[content_id] for content_id in anchor_content_ids]
+        catalog = (await session.execute(
+            select(PlaceModel).where(
+                PlaceModel.region_code == "6",
+                PlaceModel.source == "KTOUR_API",
+                PlaceModel.is_public.is_(True),
+                PlaceModel.is_active.is_(True),
+            ).order_by(PlaceModel.content_id, PlaceModel.id)
+        )).scalars().all()
+        observations = tuple(
+            observation
+            for place in catalog
+            for observation in _observations_for(place)
+        )
+        candidates = tuple(
+            BtsCandidate(
+                id=place.id,
+                content_id=place.content_id or "",
+                name_ko=place.name_ko,
+                latitude=float(place.latitude),
+                longitude=float(place.longitude),
+                content_type_id=place.content_type_id or "",
+                image_url=place.image_url,
+                address_ko=place.address_ko,
+                category_code=place.category_code,
+                description_ko=place.description_ko,
+            )
+            for place in catalog
+        )
+        composed = compose_candidates(candidates, observations, limit=limit)
+        snapshot = await _catalog_snapshot(session, catalog)
+        related_months = sorted(
+            {
+                str(item.evidence["baseYm"])
+                for item in composed
+                if item.evidence.get("source") == "KTOUR_RELATED_ATTRACTION"
+                and item.evidence.get("baseYm")
+            },
+            reverse=True,
+        )
+        related_state = related_months[0] if related_months else (
+            "RELATED_NONE" if any(
+                "KTOUR_RELATED_ATTRACTION_EMPTY" in (place.source_operations or [])
+                for place in catalog
+            ) else "RELATED_UNAVAILABLE"
+        )
+        route_version = f"{ALGORITHM_VERSION}:{snapshot}:{related_state}"
+
+        def expedition_candidate(place: PlaceModel) -> ExpeditionCandidate:
+            return ExpeditionCandidate(
+                id=place.id, content_id=place.content_id or str(place.id),
+                name_ko=place.name_ko, category=_category(place.content_type_id),
+                latitude=float(place.latitude), longitude=float(place.longitude),
+                discovery_keywords=tuple(place.discovery_keywords or ()),
+                festival_start_date=place.festival_start_date,
+                festival_end_date=place.festival_end_date,
+                submitted_visit_count=0, synced_at=place.synced_at,
+            )
+
+        recommendations = {item.candidate.id: item for item in composed}
+        ordered: list[RecommendedStop] = []
+        for item in composed:
+            if item.placement == "before":
+                ordered.append(_recommended_from_composed(item, catalog))
+        ordered.append(RecommendedStop(
+            expedition_candidate(anchor_models[0]), 0, ("필수 메인 관광지",),
+            kind="anchor", placement="main", required=True, selected_by_default=True,
+        ))
+        for item in composed:
+            if item.placement == "between":
+                ordered.append(_recommended_from_composed(item, catalog))
+        ordered.append(RecommendedStop(
+            expedition_candidate(anchor_models[1]), 0, ("필수 메인 관광지",),
+            kind="anchor", placement="main", required=True, selected_by_default=True,
+        ))
+        for item in composed:
+            if item.placement == "after":
+                ordered.append(_recommended_from_composed(item, catalog))
+        digest_stops = [
+            {
+                "contentId": stop.candidate.content_id,
+                "kind": stop.kind,
+                "placement": stop.placement,
+                "required": stop.required,
+                "evidence": stop.evidence,
+            }
+            for stop in ordered
+        ]
+        models = {place.id: place for place in [*anchor_models, *catalog]}
+        return RecommendedExpedition(
+            id=recommendation_digest(route_version, digest_stops),
+            region_code="6", keyword=keyword.strip() if keyword and keyword.strip() else None,
+            travel_date=travel_date, snapshot_version=snapshot,
+            stops=tuple(ordered),
+            data_updated_at=max(
+                (place.synced_at for place in [*anchor_models, *catalog] if place.synced_at),
+                default=None,
+            ),
+            route_key=ROUTE_KEY, route_version=route_version,
+        ), models
+
 
 def _category(content_type_id: str | None) -> str:
     if content_type_id == "15":
@@ -271,3 +419,71 @@ def _fallback_snapshot(candidates: tuple[ExpeditionCandidate, ...]) -> str:
         default=None,
     )
     return newest.isoformat() if newest else "unversioned"
+
+
+def _observations_for(place: PlaceModel) -> tuple[Observation, ...]:
+    raw = (place.intro_json or {}).get("routeObservations", [])
+    parsed: list[Observation] = []
+    if isinstance(raw, list):
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            source = str(item.get("source", ""))
+            anchor_content_id = str(item.get("anchorContentId", ""))
+            if source not in {"KTOUR_RELATED_ATTRACTION", "KTOUR_LOCATION_BASED"} or not anchor_content_id:
+                continue
+            try:
+                parsed.append(Observation(
+                    content_id=place.content_id or "", source=source,
+                    anchor_content_id=anchor_content_id,
+                    distance_km=float(item["distanceKm"]) if item.get("distanceKm") is not None else None,
+                    related_rank=int(item["relatedRank"]) if item.get("relatedRank") is not None else None,
+                    base_ym=str(item["baseYm"]) if item.get("baseYm") else None,
+                ))
+            except (TypeError, ValueError):
+                continue
+    return tuple(parsed)
+
+
+def _recommended_from_composed(item, catalog: list[PlaceModel]) -> RecommendedStop:
+    place = next(place for place in catalog if place.id == item.candidate.id)
+    source = str(item.evidence["source"])
+    reasons = (
+        "방문 데이터 기반" if source == "KTOUR_RELATED_ATTRACTION" else "동선 주변 추천",
+        f"우회 {item.placement_cost:.1f}km",
+    )
+    return RecommendedStop(
+        ExpeditionCandidate(
+            id=place.id, content_id=place.content_id or str(place.id),
+            name_ko=place.name_ko, category=_category(place.content_type_id),
+            latitude=float(place.latitude), longitude=float(place.longitude),
+            discovery_keywords=tuple(place.discovery_keywords or ()),
+            festival_start_date=place.festival_start_date,
+            festival_end_date=place.festival_end_date,
+            submitted_visit_count=0, synced_at=place.synced_at,
+        ),
+        round(item.placement_cost, 3), reasons,
+        kind="recommendation", placement=item.placement,
+        required=False, selected_by_default=False, evidence=item.evidence,
+    )
+
+
+async def _catalog_snapshot(session: AsyncSession, places: list[PlaceModel]) -> str:
+    latest = await session.scalar(
+        select(CatalogSyncRunModel).where(
+            CatalogSyncRunModel.area_code == "6",
+            CatalogSyncRunModel.source == "KTOUR_API",
+            CatalogSyncRunModel.status == "succeeded",
+        ).order_by(CatalogSyncRunModel.completed_at.desc()).limit(1)
+    )
+    if latest is not None and latest.snapshot_version:
+        return latest.snapshot_version
+    canonical = json.dumps([
+        (
+            place.content_id,
+            (place.source_modified_at or place.synced_at).isoformat()
+            if (place.source_modified_at or place.synced_at) else "none",
+        )
+        for place in sorted(places, key=lambda value: value.content_id or "")
+    ], separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()[:16]

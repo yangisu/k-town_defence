@@ -363,6 +363,8 @@ class ExpeditionModel(Base):
         PostgreSQLUUID(as_uuid=True), ForeignKey("fandoms.id", ondelete="RESTRICT")
     )
     recommendation_id: Mapped[str] = mapped_column(String(64))
+    route_key: Mapped[str | None] = mapped_column(String(64))
+    route_version: Mapped[str | None] = mapped_column(String(200))
     region_code: Mapped[str] = mapped_column(String(20))
     territory_id: Mapped[str | None] = mapped_column(String(40))
     title: Mapped[str] = mapped_column(String(200))
@@ -382,6 +384,20 @@ class ExpeditionStopModel(Base):
         UniqueConstraint("expedition_id", "stop_order", name="uq_expedition_stop_order"),
         UniqueConstraint("expedition_id", "place_id", name="uq_expedition_stop_place"),
         CheckConstraint("stop_order > 0", name="ck_expedition_stop_order_positive"),
+        CheckConstraint(
+            "stop_kind IN ('anchor', 'recommendation')",
+            name="ck_expedition_stops_kind",
+        ),
+        CheckConstraint(
+            "placement IN ('before', 'main', 'between', 'after')",
+            name="ck_expedition_stops_placement",
+        ),
+        CheckConstraint(
+            "(stop_kind = 'anchor' AND is_required AND placement = 'main' "
+            "AND recommendation_source IS NULL) OR "
+            "(stop_kind = 'recommendation' AND NOT is_required)",
+            name="ck_expedition_stops_semantics",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -398,4 +414,12 @@ class ExpeditionStopModel(Base):
     stop_order: Mapped[int] = mapped_column(Integer)
     distance_km: Mapped[Decimal] = mapped_column(Numeric(8, 3))
     reasons: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    stop_kind: Mapped[str] = mapped_column(String(20), default="anchor", server_default="anchor")
+    is_required: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    placement: Mapped[str] = mapped_column(String(20), default="main", server_default="main")
+    recommendation_source: Mapped[str | None] = mapped_column(String(40))
+    recommendation_reason: Mapped[str | None] = mapped_column(Text)
+    recommendation_metadata: Mapped[dict[str, object]] = mapped_column(
+        JSONB, default=dict, server_default="{}"
+    )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

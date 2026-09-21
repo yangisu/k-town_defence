@@ -44,11 +44,29 @@ async def _table_names() -> set[str]:
         await engine.dispose()
 
 
+async def _route_schema() -> tuple[set[str], set[str]]:
+    engine = create_async_engine(DATABASE_URL)
+    try:
+        async with engine.connect() as connection:
+            return await connection.run_sync(lambda sync_connection: (
+                {column["name"] for column in inspect(sync_connection).get_columns("expedition_stops")},
+                {column["name"] for column in inspect(sync_connection).get_columns("expeditions")},
+            ))
+    finally:
+        await engine.dispose()
+
+
 def test_upgrade_downgrade_and_reupgrade_manage_the_mvp_schema() -> None:
     config = _config()
 
     command.upgrade(config, "head")
     assert EXPECTED_TABLES <= asyncio.run(_table_names())
+    stop_columns, expedition_columns = asyncio.run(_route_schema())
+    assert {
+        "stop_kind", "is_required", "placement", "recommendation_source",
+        "recommendation_reason", "recommendation_metadata",
+    } <= stop_columns
+    assert {"route_key", "route_version"} <= expedition_columns
 
     command.downgrade(config, "base")
     assert asyncio.run(_table_names()) == {"alembic_version"}

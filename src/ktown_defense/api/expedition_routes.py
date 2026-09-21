@@ -8,7 +8,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Query, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator, model_validator
 from sqlalchemy import func, select
 
 from ..expedition_recommendation import ExpeditionRecommendationService
@@ -38,6 +38,11 @@ class ExpeditionStopResponse(BaseModel):
     distance_km: float = Field(serialization_alias="distanceKm")
     reasons: list[str]
     place: "ExpeditionPlaceResponse"
+    kind: str = "anchor"
+    placement: str = "main"
+    required: bool = True
+    selected_by_default: bool = Field(default=True, serialization_alias="selectedByDefault")
+    evidence: dict[str, object] | None = None
 
 
 class ExpeditionPlaceResponse(PlaceResponse):
@@ -80,6 +85,8 @@ class RecommendedExpeditionResponse(BaseModel):
     travel_date: date = Field(serialization_alias="travelDate")
     data_updated_at: str | None = Field(serialization_alias="dataUpdatedAt")
     stops: list[ExpeditionStopResponse]
+    route_key: str | None = Field(default=None, serialization_alias="routeKey")
+    route_version: str | None = Field(default=None, serialization_alias="routeVersion")
 
 
 class CreateExpeditionRequest(BaseModel):
@@ -90,6 +97,39 @@ class CreateExpeditionRequest(BaseModel):
     keyword: str | None = Field(default=None, max_length=100)
     travel_date: date = Field(alias="travelDate")
     limit: int = Field(default=5, ge=3, le=5)
+    route_key: StrictStr | None = Field(default=None, alias="routeKey", min_length=1, max_length=64)
+    route_version: StrictStr | None = Field(
+        default=None, alias="routeVersion", min_length=1, max_length=200,
+        pattern=r"^[A-Za-z0-9:._-]+$",
+    )
+    selected_recommendation_place_ids: list[UUID] | None = Field(
+        default=None, alias="selectedRecommendationPlaceIds", max_length=3
+    )
+
+    @field_validator("route_key")
+    @classmethod
+    def validate_route_key(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized or not __import__("re").fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", normalized):
+            raise ValueError("invalid routeKey")
+        return normalized
+
+    @field_validator("selected_recommendation_place_ids")
+    @classmethod
+    def unique_selections(cls, value: list[UUID] | None) -> list[UUID] | None:
+        if value is not None and len(set(value)) != len(value):
+            raise ValueError("selectedRecommendationPlaceIds must be unique")
+        return value
+
+    @model_validator(mode="after")
+    def require_bts_fields(self):
+        if self.route_key == "bts-busan" and (
+            self.route_version is None or self.selected_recommendation_place_ids is None
+        ):
+            raise ValueError("routeVersion and selectedRecommendationPlaceIds are required")
+        return self
 
 
 class StoredExpeditionStopResponse(ExpeditionStopResponse):
@@ -110,6 +150,8 @@ class StoredExpeditionResponse(BaseModel):
     created_at: str = Field(serialization_alias="createdAt")
     completed_at: str | None = Field(serialization_alias="completedAt")
     stops: list[StoredExpeditionStopResponse]
+    route_key: str | None = Field(default=None, serialization_alias="routeKey")
+    route_version: str | None = Field(default=None, serialization_alias="routeVersion")
 
 
 class OperationStatusResponse(BaseModel):
@@ -139,6 +181,7 @@ async def recommended_expedition(
     keyword: Annotated[str | None, Query(max_length=100)] = None,
     travel_date: Annotated[date | None, Query(alias="travelDate")] = None,
     limit: Annotated[int, Query(ge=3, le=5)] = 5,
+    route_key: Annotated[str | None, Query(alias="routeKey", min_length=1, max_length=64, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")] = None,
 ) -> RecommendedExpeditionResponse:
     try:
         recommendation, models = await ExpeditionRecommendationService().recommend(
@@ -147,6 +190,7 @@ async def recommended_expedition(
             keyword=keyword,
             travel_date=travel_date or datetime.now(ZoneInfo("Asia/Seoul")).date(),
             limit=limit,
+            route_key=route_key,
         )
     except ValueError as exc:
         if str(exc) in {
@@ -158,6 +202,8 @@ async def recommended_expedition(
                 "EXPEDITION_NOT_AVAILABLE",
                 "추천할 수 있는 지역 원정이 없습니다.",
             ) from exc
+        if str(exc) == "route not supported":
+            raise ApiError(404, "ROUTE_NOT_SUPPORTED", "지원하지 않는 원정 경로입니다.") from exc
         raise
     return RecommendedExpeditionResponse(
         id=recommendation.id,
@@ -166,12 +212,19 @@ async def recommended_expedition(
         keyword=recommendation.keyword,
         travel_date=recommendation.travel_date,
         data_updated_at=_iso(recommendation.data_updated_at),
+        route_key=recommendation.route_key,
+        route_version=recommendation.route_version,
         stops=[
             ExpeditionStopResponse(
                 order=index,
                 distance_km=stop.distance_km,
                 reasons=list(stop.reasons),
                 place=ExpeditionPlaceResponse.from_model(models[stop.candidate.id]),
+                kind=stop.kind,
+                placement=stop.placement,
+                required=stop.required,
+                selected_by_default=stop.selected_by_default,
+                evidence=stop.evidence,
             )
             for index, stop in enumerate(recommendation.stops, start=1)
         ],
@@ -197,8 +250,13 @@ async def create_expedition(
             keyword=payload.keyword,
             travel_date=payload.travel_date,
             limit=payload.limit,
+            route_key=payload.route_key,
+            route_version=payload.route_version,
+            selected_recommendation_place_ids=payload.selected_recommendation_place_ids,
         )
     except ValueError as exc:
+        if str(exc) == "route not supported":
+            raise ApiError(404, "ROUTE_NOT_SUPPORTED", "지원하지 않는 원정 경로입니다.") from exc
         raise ApiError(404, "EXPEDITION_NOT_AVAILABLE", "추천할 수 있는 지역 원정이 없습니다.") from exc
     return await _stored_response(application, expedition)
 
@@ -316,6 +374,8 @@ async def _stored_response(
         status=expedition.status,
         created_at=_iso(expedition.created_at) or "",
         completed_at=_iso(expedition.completed_at),
+        route_key=expedition.route_key,
+        route_version=expedition.route_version,
         stops=[
             StoredExpeditionStopResponse(
                 order=stop.stop_order,
@@ -323,6 +383,11 @@ async def _stored_response(
                 reasons=list(stop.reasons),
                 place=ExpeditionPlaceResponse.from_model(place),
                 completed_at=_iso(stop.completed_at),
+                kind=stop.stop_kind,
+                placement=stop.placement,
+                required=stop.is_required,
+                selected_by_default=True,
+                evidence=(stop.recommendation_metadata or None),
             )
             for stop, place in stops
         ],

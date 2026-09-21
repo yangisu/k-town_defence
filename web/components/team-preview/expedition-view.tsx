@@ -13,7 +13,8 @@ import { calculateMissionAward, rankFandoms, type MissionAward } from "@/feature
 import { TerritoryStandings } from "@/components/team-preview/territory-standings";
 import { t } from "@/features/team-preview/i18n";
 import type { Locale, PreviewMissionPlace, StrongholdStage } from "@/features/team-preview/types";
-import type { CheckInImpact, CheckInResult, CheckInService, Place } from "@/lib/domain";
+import type { CheckInImpact, CheckInResult, CheckInService, PersistedExpedition, Place } from "@/lib/domain";
+import { liveMissionPlaces } from "@/lib/adapters/expedition";
 
 const copy = {
   ko: {
@@ -168,6 +169,8 @@ export function PreviewExpeditionView({
   onBack,
   onStartCheckIn,
   checkInPractice = false,
+  liveExpedition = null,
+  onEndExpedition,
 }: {
   expeditionId: string | null;
   checkInService: CheckInService;
@@ -175,6 +178,8 @@ export function PreviewExpeditionView({
   onBack: () => void;
   onStartCheckIn?: (place: PreviewMissionPlace) => void;
   checkInPractice?: boolean;
+  liveExpedition?: PersistedExpedition | null;
+  onEndExpedition?: () => void;
 }) {
   const session = useDemoSession();
   const locale = session.state.locale;
@@ -191,7 +196,9 @@ export function PreviewExpeditionView({
     candidate.artistId === session.state.selectedArtistId && candidate.territoryId === expedition?.territoryId
   )) ?? null;
   const territory = session.state.territories.find((candidate) => candidate.id === expedition?.territoryId) ?? null;
-  const places = expedition?.stopIds
+  const places = liveExpedition && expedition
+    ? liveMissionPlaces(liveExpedition, expedition.territoryId)
+    : expedition?.stopIds
     .map((id) => previewContent.places.find((candidate) => candidate.id === id))
     .filter((place): place is PreviewMissionPlace => Boolean(place)) ?? [];
   const [checkInPlace, setCheckInPlace] = useState<PreviewMissionPlace | null>(null);
@@ -253,7 +260,7 @@ export function PreviewExpeditionView({
       <section className="expedition-hero">
         <div className="expedition-title">
           <span className="eyebrow">{territory.name[locale]} · {session.selectedArtist?.fandomName}</span>
-          <h1>{expedition.title[locale]}</h1>
+          <h1>{liveExpedition?.title ?? expedition.title[locale]}</h1>
           {expedition.description[locale] ? <p>{expedition.description[locale]}</p> : null}
           {/* The guide points here rather than at the whole hero: the title
               and story above it are not what the step is about, and a
@@ -368,6 +375,7 @@ export function PreviewExpeditionView({
               <button type="button" data-guide-close="expedition-end" onClick={() => setEndOpen(false)}>{labels.endCancel}</button>
               <button type="button" className="danger" data-guide="expedition-end-confirm" onClick={() => {
                 setEndOpen(false);
+                onEndExpedition?.();
                 session.dispatch({ type: "endExpedition" });
               }}>{allStopsCheckedIn ? labels.endComplete : labels.end}</button>
             </div>
@@ -391,6 +399,7 @@ export function PreviewExpeditionView({
           }}
           impact={impact}
           practice={checkInPractice}
+          expeditionId={liveExpedition?.id}
           onApproved={applyApprovedAward}
           onClose={() => setCheckInPlace(null)}
         />

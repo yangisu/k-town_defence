@@ -24,6 +24,7 @@ type Props = {
   demoAwardInput?: DemoAwardInput;
   impact?: CheckInImpact | null;
   practice?: boolean;
+  expeditionId?: string;
   onApproved?: (result: CheckInResult, award: MissionAward) => void;
   onClose: () => void;
 };
@@ -71,6 +72,7 @@ export function CheckInFlow({
   demoAwardInput,
   impact,
   practice = false,
+  expeditionId,
   onApproved,
   onClose,
 }: Props) {
@@ -111,7 +113,7 @@ export function CheckInFlow({
           dispatch({ type: "sessionRestored", sessionId: restored.id, submitted: false });
           return;
         }
-        return service.create(place.id, { verificationMode, practice }).then((session) => {
+        return service.create(place.id, { verificationMode, practice, expeditionId }).then((session) => {
           if (active) dispatch({ type: "sessionCreated", sessionId: session.id });
         });
       })
@@ -129,7 +131,7 @@ export function CheckInFlow({
         });
       });
     return () => { active = false; };
-  }, [place.id, practice, service]);
+  }, [expeditionId, mode, place.id, practice, service]);
 
   const collectLocation = async () => {
     if (state.sessionId.startsWith("pending-") || busy) return;

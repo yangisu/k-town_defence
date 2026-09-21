@@ -28,7 +28,7 @@ import { isGuideRunning } from "@/features/team-preview/guide-running";
 import { createRemoteDemoSessionStore } from "@/features/team-preview/remote-session-store";
 import { t } from "@/features/team-preview/i18n";
 import { MembershipGate } from "@/components/membership/membership-gate";
-import type { AppServices, CheckInService } from "@/lib/domain";
+import type { AppServices, CheckInService, PersistedExpedition } from "@/lib/domain";
 import type { MapConfig } from "@/lib/map-config";
 import { createServices, type ServiceMode } from "@/lib/service-factory";
 import { mapTerritorySnapshots } from "@/lib/adapters/territory";
@@ -50,6 +50,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const [resetOpen, setResetOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideChecked, setGuideChecked] = useState(false);
+  const [liveExpedition, setLiveExpedition] = useState<PersistedExpedition | null>(null);
   // The session as it stood when the guide opened, so the practice run it
   // walks the reader through can be undone in full when it closes.
   const guideSnapshot = useRef<DemoSessionState | null>(null);
@@ -60,6 +61,19 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const session = useDemoSession();
   const signOut = useDemoSignOut();
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
+
+  useEffect(() => {
+    if (mode !== "integrated") return;
+    let active = true;
+    void services.expeditions.current()
+      .then((expedition) => {
+        if (active) setLiveExpedition(expedition);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [mode, services]);
 
   const canChangeArtist = !profileLocked || Boolean(onChangeFandom);
   const chooseArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
@@ -219,6 +233,9 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
             <TerritoryView
               key={session.state.artistConfirmed ? `artist:${session.state.selectedArtistId}` : "unconfirmed"}
               mapConfig={mapConfig}
+              services={services}
+              integrated={mode === "integrated"}
+              onLiveExpedition={setLiveExpedition}
             />
         ) : null}
         {session.state.artistConfirmed && session.state.activeTab === "expedition" ? (
@@ -227,6 +244,13 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
               checkInService={services.checkIn}
               checkInMode={checkInMode ?? mode}
               checkInPractice={mode === "integrated" && guideOpen}
+              liveExpedition={liveExpedition}
+              onEndExpedition={() => {
+                if (liveExpedition?.status === "active") {
+                  void services.expeditions.abandon(liveExpedition.id).catch(() => undefined);
+                }
+                setLiveExpedition(null);
+              }}
               onBack={() => undefined}
             />
         ) : null}
@@ -345,7 +369,7 @@ export function createPreviewCheckInService(services: AppServices): CheckInServi
     ...services.checkIn,
     async create(previewPlaceId, options) {
       const previewPlace = previewContent.places.find((place) => place.id === previewPlaceId);
-      if (!previewPlace) throw new Error("PREVIEW_PLACE_NOT_FOUND");
+      if (!previewPlace) return services.checkIn.create(previewPlaceId, options);
       const places = await services.tourism.listPlaces({
         regionId: previewPlace.territoryId,
         query: previewPlace.name.ko,

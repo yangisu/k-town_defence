@@ -12,9 +12,14 @@ import { summarizeTerritories } from "@/features/team-preview/territory-summary"
 import type { MapConfig } from "@/lib/map-config";
 import { ShareSheet } from "@/components/share/share-sheet";
 import { buildShareCard } from "@/features/share/build-share-card";
+import type { AppServices, PersistedExpedition } from "@/lib/domain";
+import { territoryRegionCodes } from "@/lib/adapters/expedition";
 
-export function TerritoryView({ mapConfig }: {
+export function TerritoryView({ mapConfig, services, integrated = false, onLiveExpedition }: {
   mapConfig: MapConfig | null;
+  services?: AppServices;
+  integrated?: boolean;
+  onLiveExpedition?: (expedition: PersistedExpedition) => void;
 }) {
   const session = useDemoSession();
   // The filter is part of where the reader is, so it lives in the session and
@@ -111,7 +116,28 @@ export function TerritoryView({ mapConfig }: {
             const next = visibleTerritories[index];
             if (next) selectTerritory(next.id, { follow: false });
           }}
-          onStartExpedition={() => session.dispatch({ type: "openExpedition", expeditionId: expedition.id })}
+          onStartExpedition={() => {
+            if (!integrated || !services || isGuideRunning()) {
+              session.dispatch({ type: "openExpedition", expeditionId: expedition.id });
+              return;
+            }
+            const regionCode = territoryRegionCodes[expedition.territoryId];
+            if (!regionCode) return;
+            void services.tourism.getRecommendedExpedition({
+              regionCode,
+              keyword: selectedArtist.artistName.ko,
+              travelDate: new Date().toISOString().slice(0, 10),
+              limit: 5,
+            }).then((recommendation) => services.expeditions.start(recommendation.id, {
+              regionCode,
+              keyword: selectedArtist.artistName.ko,
+              travelDate: recommendation.travelDate,
+              limit: 5,
+            })).then((persisted) => {
+              onLiveExpedition?.(persisted);
+              session.dispatch({ type: "openExpedition", expeditionId: expedition.id });
+            }).catch(() => undefined);
+          }}
         />
       );
     }

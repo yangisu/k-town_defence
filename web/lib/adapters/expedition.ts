@@ -8,6 +8,17 @@ export const territoryRegionCodes: Record<string, string> = {
   cheonan: "34", gyeongju: "35", pohang: "35", geoje: "36", jeju: "39",
 };
 
+// The live KTOUR catalog is only synced for Busan today (see
+// `sync_ktour --area-code 6` in the README), so any other region's
+// recommended-expedition call is guaranteed to 404 with "no expedition
+// candidates". Callers use this to fall back to the local preview route
+// instead of making a call the backend cannot answer.
+export const LIVE_EXPEDITION_REGION_CODE = "6";
+
+export function hasLiveExpeditionData(territoryId: string): boolean {
+  return territoryRegionCodes[territoryId] === LIVE_EXPEDITION_REGION_CODE;
+}
+
 export function liveMissionPlaces(value: PersistedExpedition, territoryId: TerritoryId): PreviewMissionPlace[] {
   return value.stops.flatMap(({ place }) => {
     if (place.latitude == null || place.longitude == null) return [];

@@ -13,6 +13,8 @@ interface Props {
   selectedArtistId: ArtistId | null;
   /** The roster, so it can be switched between and left from here. */
   followedArtistIds?: ArtistId[];
+  /** Restricts the picker to these artists when set — see `ArtistSelectorProps`. */
+  availableArtistIds?: ArtistId[];
   onClose(): void;
   onSelect(artistId: ArtistId): void;
   onRemove?(artistId: ArtistId): void;
@@ -27,6 +29,12 @@ interface ArtistSelectorProps {
   /** Already on the roster: shown, but greyed out and sunk to the bottom,
    *  because the list below exists to find someone new. */
   followedArtistIds?: readonly ArtistId[];
+  /** Narrows the roster to artists a fandom change can actually apply. Left
+   *  unset, every preview artist is offered — right for the local session,
+   *  but in integrated mode the season membership only has fandoms for a
+   *  handful of them, and offering the rest let a reader pick one that
+   *  silently did nothing. */
+  availableArtistIds?: readonly ArtistId[];
   onSelect(artistId: ArtistId): void;
   onConfirm(): void;
 }
@@ -38,26 +46,30 @@ export function ArtistSelector({
   confirmationDisabled = false,
   stickyConfirmation = false,
   followedArtistIds = [],
+  availableArtistIds,
   onSelect,
   onConfirm,
 }: ArtistSelectorProps) {
   const [query, setQuery] = useState("");
   const artists = useMemo(() => {
+    const roster = availableArtistIds
+      ? previewContent.artists.filter((artist) => availableArtistIds.includes(artist.id))
+      : previewContent.artists;
     const needle = query.trim().toLocaleLowerCase();
     const matching = needle
-      ? previewContent.artists.filter((artist) => [
+      ? roster.filter((artist) => [
         artist.artistName.ko,
         artist.artistName.en,
         artist.fandomName,
       ].some((value) => value.toLocaleLowerCase().includes(needle)))
-      : previewContent.artists;
+      : roster;
     // A stable partition: whoever is still available first, in catalog order,
     // then the ones already followed. This list is for finding someone new.
     return [
       ...matching.filter((artist) => !followedArtistIds.includes(artist.id)),
       ...matching.filter((artist) => followedArtistIds.includes(artist.id)),
     ];
-  }, [followedArtistIds, query]);
+  }, [availableArtistIds, followedArtistIds, query]);
   const selectionVisible = selectedArtistId !== null
     && artists.some((artist) => artist.id === selectedArtistId);
 
@@ -126,7 +138,7 @@ export function ArtistSelector({
   );
 }
 
-export function ArtistDrawer({ open, locale, selectedArtistId, followedArtistIds, onClose, onSelect, onRemove }: Props) {
+export function ArtistDrawer({ open, locale, selectedArtistId, followedArtistIds, availableArtistIds, onClose, onSelect, onRemove }: Props) {
   if (!open) return null;
 
   return (
@@ -134,6 +146,7 @@ export function ArtistDrawer({ open, locale, selectedArtistId, followedArtistIds
       locale={locale}
       selectedArtistId={selectedArtistId}
       followedArtistIds={followedArtistIds}
+      availableArtistIds={availableArtistIds}
       onClose={onClose}
       onSelect={onSelect}
       onRemove={onRemove}
@@ -141,7 +154,7 @@ export function ArtistDrawer({ open, locale, selectedArtistId, followedArtistIds
   );
 }
 
-function OpenArtistDrawer({ locale, selectedArtistId, followedArtistIds = [], onClose, onSelect, onRemove }: Omit<Props, "open">) {
+function OpenArtistDrawer({ locale, selectedArtistId, followedArtistIds = [], availableArtistIds, onClose, onSelect, onRemove }: Omit<Props, "open">) {
   const [draftArtistId, setDraftArtistId] = useState<ArtistId | null>(selectedArtistId);
   const dialogRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -206,6 +219,7 @@ function OpenArtistDrawer({ locale, selectedArtistId, followedArtistIds = [], on
           locale={locale}
           selectedArtistId={draftArtistId}
           followedArtistIds={followedArtistIds}
+          availableArtistIds={availableArtistIds}
           onSelect={setDraftArtistId}
           confirmLabel={t(locale, draftIsNew ? "artistAddConfirm" : "recordSwitchArtist")}
           confirmationDisabled={draftArtistId === selectedArtistId}

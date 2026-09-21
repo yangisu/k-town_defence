@@ -13,7 +13,7 @@ import type { MapConfig } from "@/lib/map-config";
 import { ShareSheet } from "@/components/share/share-sheet";
 import { buildShareCard } from "@/features/share/build-share-card";
 import type { AppServices, PersistedExpedition } from "@/lib/domain";
-import { territoryRegionCodes } from "@/lib/adapters/expedition";
+import { hasLiveExpeditionData, territoryRegionCodes } from "@/lib/adapters/expedition";
 
 type ExpeditionRecoveryStatus = "ready" | "loading" | "error";
 
@@ -125,7 +125,10 @@ export function TerritoryView({ mapConfig, services, integrated = false, expedit
             if (next) selectTerritory(next.id, { follow: false });
           }}
           onStartExpedition={() => {
-            if (!integrated || !services || isGuideRunning()) {
+            // The live catalog only covers Busan today (see
+            // `hasLiveExpeditionData`), so every other territory falls back to
+            // the local preview route instead of a live call guaranteed to 404.
+            if (!integrated || !services || isGuideRunning() || !hasLiveExpeditionData(expedition.territoryId)) {
               session.dispatch({
                 type: "openRecommendedExpedition",
                 expeditionId: expedition.id,

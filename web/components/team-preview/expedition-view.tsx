@@ -167,12 +167,14 @@ export function PreviewExpeditionView({
   checkInMode = "demo",
   onBack,
   onStartCheckIn,
+  checkInPractice = false,
 }: {
   expeditionId: string | null;
   checkInService: CheckInService;
   checkInMode?: "demo" | "integrated";
   onBack: () => void;
   onStartCheckIn?: (place: PreviewMissionPlace) => void;
+  checkInPractice?: boolean;
 }) {
   const session = useDemoSession();
   const locale = session.state.locale;
@@ -388,6 +390,7 @@ export function PreviewExpeditionView({
             ownerStrongholdStage,
           }}
           impact={impact}
+          practice={checkInPractice}
           onApproved={applyApprovedAward}
           onClose={() => setCheckInPlace(null)}
         />

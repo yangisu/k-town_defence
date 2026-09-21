@@ -49,6 +49,7 @@ type CheckInDto = {
   status: CheckInSession["status"];
   expiresAt: string;
   verificationType?: "actual" | "demo";
+  practice?: boolean;
 };
 
 function mapCheckIn(dto: CheckInDto): CheckInSession {
@@ -430,6 +431,7 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
             placeId,
             verificationType: options?.verificationMode === "demo" ? "demo" : "actual",
             ...(options?.expeditionId ? { expeditionId: options.expeditionId } : {}),
+            practice: options?.practice ?? false,
           }),
         });
         writeStoredCheckIn({ sessionId: dto.id, placeId: dto.placeId });

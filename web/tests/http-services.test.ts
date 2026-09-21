@@ -96,6 +96,7 @@ describe("HTTP services", () => {
 
     expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
       placeId: "place-1", verificationType: "demo",
+      practice: false,
     });
   });
 

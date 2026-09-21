@@ -205,6 +205,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
               expeditionId={session.state.selectedExpeditionId}
               checkInService={services.checkIn}
               checkInMode={checkInMode ?? mode}
+              checkInPractice={mode === "integrated" && guideOpen}
               onBack={() => undefined}
             />
         ) : null}

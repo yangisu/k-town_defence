@@ -26,6 +26,7 @@ class CreateCheckInRequest(BaseModel):
         default="actual", alias="verificationType"
     )
     expedition_id: UUID | None = Field(default=None, alias="expeditionId")
+    practice: bool = False
 
 
 class CheckInResponse(BaseModel):
@@ -35,6 +36,7 @@ class CheckInResponse(BaseModel):
     place_id: UUID = Field(serialization_alias="placeId")
     status: str
     verification_type: str = Field(serialization_alias="verificationType")
+    practice: bool
     expires_at: str = Field(serialization_alias="expiresAt")
 
     @classmethod
@@ -44,6 +46,7 @@ class CheckInResponse(BaseModel):
             place_id=model.place_id,
             status=model.status,
             verification_type=model.verification_type,
+            practice=model.is_practice,
             expires_at=model.expires_at.isoformat().replace("+00:00", "Z"),
         )
 
@@ -102,6 +105,7 @@ async def create_checkin(
         payload.place_id,
         verification_type=payload.verification_type,
         expedition_id=payload.expedition_id,
+        practice=payload.practice,
     )
     return CheckInResponse.from_model(checkin)
 

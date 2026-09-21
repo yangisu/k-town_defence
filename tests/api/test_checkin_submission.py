@@ -109,6 +109,20 @@ async def test_demo_verification_bypasses_only_evidence_and_snapshots_membership
         assert persisted.territory_id == "busan"
 
 
+async def test_practice_demo_uses_pipeline_without_awarding_points(member_client, public_place) -> None:
+    created = await member_client.post(
+        "/api/v1/checkins",
+        json={"placeId": str(public_place.id), "verificationType": "demo", "practice": True},
+    )
+    response = await member_client.post(
+        f"/api/v1/checkins/{created.json()['id']}/submit",
+        headers={"Idempotency-Key": str(uuid4())},
+    )
+    assert created.json()["practice"] is True
+    assert response.json()["decision"] == "approved"
+    assert response.json()["awardedPoints"] == 0
+
+
 async def test_gps_inside_geofence_auto_approves_and_awards_first_visit_points(
     member_client, public_place
 ) -> None:

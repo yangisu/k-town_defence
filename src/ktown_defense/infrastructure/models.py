@@ -241,6 +241,7 @@ class CheckInSessionModel(Base):
     )
     status: Mapped[str] = mapped_column(String(20), default="collecting")
     verification_type: Mapped[str] = mapped_column(String(20), default="actual")
+    is_practice: Mapped[bool] = mapped_column(Boolean, default=False)
     expedition_stop_id: Mapped[UUID | None] = mapped_column(
         PostgreSQLUUID(as_uuid=True),
         ForeignKey("expedition_stops.id", ondelete="SET NULL"),

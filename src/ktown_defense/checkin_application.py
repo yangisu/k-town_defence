@@ -55,6 +55,7 @@ class CheckInApplication:
         *,
         verification_type: str = "actual",
         expedition_id: UUID | None = None,
+        practice: bool = False,
     ) -> CheckInSessionModel:
         now = self._clock()
         if await self._places.get_public(place_id) is None:
@@ -68,6 +69,7 @@ class CheckInApplication:
             existing is not None
             and existing.verification_type == verification_type
             and existing.expedition_stop_id == (expedition_stop.id if expedition_stop else None)
+            and existing.is_practice == practice
         ):
             return existing
         if existing is not None:
@@ -81,6 +83,7 @@ class CheckInApplication:
             status="ready" if verification_type == "demo" else "collecting",
             verification_type=verification_type,
             expedition_stop_id=expedition_stop.id if expedition_stop else None,
+            is_practice=practice,
             expires_at=now + timedelta(minutes=30),
             created_at=now,
             updated_at=now,
@@ -231,7 +234,7 @@ class CheckInApplication:
         else:
             decision, risk_codes = await self._classify(checkin)
         awarded_points = 0
-        if decision == "approved":
+        if decision == "approved" and not checkin.is_practice:
             prior_visits = await self._checkins.count_approved_visits(
                 user_id, checkin.place_id
             )
@@ -252,7 +255,7 @@ class CheckInApplication:
             submitted_at=self._clock(),
         )
         self._checkins.add_submission(submission)
-        if decision == "approved" and checkin.expedition_stop_id is not None:
+        if decision == "approved" and not checkin.is_practice and checkin.expedition_stop_id is not None:
             await self._complete_expedition_stop(checkin.expedition_stop_id)
         checkin.status = "submitted"
         checkin.updated_at = self._clock()

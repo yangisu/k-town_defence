@@ -48,6 +48,7 @@ export const services: AppServices = {
       });
     },
     async getRelatedAttractions() { return []; },
+    async getRouteAttractions() { return []; },
     async getOpenDataStatus() {
       return { label: "관광 OpenAPI", lastSuccessfulSyncAt: new Date().toISOString(), activePlaceCount: places.length, operations: [] };
     },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, Clock3, ExternalLink, Footprints, MapPin, Shield } from "@/components/ui/icons";
 import { CheckInFlow } from "@/components/check-in/check-in-flow";
@@ -13,7 +13,7 @@ import { calculateMissionAward, rankFandoms, type MissionAward } from "@/feature
 import { TerritoryStandings } from "@/components/team-preview/territory-standings";
 import { t } from "@/features/team-preview/i18n";
 import type { Locale, PreviewMissionPlace, StrongholdStage } from "@/features/team-preview/types";
-import type { CheckInImpact, CheckInResult, CheckInService, Place, RelatedAttraction, TourismService } from "@/lib/domain";
+import type { CheckInImpact, CheckInResult, CheckInService, Place, RouteAttraction, TourismService } from "@/lib/domain";
 
 const copy = {
   ko: {
@@ -54,8 +54,13 @@ const copy = {
     regionalSupport: "지역의 공공 관광 코스",
     noDirectPlace: "검증된 아티스트 직접 연관 장소가 없어 지역의 공공 관광지만 안내합니다.",
     related: "함께 둘러볼 곳",
-    relatedSource: "한국관광공사 연관 관광지 데이터",
+    relatedSource: "관광 OpenAPI 추천",
     distance: "약",
+    beforeFirst: "첫 번째 장소 주변 추천",
+    betweenStops: "두 장소 사이 경유 추천",
+    afterSecond: "두 번째 장소 주변 추천",
+    straightDistance: "직선거리",
+    detourDistance: "직선 우회",
   },
   en: {
     back: "Back to territory map",
@@ -95,10 +100,71 @@ const copy = {
     regionalSupport: "Public tourism route in this region",
     noDirectPlace: "No verified direct artist destination is available; this route includes regional public attractions only.",
     related: "Nearby to explore",
-    relatedSource: "Korea Tourism Organization related-place data",
+    relatedSource: "Tourism OpenAPI recommendation",
     distance: "About",
+    beforeFirst: "Near the first stop",
+    betweenStops: "Recommended stop along the route",
+    afterSecond: "Near the second stop",
+    straightDistance: "Straight-line distance",
+    detourDistance: "Straight-line detour",
   },
 } as const;
+
+function ExpeditionPlaceCard({
+  name,
+  tag,
+  description,
+  address,
+  secondaryMeta,
+  tertiaryMeta,
+  sourceUrl,
+  sourceLabel,
+  action,
+  done = false,
+  recommended = false,
+}: {
+  name: string;
+  tag: string;
+  description?: string;
+  address: string;
+  secondaryMeta: string;
+  tertiaryMeta?: string;
+  sourceUrl?: string;
+  sourceLabel: string;
+  action: ReactNode;
+  done?: boolean;
+  recommended?: boolean;
+}) {
+  const className = [done ? "done" : "", recommended ? "recommended-stop" : ""]
+    .filter(Boolean)
+    .join(" ") || undefined;
+  return (
+    <li className={className} aria-label={name}>
+      {sourceUrl ? (
+        <a
+          className="stop-source"
+          href={sourceUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`${name} ${sourceLabel}`}
+        >
+          <ExternalLink size={16} strokeWidth={2.2} aria-hidden="true" />
+        </a>
+      ) : null}
+      <div className="stop-copy">
+        <h3>{name}</h3>
+        <span className="stop-tag">{tag}</span>
+        {description ? <p>{description}</p> : null}
+        <div className="stop-meta">
+          <span><MapPin size={13} /> {address}</span>
+          <span><Footprints size={13} /> {secondaryMeta}</span>
+          {tertiaryMeta ? <span className="benefit">{tertiaryMeta}</span> : null}
+        </div>
+      </div>
+      <div className="stop-action">{action}</div>
+    </li>
+  );
+}
 
 function asPlace(place: PreviewMissionPlace, locale: Locale): Place {
   return {
@@ -205,48 +271,37 @@ export function PreviewExpeditionView({
       .filter((place): place is PreviewMissionPlace => Boolean(place)) ?? [],
     [expedition],
   );
-  const [relatedPlaceIds, setRelatedPlaceIds] = useState<Record<string, string>>({});
-  const [relatedAttractionsByPlaceId, setRelatedAttractionsByPlaceId] = useState<Record<string, RelatedAttraction[]>>({});
+  const [routeAttractionResult, setRouteAttractionResult] = useState<{
+    key: string;
+    items: RouteAttraction[];
+  }>({ key: "", items: [] });
   const placeIdsKey = places.map((place) => place.id).join(",");
+  const routeAttractions = routeAttractionResult.key === placeIdsKey
+    ? routeAttractionResult.items
+    : [];
   useEffect(() => {
-    if (!relatedAttractionService || places.length === 0) return;
+    if (!relatedAttractionService || places.length < 2) return;
     let cancelled = false;
-    void relatedAttractionService.listPlaces({ regionId: expedition?.territoryId }).then((livePlaces) => {
-      if (cancelled) return;
-      const nextIds = Object.fromEntries(places.flatMap((place) => {
-        const livePlace = livePlaces.find((candidate) => candidate.nameKo.trim() === place.name.ko.trim());
-        return livePlace ? [[place.id, livePlace.id]] : [];
-      }));
-      setRelatedPlaceIds((current) => ({ ...current, ...nextIds }));
-    }).catch(() => undefined);
-    return () => { cancelled = true; };
-  }, [expedition?.territoryId, placeIdsKey, places, relatedAttractionService]);
-
-  useEffect(() => {
-    if (!relatedAttractionService || places.length === 0) return;
-    let cancelled = false;
-    const missingPlaces = places.filter((place) => {
-      const livePlaceId = relatedPlaceIds[place.id];
-      return livePlaceId !== undefined && !(livePlaceId in relatedAttractionsByPlaceId);
-    });
-    if (missingPlaces.length === 0) return;
-    void Promise.all(missingPlaces.map(async (place) => {
-      const livePlaceId = relatedPlaceIds[place.id];
-      if (!livePlaceId) return [place.id, []] as const;
-      try {
-        return [livePlaceId, await relatedAttractionService.getRelatedAttractions(livePlaceId)] as const;
-      } catch {
-        return [livePlaceId, []] as const;
-      }
-    })).then((results) => {
-      if (cancelled) return;
-      setRelatedAttractionsByPlaceId((current) => ({
-        ...current,
-        ...Object.fromEntries(results),
-      }));
+    const [first, second] = places;
+    void relatedAttractionService.getRouteAttractions({
+      first: {
+        name: first.name.ko,
+        latitude: first.coordinates.latitude,
+        longitude: first.coordinates.longitude,
+      },
+      second: {
+        name: second.name.ko,
+        latitude: second.coordinates.latitude,
+        longitude: second.coordinates.longitude,
+      },
+      excludeNames: places.map((candidate) => candidate.name.ko),
+    }).then((items) => {
+      if (!cancelled) setRouteAttractionResult({ key: placeIdsKey, items });
+    }).catch(() => {
+      if (!cancelled) setRouteAttractionResult({ key: placeIdsKey, items: [] });
     });
     return () => { cancelled = true; };
-  }, [placeIdsKey, places, relatedAttractionService, relatedAttractionsByPlaceId, relatedPlaceIds]);
+  }, [placeIdsKey, places, relatedAttractionService]);
   const [checkInPlace, setCheckInPlace] = useState<PreviewMissionPlace | null>(null);
   const [endOpen, setEndOpen] = useState(false);
   const endDialogRef = useRef<HTMLDivElement>(null);
@@ -298,6 +353,34 @@ export function PreviewExpeditionView({
     if (!checkInPlace) return;
     setImpactBefore(session.state);
     session.dispatch({ type: "completeCheckIn", expeditionId: expedition.id, placeId: checkInPlace.id, award });
+  };
+
+  const recommendationCard = (placement: RouteAttraction["placement"]) => {
+    const item = routeAttractions.find((candidate) => candidate.placement === placement);
+    if (!item) return null;
+    const placementLabel = placement === "before_first"
+      ? labels.beforeFirst
+      : placement === "between"
+        ? labels.betweenStops
+        : labels.afterSecond;
+    const metric = placement === "between" && item.detourKm !== undefined
+      ? `${labels.detourDistance} +${item.detourKm.toFixed(1)}km`
+      : `${labels.straightDistance} ${item.distanceKm.toFixed(1)}km`;
+    const address = item.addressKo
+      ?? `${item.latitude.toFixed(4)}, ${item.longitude.toFixed(4)}`;
+    return (
+      <ExpeditionPlaceCard
+        key={`${placement}:${item.contentId}`}
+        name={item.nameKo}
+        tag={placementLabel}
+        description={item.reasons.join(" · ")}
+        address={address}
+        secondaryMeta={metric}
+        sourceLabel={labels.source}
+        recommended
+        action={<strong>{labels.relatedSource}</strong>}
+      />
+    );
   };
 
   return (
@@ -362,42 +445,30 @@ export function PreviewExpeditionView({
                 record.expeditionId === expedition.id && record.placeId === place.id
               ));
               return (
-                <li key={place.id} className={checkedIn ? "done" : undefined} aria-label={place.name[locale]}>
-                  <a
-                    className="stop-source"
-                    href={place.sourceUrls[0]}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`${place.name[locale]} ${labels.source}`}
-                  >
-                    <ExternalLink size={16} strokeWidth={2.2} aria-hidden="true" />
-                  </a>
-                  <div className="stop-copy">
-                    <h3>{place.name[locale]}</h3>
-                    <span className="stop-tag">{member ?? labels.publicTag}</span>
-                    {place.description[locale] ? <p>{place.description[locale]}</p> : null}
-                    <div className="stop-meta">
-                      <span><MapPin size={13} /> {place.address[locale]}</span>
-                      <span><Footprints size={13} /> {labels.dwell} {place.dwellMinutes}{locale === "ko" ? "" : " "}{labels.minuteUnit}</span>
-                      <span className="benefit">{place.localBenefit[locale]}</span>
-                    </div>
-                  </div>
-                  <div className="stop-action">
-                    <strong>{labels.maximum} {stopAward.cappedPoints}P</strong>
-                    {checkedIn
-                      ? <span className="stop-done">{labels.checkInDone}</span>
-                      : <button type="button" onClick={() => startCheckIn(place)} aria-label={`${place.name[locale]} ${labels.checkIn}`}>{labels.checkIn}</button>}
-                  </div>
-                  {relatedAttractionsByPlaceId[place.id]?.slice(0, 1).map((related) => (
-                    <div className="related-attraction" key={`${place.id}:${related.nameKo}`}>
-                      <span className="related-attraction-label">{labels.related}</span>
-                      <strong>{related.nameKo}</strong>
-                      {related.category ? <span>{related.category}</span> : null}
-                      {related.distanceKm !== undefined ? <span>{labels.distance} {related.distanceKm.toFixed(1)}km</span> : null}
-                      <small>{labels.relatedSource}</small>
-                    </div>
-                  ))}
-                </li>
+                <Fragment key={place.id}>
+                  {index === 0 ? recommendationCard("before_first") : null}
+                  <ExpeditionPlaceCard
+                    name={place.name[locale]}
+                    tag={member ?? labels.publicTag}
+                    description={place.description[locale]}
+                    address={place.address[locale]}
+                    secondaryMeta={`${labels.dwell} ${place.dwellMinutes}${locale === "ko" ? "" : " "}${labels.minuteUnit}`}
+                    tertiaryMeta={place.localBenefit[locale]}
+                    sourceUrl={place.sourceUrls[0]}
+                    sourceLabel={labels.source}
+                    done={checkedIn}
+                    action={(
+                      <>
+                        <strong>{labels.maximum} {stopAward.cappedPoints}P</strong>
+                        {checkedIn
+                          ? <span className="stop-done">{labels.checkInDone}</span>
+                          : <button type="button" onClick={() => startCheckIn(place)} aria-label={`${place.name[locale]} ${labels.checkIn}`}>{labels.checkIn}</button>}
+                      </>
+                    )}
+                  />
+                  {index === 0 ? recommendationCard("between") : null}
+                  {index === 1 ? recommendationCard("after_second") : null}
+                </Fragment>
               );
             })}
           </ol>

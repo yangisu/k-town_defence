@@ -75,10 +75,32 @@ class RecordingTransport:
                 [{"contentid": content_id, "overview": f"{content_id} 상세 설명"}],
                 total_count=1,
             )
+        if operation == "locationBasedList2":
+            return response([], total_count=0)
         raise AssertionError(f"unexpected operation: {operation}")
 
 
 class KTourOpenAPIClientTests(unittest.TestCase):
+    def test_location_based_list_sends_longitude_as_mapx_and_latitude_as_mapy(self) -> None:
+        transport = RecordingTransport()
+        client = KTourOpenAPIClient(service_key="key", transport=transport)
+
+        client.location_based_list(
+            longitude=129.0104,
+            latitude=35.0977,
+            radius=5000,
+            limit=50,
+        )
+
+        params = parse_qs(urlparse(transport.urls[-1]).query)
+        self.assertEqual(["locationBasedList2"], [urlparse(transport.urls[-1]).path.rsplit("/", 1)[-1]])
+        self.assertEqual(["129.0104"], params["mapX"])
+        self.assertEqual(["35.0977"], params["mapY"])
+        self.assertEqual(["5000"], params["radius"])
+        self.assertEqual(["E"], params["arrange"])
+        self.assertEqual(["50"], params["numOfRows"])
+        self.assertEqual(["1"], params["pageNo"])
+
     def test_from_env_loads_project_dotenv_when_process_variable_is_absent(self) -> None:
         original_directory = Path.cwd()
         with tempfile.TemporaryDirectory() as directory, patch.dict(

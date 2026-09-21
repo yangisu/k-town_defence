@@ -92,6 +92,54 @@ it("renders a sourced public artist stop followed only by neutral nearby recomme
   expect(standings.closest(".expedition-hero")).toContainElement(screen.getByRole("heading", { level: 1 }));
 });
 
+it("places API recommendations before, between, and after the two main stops using the same card layout", async () => {
+  storeReadyBtsSession();
+  const routeItems = [
+    {
+      contentId: "before", nameKo: "사직공원", latitude: 35.19, longitude: 129.05,
+      distanceKm: 0.8, addressKo: "부산 동래구", source: "KTOUR_LOCATION_BASED" as const,
+      placement: "before_first" as const, reasons: ["첫 번째 장소 주변 추천"],
+    },
+    {
+      contentId: "between", nameKo: "구덕민속예술관", latitude: 35.13, longitude: 129.02,
+      distanceKm: 8.2, detourKm: 0.05, addressKo: "부산 서구", source: "KTOUR_ROUTE_DETOUR" as const,
+      placement: "between" as const, reasons: ["두 장소 사이 최소 우회 후보"],
+    },
+    {
+      contentId: "after", nameKo: "미술의거리", latitude: 35.10, longitude: 129.02,
+      distanceKm: 1.6, addressKo: "부산 중구", source: "KTOUR_LOCATION_BASED" as const,
+      placement: "after_second" as const, reasons: ["두 번째 장소 주변 추천"],
+    },
+  ];
+  render(
+    <DemoSessionProvider storage={window.localStorage}>
+      <PreviewExpeditionView
+        expeditionId="bts-busan-artist-linked-expedition"
+        checkInService={services.checkIn}
+        relatedAttractionService={{
+          ...services.tourism,
+          getRouteAttractions: vi.fn(async () => routeItems),
+        }}
+        onBack={() => undefined}
+      />
+    </DemoSessionProvider>,
+  );
+
+  await screen.findByRole("listitem", { name: "구덕민속예술관" });
+  const cards = screen.getAllByRole("listitem").filter((item) => item.closest(".stop-list"));
+  expect(cards.map((item) => item.getAttribute("aria-label"))).toEqual([
+    "사직공원",
+    "부산아시아드주경기장",
+    "구덕민속예술관",
+    "감천문화마을",
+    "미술의거리",
+  ]);
+  for (const name of ["사직공원", "구덕민속예술관", "미술의거리"]) {
+    expect(screen.getByRole("listitem", { name })).toHaveClass("recommended-stop");
+  }
+  expect(within(screen.getByRole("listitem", { name: "구덕민속예술관" })).getByText("직선 우회 +0.1km")).toBeVisible();
+});
+
 // Gwangju carries a sourced j-hope tie but no route of its own, and the two
 // facts stay separate: the story is told where it belongs, and the route the
 // reader is offered is Gwangju's own public one, not Busan's.

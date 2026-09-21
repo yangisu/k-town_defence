@@ -12,6 +12,9 @@ import type {
   LiveExpedition,
   OpenDataStatus,
   RelatedAttraction,
+  RelatedAttractionQuery,
+  RouteAttraction,
+  RouteAttractionQuery,
   SeasonMembership,
 } from "./domain";
 import { services as demoServices } from "./demo-services";
@@ -288,24 +291,46 @@ function mapOpenDataStatus(value: unknown): OpenDataStatus {
 
 function mapRelatedAttractions(value: unknown): RelatedAttraction[] {
   const dto = object(value);
-  text(dto.placeId);
   if (!Array.isArray(dto.items)) invalidResponse();
   return dto.items.map((value) => {
     const item = object(value);
     const source = text(item.source);
-    if (source !== "KTOUR_RELATED_ATTRACTION") invalidResponse();
-    const distance = item.distanceKm === null || item.distanceKm === undefined
-      ? undefined
-      : finiteNumber(item.distanceKm);
-    const relatedRank = finiteNumber(item.relatedRank);
-    if (!Number.isInteger(relatedRank) || relatedRank < 1) invalidResponse();
+    if (source !== "KTOUR_LOCATION_BASED" && source !== "KTOUR_ROUTE_DETOUR") invalidResponse();
     return {
+      contentId: text(item.contentId),
       nameKo: text(item.nameKo),
-      relatedRank,
-      ...(distance === undefined ? {} : { distanceKm: distance }),
+      latitude: finiteNumber(item.latitude),
+      longitude: finiteNumber(item.longitude),
+      distanceKm: finiteNumber(item.distanceKm),
       ...(item.category === null || item.category === undefined ? {} : { category: text(item.category) }),
       ...(item.imageUrl === null || item.imageUrl === undefined ? {} : { imageUrl: httpsUrl(item.imageUrl) }),
+      ...(item.addressKo === null || item.addressKo === undefined ? {} : { addressKo: text(item.addressKo) }),
       source,
+    };
+  });
+}
+
+function mapRouteAttractions(value: unknown): RouteAttraction[] {
+  const dto = object(value);
+  if (!Array.isArray(dto.items)) invalidResponse();
+  const base = mapRelatedAttractions({ items: dto.items });
+  return dto.items.map((value, index) => {
+    const item = object(value);
+    const placement = text(item.placement);
+    if (!new Set(["before_first", "between", "after_second"]).has(placement)) invalidResponse();
+    if (!Array.isArray(item.reasons)) invalidResponse();
+    const detourKm = item.detourKm === null || item.detourKm === undefined
+      ? undefined
+      : finiteNumber(item.detourKm);
+    const viaDistanceKm = item.viaDistanceKm === null || item.viaDistanceKm === undefined
+      ? undefined
+      : finiteNumber(item.viaDistanceKm);
+    return {
+      ...base[index],
+      placement: placement as RouteAttraction["placement"],
+      ...(detourKm === undefined ? {} : { detourKm }),
+      ...(viaDistanceKm === undefined ? {} : { viaDistanceKm }),
+      reasons: item.reasons.map(text),
     };
   });
 }
@@ -344,12 +369,30 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
         );
         return mapExpedition(response);
       },
-      async getRelatedAttractions(placeId: string) {
+      async getRelatedAttractions(query: RelatedAttractionQuery) {
+        const params = new URLSearchParams({ name: query.name });
+        if (query.latitude !== undefined) params.set("latitude", String(query.latitude));
+        if (query.longitude !== undefined) params.set("longitude", String(query.longitude));
+        if (query.regionCode) params.set("regionCode", query.regionCode);
+        for (const excludedName of query.excludeNames ?? []) params.append("excludeName", excludedName);
+        const response = await requestJson<unknown>(fetcher, `/api/v1/tourism/nearby-attractions?${params}`);
+        return mapRelatedAttractions(response);
+      },
+      async getRouteAttractions(query: RouteAttractionQuery) {
+        const params = new URLSearchParams({
+          firstName: query.first.name,
+          firstLatitude: String(query.first.latitude),
+          firstLongitude: String(query.first.longitude),
+          secondName: query.second.name,
+          secondLatitude: String(query.second.latitude),
+          secondLongitude: String(query.second.longitude),
+        });
+        for (const excludedName of query.excludeNames ?? []) params.append("excludeName", excludedName);
         const response = await requestJson<unknown>(
           fetcher,
-          `/api/v1/places/${placeId}/related-attractions`,
+          `/api/v1/tourism/route-attractions?${params}`,
         );
-        return mapRelatedAttractions(response);
+        return mapRouteAttractions(response);
       },
       async getOpenDataStatus() {
         return mapOpenDataStatus(

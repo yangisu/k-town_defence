@@ -74,27 +74,32 @@ describe("K-Town gateway", () => {
     );
   });
 
-  it("forwards the related-attractions route only for a valid place UUID", async () => {
-    const fetcher = vi.fn().mockResolvedValue(Response.json({ placeId: "place", items: [] }));
-    const validUuid = "123e4567-e89b-12d3-a456-426614174000";
+  it("forwards nearby-attractions route without a place UUID", async () => {
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ items: [] }));
     const response = await proxyKtownRequest(
-      new Request(`http://site/api/ktown/api/v1/places/${validUuid}/related-attractions`),
-      ["api", "v1", "places", validUuid, "related-attractions"],
+      new Request("http://site/api/ktown/api/v1/tourism/nearby-attractions?name=%EA%B0%90%EC%B2%9C&latitude=35.1&longitude=129&regionCode=6"),
+      ["api", "v1", "tourism", "nearby-attractions"],
       { baseUrl: "http://backend", platformUserId: null, fetcher },
     );
 
     expect(response.status).toBe(200);
     expect(fetcher).toHaveBeenCalledWith(
-      `http://backend/api/v1/places/${validUuid}/related-attractions`,
+      "http://backend/api/v1/tourism/nearby-attractions?name=%EA%B0%90%EC%B2%9C&latitude=35.1&longitude=129&regionCode=6",
       expect.objectContaining({ method: "GET" }),
     );
+  });
 
-    const invalid = await proxyKtownRequest(
-      new Request("http://site/api/ktown/api/v1/places/place-1/related-attractions"),
-      ["api", "v1", "places", "place-1", "related-attractions"],
+  it("forwards only the route-attraction query contract", async () => {
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ items: [] }));
+    await proxyKtownRequest(
+      new Request("http://site/api/ktown/api/v1/tourism/route-attractions?firstName=A&firstLatitude=35&firstLongitude=129&secondName=B&secondLatitude=35.1&secondLongitude=129.1&serviceKey=attacker"),
+      ["api", "v1", "tourism", "route-attractions"],
       { baseUrl: "http://backend", platformUserId: null, fetcher },
     );
-    expect(invalid.status).toBe(404);
+
+    expect(fetcher.mock.calls[0][0]).toBe(
+      "http://backend/api/v1/tourism/route-attractions?firstName=A&firstLatitude=35&firstLongitude=129&secondName=B&secondLatitude=35.1&secondLongitude=129.1",
+    );
   });
 
   it("forwards public expedition and status routes with bounded query parameters", async () => {

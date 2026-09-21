@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Annotated
-from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Query, Request
@@ -17,7 +16,11 @@ from ..infrastructure.models import (
     OpenApiCallLogModel,
     PlaceModel,
 )
-from ..related_attractions import RelatedAttraction, RelatedAttractionService
+from ..related_attractions import (
+    RelatedAttraction,
+    RelatedAttractionService,
+    RouteAttractionRecommendation,
+)
 from .dependencies import get_session
 from .errors import ApiError
 from .place_routes import PlaceResponse
@@ -100,19 +103,32 @@ class OpenDataStatusResponse(BaseModel):
 class RelatedAttractionResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
+    content_id: str = Field(serialization_alias="contentId")
     name_ko: str = Field(serialization_alias="nameKo")
-    related_rank: int = Field(serialization_alias="relatedRank")
-    distance_km: float | None = Field(default=None, serialization_alias="distanceKm")
+    latitude: float
+    longitude: float
+    distance_km: float = Field(serialization_alias="distanceKm")
     category: str | None = None
     image_url: str | None = Field(default=None, serialization_alias="imageUrl")
-    source: str = "KTOUR_RELATED_ATTRACTION"
+    address_ko: str | None = Field(default=None, serialization_alias="addressKo")
+    source: str
 
 
 class RelatedAttractionsResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    place_id: str = Field(serialization_alias="placeId")
     items: list[RelatedAttractionResponse]
+
+
+class RouteAttractionResponse(RelatedAttractionResponse):
+    placement: str
+    detour_km: float | None = Field(default=None, serialization_alias="detourKm")
+    via_distance_km: float | None = Field(default=None, serialization_alias="viaDistanceKm")
+    reasons: list[str]
+
+
+class RouteAttractionsResponse(BaseModel):
+    items: list[RouteAttractionResponse]
 
 
 @router.get(
@@ -165,36 +181,65 @@ async def recommended_expedition(
 
 
 @router.get(
-    "/api/v1/places/{place_id}/related-attractions",
+    "/api/v1/tourism/nearby-attractions",
     response_model=RelatedAttractionsResponse,
 )
-async def related_attractions(
-    place_id: str,
+async def nearby_attractions(
     request: Request,
-    session: Session,
+    name: Annotated[str, Query(min_length=1, max_length=200)],
+    latitude: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    longitude: Annotated[float | None, Query(ge=-180, le=180)] = None,
+    region_code: Annotated[str | None, Query(alias="regionCode", max_length=20)] = None,
+    exclude_name: Annotated[list[str], Query(alias="excludeName", max_length=200)] = [],
 ) -> RelatedAttractionsResponse:
-    try:
-        place_uuid = UUID(place_id)
-    except ValueError as exc:
-        raise ApiError(404, "PLACE_NOT_FOUND", "관광지를 찾을 수 없습니다.") from exc
-    place = await session.scalar(
-        select(PlaceModel).where(
-            PlaceModel.id == place_uuid,
-            PlaceModel.is_public.is_(True),
-            PlaceModel.is_active.is_(True),
-        )
-    )
-    if place is None:
-        raise ApiError(404, "PLACE_NOT_FOUND", "관광지를 찾을 수 없습니다.")
     service: RelatedAttractionService = request.app.state.related_attraction_service
     items: tuple[RelatedAttraction, ...] = await service.get_for_place(
-        place_id=place.id,
-        name_ko=place.name_ko,
-        region_code=place.region_code,
+        name_ko=name,
+        latitude=latitude,
+        longitude=longitude,
+        region_code=region_code,
+        excluded_names=tuple(exclude_name),
     )
     return RelatedAttractionsResponse(
-        place_id=place_id,
         items=[RelatedAttractionResponse(**item.__dict__) for item in items],
+    )
+
+
+@router.get(
+    "/api/v1/tourism/route-attractions",
+    response_model=RouteAttractionsResponse,
+)
+async def route_attractions(
+    request: Request,
+    first_name: Annotated[str, Query(alias="firstName", min_length=1, max_length=200)],
+    first_latitude: Annotated[float, Query(alias="firstLatitude", ge=-90, le=90)],
+    first_longitude: Annotated[float, Query(alias="firstLongitude", ge=-180, le=180)],
+    second_name: Annotated[str, Query(alias="secondName", min_length=1, max_length=200)],
+    second_latitude: Annotated[float, Query(alias="secondLatitude", ge=-90, le=90)],
+    second_longitude: Annotated[float, Query(alias="secondLongitude", ge=-180, le=180)],
+    exclude_name: Annotated[list[str], Query(alias="excludeName", max_length=200)] = [],
+) -> RouteAttractionsResponse:
+    service: RelatedAttractionService = request.app.state.related_attraction_service
+    items: tuple[RouteAttractionRecommendation, ...] = await service.get_for_route(
+        first_name_ko=first_name,
+        first_latitude=first_latitude,
+        first_longitude=first_longitude,
+        second_name_ko=second_name,
+        second_latitude=second_latitude,
+        second_longitude=second_longitude,
+        excluded_names=tuple(exclude_name),
+    )
+    return RouteAttractionsResponse(
+        items=[
+            RouteAttractionResponse(
+                **item.attraction.__dict__,
+                placement=item.placement,
+                detour_km=item.detour_km,
+                via_distance_km=item.via_distance_km,
+                reasons=list(item.reasons),
+            )
+            for item in items
+        ]
     )
 
 

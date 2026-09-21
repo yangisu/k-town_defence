@@ -174,6 +174,41 @@ class KTourOpenAPIClient:
                 return all_items
             page += 1
 
+    def search_keyword(self, keyword: str, *, limit: int = 50) -> list[Mapping[str, object]]:
+        if not keyword.strip():
+            return []
+        body = self._request(
+            "searchKeyword2",
+            {
+                "keyword": keyword.strip(),
+                "numOfRows": limit,
+                "pageNo": 1,
+                "arrange": "Q",
+            },
+        )
+        return self._items(body)
+
+    def location_based_list(
+        self,
+        *,
+        longitude: float,
+        latitude: float,
+        radius: int,
+        limit: int = 50,
+    ) -> list[Mapping[str, object]]:
+        body = self._request(
+            "locationBasedList2",
+            {
+                "mapX": longitude,
+                "mapY": latitude,
+                "radius": radius,
+                "arrange": "E",
+                "numOfRows": limit,
+                "pageNo": 1,
+            },
+        )
+        return self._items(body)
+
     def _to_record(
         self, query: KTourKeywordQuery, item: Mapping[str, object]
     ) -> TourismPlaceRecord:

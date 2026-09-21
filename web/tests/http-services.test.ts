@@ -165,28 +165,70 @@ const strictExpedition = {
 
   it("maps read-only related attractions without making them expedition stops", async () => {
     const fetcher = vi.fn().mockResolvedValue(jsonResponse({
-      placeId: "place-1",
       items: [{
+        contentId: "101",
         nameKo: "부산시민공원",
-        relatedRank: 2,
-        distanceKm: null,
+        latitude: 35.16,
+        longitude: 129.05,
+        distanceKm: 2.1,
         category: "문화시설",
         imageUrl: null,
-        source: "KTOUR_RELATED_ATTRACTION",
+        source: "KTOUR_LOCATION_BASED",
       }],
     }));
 
-    await expect(createHttpServices(fetcher).tourism.getRelatedAttractions("place-1"))
+    await expect(createHttpServices(fetcher).tourism.getRelatedAttractions({
+      name: "감천문화마을", latitude: 35.0977, longitude: 129.0104, regionCode: "6",
+    }))
       .resolves.toEqual([{
+        contentId: "101",
         nameKo: "부산시민공원",
-        relatedRank: 2,
+        latitude: 35.16,
+        longitude: 129.05,
+        distanceKm: 2.1,
         category: "문화시설",
-        source: "KTOUR_RELATED_ATTRACTION",
+        source: "KTOUR_LOCATION_BASED",
       }]);
     expect(fetcher).toHaveBeenCalledWith(
-      "/api/ktown/api/v1/places/place-1/related-attractions",
+      expect.stringContaining("/api/ktown/api/v1/tourism/nearby-attractions?"),
       expect.any(Object),
     );
+  });
+
+  it("maps ordered before, between, and after route attractions", async () => {
+    const fetcher = vi.fn().mockResolvedValue(jsonResponse({
+      items: [{
+        contentId: "route-1",
+        nameKo: "구덕민속예술관",
+        latitude: 35.13,
+        longitude: 129.02,
+        distanceKm: 8.2,
+        detourKm: 0.05,
+        viaDistanceKm: 11.2,
+        category: "A0206",
+        addressKo: "부산광역시 서구",
+        imageUrl: null,
+        source: "KTOUR_ROUTE_DETOUR",
+        placement: "between",
+        reasons: ["두 메인 관광지 사이 최소 우회 후보"],
+      }],
+    }));
+
+    const result = await createHttpServices(fetcher).tourism.getRouteAttractions({
+      first: { name: "부산아시아드주경기장", latitude: 35.19, longitude: 129.05 },
+      second: { name: "감천문화마을", latitude: 35.09, longitude: 129.01 },
+      excludeNames: ["부산아시아드주경기장", "감천문화마을"],
+    });
+
+    expect(result[0]).toEqual(expect.objectContaining({
+      nameKo: "구덕민속예술관",
+      placement: "between",
+      detourKm: 0.05,
+      source: "KTOUR_ROUTE_DETOUR",
+    }));
+    expect(fetcher.mock.calls[0][0]).toContain("/api/ktown/api/v1/tourism/route-attractions?");
+    expect(fetcher.mock.calls[0][0]).toContain("firstName=");
+    expect(fetcher.mock.calls[0][0]).toContain("secondName=");
   });
 
   it("maps safe open-data status and rejects malformed expedition stops", async () => {

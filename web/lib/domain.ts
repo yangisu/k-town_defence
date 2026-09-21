@@ -76,12 +76,36 @@ export interface LiveExpedition {
 }
 
 export interface RelatedAttraction {
+  contentId: string;
   nameKo: string;
-  relatedRank: number;
-  distanceKm?: number;
+  latitude: number;
+  longitude: number;
+  distanceKm: number;
   category?: string;
   imageUrl?: string;
-  source: "KTOUR_RELATED_ATTRACTION";
+  addressKo?: string;
+  source: "KTOUR_LOCATION_BASED" | "KTOUR_ROUTE_DETOUR";
+}
+
+export interface RelatedAttractionQuery {
+  name: string;
+  latitude?: number;
+  longitude?: number;
+  regionCode?: string;
+  excludeNames?: string[];
+}
+
+export interface RouteAttraction extends RelatedAttraction {
+  placement: "before_first" | "between" | "after_second";
+  detourKm?: number;
+  viaDistanceKm?: number;
+  reasons: string[];
+}
+
+export interface RouteAttractionQuery {
+  first: { name: string; latitude: number; longitude: number };
+  second: { name: string; latitude: number; longitude: number };
+  excludeNames?: string[];
 }
 
 export interface OpenDataOperationStatus {
@@ -200,7 +224,8 @@ export interface TourismService {
   getRegion(regionId: string): Promise<Region>;
   listPlaces(filter: PlaceFilter): Promise<Place[]>;
   getRecommendedExpedition(filter: ExpeditionRecommendationFilter): Promise<LiveExpedition>;
-  getRelatedAttractions(placeId: string): Promise<RelatedAttraction[]>;
+  getRelatedAttractions(query: RelatedAttractionQuery): Promise<RelatedAttraction[]>;
+  getRouteAttractions(query: RouteAttractionQuery): Promise<RouteAttraction[]>;
   getOpenDataStatus(): Promise<OpenDataStatus>;
 }
 

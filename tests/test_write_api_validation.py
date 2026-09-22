@@ -49,6 +49,7 @@ class WriteApiContractTests(unittest.TestCase):
 
     def valid_cases(self):
         return (
+            ("POST", "/api/v1/fandoms", {"name": "MOONLIGHT", "artist_name": "달빛소년단"}, None, None),
             ("PUT", "/api/v1/me/season-membership", {"fandom_id": UUID}, None, None),
             ("PUT", "/api/v1/me/game-state", {"state": {"version": 3, "activeTab": "explore"}}, None, None),
             ("POST", "/api/v1/checkin-sessions", {"place_id": UUID, "season_id": UUID}, {"Idempotency-Key": KEY}, None),

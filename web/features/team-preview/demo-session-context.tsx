@@ -1,7 +1,9 @@
 "use client";
 
 import { createContext, type Dispatch, type ReactNode, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useOptionalMembership } from "@/features/membership/membership-context";
 import { previewContent } from "./content";
+import { artistProfileForFandom } from "./fandom-artists";
 import type { FandomStanding, PreviewTerritory } from "./types";
 import {
   createInitialDemoSession,
@@ -57,6 +59,9 @@ export function DemoSessionProvider({ children, storage, remote, loadTerritories
   loadTerritories?: () => Promise<PreviewTerritory[]>;
 }) {
   const [state, dispatch] = useReducer(demoSessionReducer, undefined, createInitialDemoSession);
+  // A member-named fandom has no catalog entry to be found in, so the only
+  // place its artist can be read from is the season's fandom list.
+  const membershipFandoms = useOptionalMembership()?.fandoms;
   const [hydrated, setHydrated] = useState(false);
   const [serverTerritories, setServerTerritories] = useState<PreviewTerritory[] | null>(null);
   const [territoryError, setTerritoryError] = useState(false);
@@ -128,12 +133,26 @@ export function DemoSessionProvider({ children, storage, remote, loadTerritories
       territories: serverTerritories,
       fandoms: fandomsFor(serverTerritories),
     };
-    const selectedArtist = previewContent.artists.find((artist) => artist.id === visibleState.selectedArtistId) ?? null;
+    const selectedArtist = previewContent.artists.find((artist) => artist.id === visibleState.selectedArtistId)
+      ?? (membershipFandoms ?? [])
+        .map(artistProfileForFandom)
+        .find((artist) => artist.id === visibleState.selectedArtistId)
+      ?? null;
     const selectedTerritory = visibleState.territories.find((territory) => territory.id === visibleState.selectedTerritoryId) ?? null;
     const reset = () => {
       sessionStorage?.removeItem(DEMO_SESSION_KEY);
       sessionStorage?.removeItem(LEGACY_DEMO_SESSION_KEY);
       skipNextSave.current = true;
+      // A practice run's seal decides what gets written down, so it cannot
+      // outlive the session it was freezing.
+      setFrozen(null);
+      // A signed-in player's session also lives on the server, and clearing
+      // only this browser left that copy intact: the next page load loaded the
+      // played session straight back, and the reset undid itself. The empty
+      // session goes there directly, since the save below is suppressed.
+      if (remote) {
+        void remote.save({ ...createInitialDemoSession(), locale: state.locale }).catch(() => undefined);
+      }
       dispatch({ type: "reset" });
     };
     return {
@@ -146,7 +165,7 @@ export function DemoSessionProvider({ children, storage, remote, loadTerritories
       territoryError,
       seal: setFrozen,
     };
-  }, [hydrated, serverTerritories, sessionStorage, state, territoryError]);
+  }, [hydrated, membershipFandoms, remote, serverTerritories, sessionStorage, state, territoryError]);
 
   return <DemoSessionContext.Provider value={value}>{children}</DemoSessionContext.Provider>;
 }

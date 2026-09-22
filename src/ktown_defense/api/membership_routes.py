@@ -42,6 +42,12 @@ class FandomListResponse(BaseModel):
     items: list[FandomResponse]
 
 
+class CreateFandomRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    name: str = Field(min_length=1, max_length=100)
+    artist_name: str = Field(alias="artistName", min_length=1, max_length=200)
+
+
 class SelectMembershipRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     fandom_id: UUID = Field(alias="fandomId")
@@ -73,6 +79,18 @@ async def list_fandoms(session: Session) -> FandomListResponse:
     return FandomListResponse(items=[FandomResponse.from_model(item) for item in fandoms])
 
 
+@router.post("/fandoms", response_model=FandomResponse, status_code=201)
+async def create_fandom(
+    payload: CreateFandomRequest,
+    session: Session,
+    subject: MembershipSubject,
+) -> FandomResponse:
+    fandom = await MembershipApplication(session).create_fandom(
+        payload.name, payload.artist_name
+    )
+    return FandomResponse.from_model(fandom)
+
+
 @router.get(
     "/me/season-membership",
     response_model=MembershipResponse | None,
@@ -94,3 +112,8 @@ async def select_membership(
         subject, payload.fandom_id
     )
     return MembershipResponse.from_model(membership)
+
+
+@router.delete("/me/season-membership", status_code=204)
+async def leave_season(session: Session, subject: MembershipSubject) -> None:
+    await MembershipApplication(session).leave_season(subject)

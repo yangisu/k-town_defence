@@ -570,6 +570,10 @@ export function createHttpServices(fetcher: typeof fetch = fetch): AppServices {
       },
       getCurrent: () => requestJson<SeasonMembership | null>(fetcher, "/api/v1/me/season-membership"),
       selectFandom: (fandomId) => requestJson<SeasonMembership>(fetcher, "/api/v1/me/season-membership", { method: "PUT", body: JSON.stringify({ fandomId }) }),
+      createFandom: (name, artistName) => requestJson<FandomSummary>(fetcher, "/api/v1/fandoms", { method: "POST", body: JSON.stringify({ name, artistName }) }),
+      async leaveSeason() {
+        await requestJson(fetcher, "/api/v1/me/season-membership", { method: "DELETE" });
+      },
     },
   };
 }

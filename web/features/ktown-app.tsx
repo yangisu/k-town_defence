@@ -22,7 +22,8 @@ import { useModalFocus } from "@/components/ui/use-modal-focus";
 import { MembershipProvider, useMembership } from "@/features/membership/membership-context";
 import { DemoSessionProvider, useDemoSession } from "@/features/team-preview/demo-session-context";
 import type { DemoSession as DemoSessionState } from "@/features/team-preview/demo-session";
-import type { ArtistId } from "@/features/team-preview/types";
+import type { ArtistId, ArtistProfile } from "@/features/team-preview/types";
+import { artistProfileForFandom } from "@/features/team-preview/fandom-artists";
 import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
 import { isGuideRunning } from "@/features/team-preview/guide-running";
 import { createRemoteDemoSessionStore } from "@/features/team-preview/remote-session-store";
@@ -34,18 +35,22 @@ import { createServices, type ServiceMode } from "@/lib/service-factory";
 import { createDemoServices } from "@/lib/demo-services";
 import { mapTerritorySnapshots } from "@/lib/adapters/territory";
 
-function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", checkInMode, practiceCheckInService, availableArtistIds, onChangeFandom }: {
+function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", checkInMode, practiceCheckInService, roster, onAddArtist, onLeaveSeason, onChangeFandom }: {
   services: AppServices;
   mapConfig: MapConfig | null;
   profileLocked?: boolean;
   mode?: ServiceMode;
   checkInMode?: "demo" | "integrated";
-  /** Fandoms the season membership can actually be set to. The full preview
-   *  roster has many more artists than the backend has fandoms for, and
-   *  picking one with no matching fandom used to close the drawer and do
-   *  nothing — no error, no fandom change. Restricting the drawer to this
-   *  list keeps every choice one that `onChangeFandom` can actually apply. */
-  availableArtistIds?: ArtistId[];
+  /** The artists to offer, which in a season is the fandoms it actually holds
+   *  — including the ones members named themselves. Offering the whole preview
+   *  catalog instead let a reader pick one with no fandom behind it, which
+   *  closed the drawer and did nothing at all. */
+  roster?: ArtistProfile[];
+  /** Adds an artist the season does not carry yet, then joins its fandom. */
+  onAddArtist?: (name: string, artistName: string) => Promise<void>;
+  /** Clears the season membership as part of a reset, so the fandom picker
+   *  comes back instead of the old fandom returning from the server. */
+  onLeaveSeason?: () => Promise<void>;
   /** Used for the guide's practice check-in instead of `services.checkIn`.
    *  The guide can walk a reader through any territory, but the live catalog
    *  only has real places for Busan (see `hasLiveExpeditionData`), so a
@@ -211,6 +216,10 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     forgetTutorial(window.localStorage);
     setGuideChecked(false);
     session.reset();
+    // In a season the fandom is held by the server, not by this session, so
+    // clearing only the session left the membership to put it straight back —
+    // and the reset appeared to do nothing at all.
+    void onLeaveSeason?.();
     setDrawerOpen(false);
     setResetOpen(false);
   };
@@ -323,7 +332,8 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
             // In integrated mode the roster lives on the server, so the drawer
             // stays a single-fandom switch until that contract catches up.
             followedArtistIds={onChangeFandom ? undefined : session.state.followedArtistIds}
-            availableArtistIds={availableArtistIds}
+            roster={roster}
+            onAddArtist={onAddArtist}
             onClose={() => setDrawerOpen(false)}
             onSelect={chooseArtist}
             onRemove={onChangeFandom ? undefined : setLeavingArtistId}
@@ -446,10 +456,24 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
     window.location.href = "/api/auth/signout";
   }, []);
 
+  // The artists this season can be played as: its fandoms, each resolved to a
+  // documented artist where the catalog has one and built from its own names
+  // where it does not.
+  const roster = useMemo(
+    () => membership.fandoms.map(artistProfileForFandom),
+    [membership.fandoms],
+  );
+  const fandomIdOf = useCallback(
+    (artistId: ArtistId) => membership.fandoms.find(
+      (fandom) => artistProfileForFandom(fandom).id === artistId,
+    )?.id ?? null,
+    [membership.fandoms],
+  );
+
   useEffect(() => {
     if (!hydrated || !membership.membership) return;
     const fandom = membership.fandoms.find((item) => item.id === membership.membership?.fandomId);
-    const artist = previewContent.artists.find((item) => item.fandomName === fandom?.name);
+    const artist = fandom ? artistProfileForFandom(fandom) : null;
     if (!artist || (state.artistConfirmed && state.selectedArtistId === artist.id)) return;
     dispatch({
       type: state.artistConfirmed ? "changeProfile" : "selectArtist",
@@ -460,16 +484,18 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
   // A fandom belongs to the season membership here, not to the local session,
   // so changing one goes to the API — which may refuse it mid-season.
   const changeFandom = useCallback((artistId: NonNullable<DemoSessionState["selectedArtistId"]>) => {
-    const artist = previewContent.artists.find((candidate) => candidate.id === artistId);
-    const fandom = membership.fandoms.find((candidate) => candidate.name === artist?.fandomName);
-    if (fandom) void membership.selectFandom(fandom.id);
+    const fandomId = fandomIdOf(artistId);
+    if (fandomId) void membership.selectFandom(fandomId);
+  }, [fandomIdOf, membership]);
+
+  // Naming an artist and playing as them is one gesture: the fandom is created
+  // and joined together, or the reader would add one and then have to find it.
+  const addArtist = useCallback(async (name: string, artistName: string) => {
+    const created = await membership.createFandom(name, artistName);
+    await membership.selectFandom(created.id);
   }, [membership]);
-  // Only artists whose fandom the season membership actually offers — the
-  // preview roster has far more, and the drawer used to let a reader pick one
-  // that `changeFandom` could not apply, closing on nothing happening.
-  const availableArtistIds = useMemo(() => membership.fandoms
-    .map((fandom) => previewContent.artists.find((artist) => artist.fandomName === fandom.name)?.id)
-    .filter((id): id is ArtistId => Boolean(id)), [membership.fandoms]);
+
+  const leaveSeason = useCallback(() => membership.leaveSeason(), [membership]);
 
   if (welcoming) {
     return <DemoBrandTransition onComplete={() => {
@@ -486,7 +512,9 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
         profileLocked
         mode="integrated"
         practiceCheckInService={practiceCheckInService}
-        availableArtistIds={availableArtistIds}
+        roster={roster}
+        onAddArtist={addArtist}
+        onLeaveSeason={leaveSeason}
         checkInMode="demo"
         onChangeFandom={changeFandom}
       />

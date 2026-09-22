@@ -11,13 +11,22 @@ const demoFandoms = [
 ];
 function createDemoMembership(): MembershipService {
   let current: Awaited<ReturnType<MembershipService["getCurrent"]>> = null;
+  const fandoms = [...demoFandoms];
   return {
-    async listFandoms() { return clone(demoFandoms); },
+    async listFandoms() { return clone(fandoms); },
     async getCurrent() { return clone(current); },
     async selectFandom(fandomId) {
       current ??= { userId: "30000000-0000-4000-8000-000000000001", seasonId: "20000000-0000-4000-8000-000000000001", fandomId, lockedAt: new Date().toISOString() };
       return clone(current);
     },
+    async createFandom(name, artistName) {
+      const existing = fandoms.find((fandom) => fandom.name === name.trim());
+      if (existing) return clone(existing);
+      const created = { id: crypto.randomUUID(), name: name.trim(), artistName: artistName.trim() };
+      fandoms.push(created);
+      return clone(created);
+    },
+    async leaveSeason() { current = null; },
   };
 }
 

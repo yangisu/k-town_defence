@@ -41,12 +41,19 @@ class FieldRule:
 # receives the same deterministic 413/422 classification.
 UUID_RULE = FieldRule("uuid", max_length=36)
 KOREAN_SHORT = FieldRule("korean", min_length=1, max_length=100)
+# A fandom names itself, and plenty of them carry no Hangul at all — ARMY,
+# BLINK — so these are bounded text rather than Korean.
+FANDOM_NAME = FieldRule("text", min_length=1, max_length=100)
+ARTIST_NAME = FieldRule("text", min_length=1, max_length=200)
 KOREAN_LONG = FieldRule("korean", min_length=1, max_length=2000)
 LATITUDE = FieldRule("number", minimum=-90, maximum=90)
 LONGITUDE = FieldRule("number", minimum=-180, maximum=180)
 
 
 WRITE_CONTRACTS: dict[tuple[str, str], dict[str, object]] = {
+    ("POST", "/api/v1/fandoms"): {
+        "body": {"name": FANDOM_NAME, "artist_name": ARTIST_NAME}
+    },
     ("PUT", "/api/v1/me/season-membership"): {"body": {"fandom_id": UUID_RULE}},
     ("PUT", "/api/v1/me/game-state"): {
         "body": {"state": FieldRule("object", max_length=1_000_000)}
@@ -166,7 +173,7 @@ def _uuid_v4(value: str) -> bool:
 
 def _validate_field(name: str, value: object, rule: FieldRule) -> ValidationError | None:
     kind = rule.kind
-    if kind in {"uuid", "korean", "enum", "timestamp", "https"} and not isinstance(value, str):
+    if kind in {"uuid", "korean", "text", "enum", "timestamp", "https"} and not isinstance(value, str):
         return _error(400, "MALFORMED_REQUEST", name)
     if kind == "integer" and (not isinstance(value, int) or isinstance(value, bool)):
         return _error(400, "MALFORMED_REQUEST", name)

@@ -31,6 +31,63 @@ class MembershipApplication:
         )
         return list(result.all())
 
+    async def create_fandom(self, name: str, artist_name: str) -> FandomModel:
+        """Adds a fandom a member named themselves, for an artist the seeded
+        catalog does not carry. It arrives with nothing but its two names: no
+        territories are tied to it and no route is written for it, so it plays
+        the open board until someone documents a connection."""
+        normalized_name = name.strip()
+        normalized_artist = artist_name.strip()
+        if not normalized_name or not normalized_artist:
+            raise ApiError(422, "FANDOM_NAME_REQUIRED", "팬덤 이름과 아티스트 이름을 모두 입력해 주세요.")
+
+        existing = await self._session.scalar(
+            select(FandomModel).where(FandomModel.name_ko == normalized_name)
+        )
+        if existing is not None:
+            # An inactive namesake is the same fandom coming back, not a
+            # clash: reviving it keeps the points already banked under it.
+            if existing.is_active:
+                raise ApiError(409, "FANDOM_ALREADY_EXISTS", "이미 등록된 팬덤 이름입니다.")
+            existing.is_active = True
+            existing.artist_name_ko = normalized_artist
+            await self._session.commit()
+            await self._session.refresh(existing)
+            return existing
+
+        fandom = FandomModel(
+            id=uuid4(),
+            name_ko=normalized_name,
+            artist_name_ko=normalized_artist,
+            is_active=True,
+            created_at=utc_now(),
+        )
+        self._session.add(fandom)
+        await self._session.commit()
+        await self._session.refresh(fandom)
+        return fandom
+
+    async def leave_season(self, platform_subject: str) -> None:
+        """Drops this season's membership so the next visit starts at the
+        fandom picker. The points already earned stay where they were banked:
+        they belong to the fandom, not to the membership row."""
+        season = await self._current_season()
+        user_id = await self._session.scalar(
+            select(UserModel.id).where(UserModel.platform_subject == platform_subject)
+        )
+        if user_id is None:
+            return
+        membership = await self._session.scalar(
+            select(SeasonMembershipModel).where(
+                SeasonMembershipModel.user_id == user_id,
+                SeasonMembershipModel.season_id == season.id,
+            )
+        )
+        if membership is None:
+            return
+        await self._session.delete(membership)
+        await self._session.commit()
+
     async def get_current(self, platform_subject: str) -> SeasonMembershipModel | None:
         season = await self._current_season()
         user_id = await self._session.scalar(

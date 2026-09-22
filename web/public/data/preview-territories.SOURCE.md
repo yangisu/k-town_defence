@@ -109,3 +109,25 @@ national coast: measured area outside the outline is 0.0000% for all 23,
 Incheon included. Coordinates are rounded to the four decimal places the file
 already used. The table above still records which source feature named each
 territory; the ADM1 rows describe that naming, not the current geometry.
+
+## Yeonggwang-gun filled in (2026-09-22)
+
+The pinned ADM2 download has 228 features and **Yeonggwang-gun (영광군) is not
+one of them**, so the outline unioned from it left a ~425 km² notch on the
+Jeolla coast between Gochang and Hampyeong, where the base map's own land
+showed through.
+
+`korea-outline.geojson` now fills that notch with the one piece of the ADM1
+(Natural Earth) country that the ADM2 union does not cover there:
+
+```sh
+mapshaper adm1.geojson -dissolve -erase korea-outline.geojson -explode \
+  -each 'a=this.area/1e6' -filter 'a>400'          # → yeonggwang.json
+mapshaper -i korea-outline.geojson yeonggwang.json combine-files \
+  -merge-layers force -dissolve2 -o precision=0.0001
+```
+
+Its inland edges are the ADM2 neighbours' own, so it joins without a seam
+(polygon and hole counts are unchanged); only its coast is ADM1's coarser
+line. Every other ADM1-only piece is a coastal sliver about 1 km wide, or the
+strip up to the DMZ, and was left as it was. No preview territory changes.

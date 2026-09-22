@@ -1,111 +1,87 @@
-# Preview territory boundary provenance
+# Boundary provenance
 
-`preview-territories.geojson` is a derived cartographic subset of the
-geoBoundaries Republic of Korea open boundary downloads. It is not hand-drawn
-or inferred from the preview centroids.
+`korea-outline.geojson` (the country) and `preview-territories.geojson` (the
+23 preview territories) are both derived from one download of Statistics
+Korea's administrative-dong boundaries. They are not hand-drawn.
 
-## Sources and redistribution terms
+## Source and terms
 
-- Retrieved: **2026-08-22**.
-- Dataset/API publisher: [geoBoundaries](https://www.geoboundaries.org/).
-- ADM1 metadata:
-  <https://www.geoboundaries.org/api/current/gbOpen/KOR/ADM1/>. The record
-  identifies the upstream source as Natural Earth and the boundary license as
-  **Public Domain**; its license link is
-  <https://www.naturalearthdata.com/about/terms-of-use/>.
-- Exact ADM1 download used (pinned geoBoundaries revision `9469f09`):
-  <https://github.com/wmgeolab/geoBoundaries/raw/9469f09/releaseData/gbOpen/KOR/ADM1/geoBoundaries-KOR-ADM1.geojson>.
-- ADM2 metadata:
-  <https://www.geoboundaries.org/api/current/gbOpen/KOR/ADM2/>. The record
-  identifies the upstream source as citypopulation.de and the boundary license
-  as **Creative Commons Attribution 3.0**; its license link is
-  <https://www.citypopulation.de/en/help/termsofuse/>.
-- Exact ADM2 download used (pinned geoBoundaries revision `9469f09`):
-  <https://github.com/wmgeolab/geoBoundaries/raw/9469f09/releaseData/gbOpen/KOR/ADM2/geoBoundaries-KOR-ADM2.geojson>.
-- geoBoundaries describes its open downloads as CC BY 4.0 and requests visible
-  attribution on web products. The preview therefore displays a persistent
-  `geoBoundaries` attribution link and retains this provenance file. See
-  <https://www.geoboundaries.org/index.html#getdata>.
+- Upstream: Statistics Korea SGIS (<https://sgis.kostat.go.kr>), released under
+  **KOGL Type 1** (공공누리 제1유형, attribution):
+  <https://www.kogl.or.kr/info/licenseType1.do>.
+- Processed by [vuski/admdongkor](https://github.com/vuski/admdongkor) (history
+  of dong changes applied, topology checked), whose data is **CC BY 4.0**.
+- Exact file, pinned to commit `7360288`:
+  <https://raw.githubusercontent.com/vuski/admdongkor/7360288277dfd12d74e54b959c59bdd66f852e3a/ver20260701/HangJeongDong_ver20260701.geojson>
+  (3,558 dongs in 256 si/gun/gu, boundaries as of 2026-07-01, WGS84).
+- Required attribution, kept on the map itself:
 
-These terms permit redistribution with the stated attribution. Metropolitan
-preview territories use the corresponding ADM1 feature; municipal and county
-territories use ADM2. `jeju` intentionally represents the ADM1 Jeju boundary,
-matching the preview territory name rather than only Jeju-si.
+  > 본 데이터는 통계청 통계지리정보서비스(SGIS, https://sgis.kostat.go.kr)에서
+  > 공공누리 제1유형으로 개방한 행정동 경계를 가공한 것이며(가공: vuski/admdongkor,
+  > https://github.com/vuski/admdongkor), CC BY 4.0으로 배포됩니다.
 
-## Extraction and simplification
+## Why not geoBoundaries any more (2026-09-22)
 
-The output was generated with Node.js 24.18.1 and mapshaper 0.6.113. In the
-command below, `$mapping` is the JavaScript object shown by the table in the
-next section, expressed as `{ "source shapeName": "preview id", ... }`.
+The files used to come from geoBoundaries KOR ADM2 @9469f09. That download has
+228 features and **no Yeonggwang-gun**, so a ~425 km² county on the Jeolla coast
+was missing from the country and the base map's land showed through. Its
+metropolitan cities were also far short of their real extent (Gwangju 123 km²
+against ~501, Busan 349 against ~770, Incheon 264 against ~1,065), because
+they had been rebuilt from whichever ADM2 pieces fell inside an older ADM1
+shape.
 
-```powershell
-$adm1 = "geoBoundaries-KOR-ADM1.geojson"
-$adm2 = "geoBoundaries-KOR-ADM2.geojson"
-$lookup = '({"Busan":"busan","Daegu":"daegu","Gwangju":"gwangju","Daejeon":"daejeon","Seoul":"seoul","Incheon":"incheon","Jeju":"jeju","Ulsan":"ulsan","Gunpo-si":"gunpo","Seongnam-si":"seongnam","Geoje-si":"geoje","Suwon-si":"suwon","Gyeongju-si":"gyeongju","Yongin-si":"yongin","Goyang-si":"goyang","Siheung-si":"siheung","Cheonan-si":"cheonan","Pohang-si":"pohang","Wonju-si":"wonju","Chuncheon-si":"chuncheon","Uijeongbu-si":"uijeongbu","Namyangju-si":"namyangju","Yeongwol-gun":"yeongwol"})[shapeName]'
-npx --yes mapshaper@0.6.113 $adm1 $adm2 combine-files `
-  -merge-layers `
-  -filter "$lookup !== undefined" `
-  -each "id=$lookup" `
-  -filter-fields id `
-  -simplify 12% keep-shapes `
-  -clean `
-  -o preview-territories.geojson format=geojson id-field=id precision=0.0001
+## Build
+
+Node.js 22 and mapshaper 0.6.113:
+
+```sh
+# Si/gun/gu from dongs; drop islets under 0.3 km², except Dokdo.
+mapshaper HangJeongDong_ver20260701.geojson \
+  -dissolve sgg copy-fields=sido -explode \
+  -filter 'this.area > 300000 || this.bounds[0] > 131.8' -o s1.geojson
+
+# Simplify everything but Dokdo, which `-simplify keep-shapes` still drops
+# (and `-clean` removes as a sliver), then put it back untouched.
+mapshaper s1.geojson -filter 'this.bounds[0] > 131.8' -o dokdo.geojson precision=0.0001
+mapshaper s1.geojson -filter 'this.bounds[0] <= 131.8' \
+  -dissolve sgg copy-fields=sido -simplify 10% keep-shapes -o main.geojson precision=0.0001
+mapshaper -i main.geojson dokdo.geojson combine-files -merge-layers force \
+  -dissolve sgg copy-fields=sido -o sgg.geojson precision=0.0001
+
+# The country, and the territories, from that one simplified layer.
+mapshaper sgg.geojson -dissolve -o korea-outline.geojson precision=0.0001
+mapshaper sgg-tagged.geojson -dissolve id -o preview-territories.geojson precision=0.0001
 ```
 
-The command retained 23 of 245 input features, retained all 23 shapes after
-simplification/cleaning, removed one geometry sliver, and wrote only the preview
-ID property. Every output feature has that value both as its GeoJSON feature
-`id` and as `properties.id`.
+`sgg-tagged.geojson` is `sgg.geojson` with each si/gun/gu given the preview id
+from the table below and the rest dropped. Both outputs share the same
+simplified arcs, so a territory's coast is exactly the country's coast. Feature
+order and the `id` / `properties.id` shape of the previous file are kept.
 
-## Included source features and preview IDs
+## Territories
 
-| Preview ID | Source `shapeName` | Level | Source `shapeID` |
-|---|---|---|---|
-| busan | Busan | ADM1 | 68945753B18996591190839 |
-| daegu | Daegu | ADM1 | 68945753B94077674833362 |
-| gwangju | Gwangju | ADM1 | 68945753B46109248456415 |
-| gunpo | Gunpo-si | ADM2 | 91817680B51138241033746 |
-| seongnam | Seongnam-si | ADM2 | 91817680B94836834309250 |
-| geoje | Geoje-si | ADM2 | 91817680B58127051569150 |
-| suwon | Suwon-si | ADM2 | 91817680B43312282385471 |
-| gyeongju | Gyeongju-si | ADM2 | 91817680B5353031397212 |
-| daejeon | Daejeon | ADM1 | 68945753B85435209225479 |
-| seoul | Seoul | ADM1 | 68945753B55100681051852 |
-| yongin | Yongin-si | ADM2 | 91817680B86612267469181 |
-| goyang | Goyang-si | ADM2 | 91817680B27371207272645 |
-| incheon | Incheon | ADM1 | 68945753B50642023031709 |
-| jeju | Jeju | ADM1 | 68945753B53856725499604 |
-| ulsan | Ulsan | ADM1 | 68945753B85001375391280 |
-| siheung | Siheung-si | ADM2 | 91817680B37911583032119 |
-| cheonan | Cheonan-si | ADM2 | 91817680B50780672353800 |
-| pohang | Pohang-si | ADM2 | 91817680B48442195707238 |
-| wonju | Wonju-si | ADM2 | 91817680B41990583973423 |
-| chuncheon | Chuncheon-si | ADM2 | 91817680B67839742247787 |
-| uijeongbu | Uijeongbu-si | ADM2 | 91817680B6871011244235 |
-| namyangju | Namyangju-si | ADM2 | 91817680B38772026787440 |
-| yeongwol | Yeongwol-gun | ADM2 | 91817680B79863718076959 |
-
-## Rebuild from ADM2 alone (2026-09-20)
-
-Clipping could not fix the coast. The regions above came from two downloads at
-once, and ADM1 (Natural Earth) and ADM2 (citypopulation.de) draw the same
-shoreline at different fidelities, so a metropolitan region cut against an
-outline built from the other provider kept leaving slivers — Pohang's was still
-visible after three attempts.
-
-Both files are now derived from **ADM2 only**, the one pinned download
-`geoBoundaries-KOR-ADM2.geojson` at revision `9469f09`:
-
-- `korea-outline.geojson` is the union of all 228 ADM2 features.
-- `preview-territories.geojson` rebuilds each of the 23 territories as the union
-  of the ADM2 pieces lying at least half inside its previous polygon — so the
-  eight metropolitan territories that used to be single ADM1 features are now
-  their own districts merged (`seoul` 24, `busan` 13, `daegu` 7, `incheon` 5,
-  `ulsan` 5, `daejeon` 4, `jeju` 2, `gwangju` 1), and the ADM2-sourced
-  territories are unchanged apart from rounding.
-
-Because every edge now comes from one provider, a region's coast *is* the
-national coast: measured area outside the outline is 0.0000% for all 23,
-Incheon included. Coordinates are rounded to the four decimal places the file
-already used. The table above still records which source feature named each
-territory; the ADM1 rows describe that naming, not the current geometry.
+| Preview ID | SGIS source | Codes |
+|---|---|---|
+| seoul | 서울특별시 (whole sido) | `sido` 11 |
+| busan | 부산광역시 (whole sido) | `sido` 26 |
+| daegu | 대구광역시 (whole sido, Gunwi-gun included since 2023) | `sido` 27 |
+| incheon | 인천광역시 (whole sido, islands included) | `sido` 28 |
+| daejeon | 대전광역시 (whole sido) | `sido` 30 |
+| ulsan | 울산광역시 (whole sido) | `sido` 31 |
+| jeju | 제주특별자치도 (whole sido) | `sido` 50 |
+| gwangju | the five former Gwangju gu, now in 전남광주통합특별시 | `sgg` 12210 12240 12270 12300 12330 |
+| suwon | 수원시 (4 gu) | `sgg` 41111 41113 41115 41117 |
+| seongnam | 성남시 (3 gu) | `sgg` 41131 41133 41135 |
+| uijeongbu | 의정부시 | `sgg` 41150 |
+| goyang | 고양시 (3 gu) | `sgg` 41281 41285 41287 |
+| namyangju | 남양주시 | `sgg` 41360 |
+| siheung | 시흥시 | `sgg` 41390 |
+| gunpo | 군포시 | `sgg` 41410 |
+| yongin | 용인시 (3 gu) | `sgg` 41461 41463 41465 |
+| cheonan | 천안시 (2 gu) | `sgg` 44131 44133 |
+| pohang | 포항시 (2 gu) | `sgg` 47111 47113 |
+| gyeongju | 경주시 | `sgg` 47130 |
+| geoje | 거제시 | `sgg` 48310 |
+| chuncheon | 춘천시 | `sgg` 51110 |
+| wonju | 원주시 | `sgg` 51130 |
+| yeongwol | 영월군 | `sgg` 51750 |

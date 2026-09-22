@@ -287,7 +287,8 @@ it("recovers from a map style error without losing attribution or territory cont
   expect(await screen.findByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).toBeVisible();
   expect(screen.getByRole("button", { name: "다시 시도" })).toBeVisible();
   expect(screen.getByRole("link", { name: "Amazon Location Service" })).toBeVisible();
-  expect(screen.getByRole("link", { name: "geoBoundaries" })).toBeVisible();
+  expect(screen.getByRole("link", { name: "통계청 SGIS" })).toBeVisible();
+  expect(screen.getByRole("link", { name: "admdongkor" })).toBeVisible();
 
   const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
   await user.click(within(list).getByRole("button", { name: /^부산/ }));
@@ -678,7 +679,7 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
     />,
   );
   await waitFor(() => expect(map.fitBounds).toHaveBeenLastCalledWith(
-    [[128.4615, 35.7664], [128.7651, 36.0133]],
+    [[128.3507, 35.6068], [128.9001, 36.327]],
     { padding: 56, maxZoom: 9, duration: 700 },
   ));
 
@@ -707,7 +708,7 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
     />,
   );
   await waitFor(() => expect(map.fitBounds).toHaveBeenLastCalledWith(
-    [[126.8449, 35.1102], [127.0274, 35.2542]],
+    [[126.6479, 35.0524], [127.0215, 35.259]],
     { padding: 32, maxZoom: 9, duration: 700 },
   ));
 
@@ -723,7 +724,7 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
     />,
   );
   await waitFor(() => expect(map.fitBounds).toHaveBeenLastCalledWith(
-    [[128.9326, 35.0321], [129.2156, 35.3028]],
+    [[128.7936, 34.9942], [129.3045, 35.3879]],
     { padding: 32, maxZoom: 9, duration: 0 },
   ));
   Object.defineProperty(window, "innerWidth", { configurable: true, value: initialInnerWidth });

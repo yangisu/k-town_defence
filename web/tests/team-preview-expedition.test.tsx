@@ -81,6 +81,11 @@ it("renders a sourced public artist stop followed only by neutral nearby recomme
   expect(within(nearbyStop).queryByText("BTS")).not.toBeInTheDocument();
 
   const standings = screen.getByRole("region", { name: "부산 영토 현황" });
+  // Folded until asked for: the hero leads with the route, not the ranking.
+  const toggle = within(standings).getByRole("button", { name: "영토 현황" });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(within(standings).queryByText("920P")).not.toBeInTheDocument();
+  await userEvent.setup().click(toggle);
   // The ranking lists each fandom on its own row now.
   expect(within(standings).getByText("ARMY")).toBeVisible();
   expect(within(standings).getByText("920P")).toBeVisible();

@@ -19,7 +19,11 @@ export function TerritoryStandings({ territory, locale, selectedArtistId, defaul
 }) {
   // The fold belongs to the territory, so each card remembers its own.
   const [open, setOpen] = useDisclosure(`standings.${territory.id}`, defaultOpen);
-  const ranked = [...territory.standings].sort((left, right) => right.validPoints - left.validPoints);
+  // A fandom with nothing here is not in the running, and fifteen rows of 0P
+  // buried the few that were.
+  const ranked = territory.standings
+    .filter((standing) => standing.validPoints > 0)
+    .sort((left, right) => right.validPoints - left.validPoints);
 
   return (
     <section className="territory-standings" aria-label={`${territory.name[locale]} ${t(locale, "territoryStandings")}`}>
@@ -34,7 +38,10 @@ export function TerritoryStandings({ territory, locale, selectedArtistId, defaul
         <span>{t(locale, "territoryStandings")}</span>
         <ChevronRight size={16} strokeWidth={2.6} aria-hidden="true" />
       </button>
-      {open ? (
+      {open && ranked.length === 0 ? (
+        <p className="territory-standings-empty">{t(locale, "territoryStandingsEmpty")}</p>
+      ) : null}
+      {open && ranked.length > 0 ? (
         <ol>
           {ranked.map((standing, index) => {
             const artist = previewContent.artists.find((candidate) => candidate.id === standing.artistId);

@@ -421,7 +421,6 @@ export function PreviewExpeditionView({
             territory={territory}
             locale={locale}
             selectedArtistId={session.state.selectedArtistId}
-            defaultOpen
           />
         </aside>
       </section>

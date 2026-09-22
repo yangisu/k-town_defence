@@ -393,35 +393,49 @@ it("synchronizes the root document language for persisted and runtime locale cha
   view.unmount();
 });
 
-it("keeps the modern product behind durable membership selection", async () => {
-  const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+it("opens a signed-in member without a fandom on the demo's own artist picker", async () => {
+  const fandomId = "10000000-0000-4000-8000-000000000001";
+  let membership: unknown = null;
+  const json = (body: unknown) => new Response(JSON.stringify(body), {
+    status: 200, headers: { "content-type": "application/json" },
+  });
+  const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
+    const method = init?.method ?? "GET";
     if (url.endsWith("/api/v1/fandoms")) {
-      return new Response(JSON.stringify({
-        items: [{ id: "fandom-1", name: "ARMY", artistName: "방탄소년단" }],
-      }), { status: 200, headers: { "content-type": "application/json" } });
+      return json({ items: [{ id: fandomId, name: "ARMY", artistName: "방탄소년단" }] });
     }
     if (url.endsWith("/api/v1/me/season-membership")) {
-      return new Response("null", { status: 200, headers: { "content-type": "application/json" } });
+      if (method !== "GET") {
+        membership = { userId: "user-1", seasonId: "season-1", fandomId, lockedAt: "2026-09-14T00:00:00Z" };
+      }
+      return json(membership);
     }
-    throw new Error(`Unexpected integrated request: ${url}`);
+    if (url.endsWith("/api/v1/me/game-state")) {
+      return json({ state: method === "PUT" ? JSON.parse(String(init?.body)).state : null });
+    }
+    if (url.endsWith("/api/v1/territories")) return json(integratedTerritories(fandomId));
+    throw new Error(`Unexpected integrated request: ${method} ${url}`);
   });
   vi.stubGlobal("fetch", fetcher);
+  const user = userEvent.setup();
 
   render(<KTownApp mode="integrated" mapConfig={null} />);
 
-  expect(await screen.findByRole("heading", { name: "함께 여행할 팬덤을 선택해 주세요" })).toBeVisible();
-  expect(screen.getByRole("radio", { name: /ARMY.*방탄소년단/ })).toBeVisible();
-  expect(screen.getByRole("button", { name: "이 팬덤으로 시즌 시작" })).toBeEnabled();
-  expect(screen.queryByRole("heading", { name: "응원할 아티스트를 선택하세요" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /내 팬덤/ })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "데모 초기화" })).not.toBeInTheDocument();
-  expect(screen.queryByText("지역의 공공 관광 코스")).not.toBeInTheDocument();
-  expect(window.localStorage.getItem(DEMO_SESSION_KEY)).toBeNull();
-  expect(fetcher.mock.calls.map(([input]) => String(input))).toEqual([
-    "/api/ktown/api/v1/fandoms",
-    "/api/ktown/api/v1/me/season-membership",
-  ]);
+  // The same first-run screen the demo opens with, not a form of its own.
+  expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
+  expect(screen.queryByRole("heading", { name: "함께 여행할 팬덤을 선택해 주세요" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "현재 목표" })).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("radio", { name: /BTS.*ARMY|방탄소년단.*ARMY/ }));
+  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
+
+  // Joining goes to the season membership; the product follows once it holds.
+  await waitFor(() => {
+    expect(screen.getByRole("region", { name: "현재 목표" })).toHaveTextContent("ARMY");
+  });
+  expect(fetcher.mock.calls.some(([input, init]) => String(input).endsWith("/api/v1/me/season-membership")
+    && (init?.method ?? "GET") !== "GET")).toBe(true);
 });
 
 it("renders the modern UI and restores account state after durable membership is ready", async () => {
@@ -469,6 +483,40 @@ it("renders the modern UI and restores account state after durable membership is
   expect(fetcher.mock.calls.map(([input]) => String(input))).toContain(
     "/api/ktown/api/v1/me/game-state",
   );
+});
+
+it("shows a signed-in member their fandom on the artist drawer, as the demo does", async () => {
+  const fandomId = "10000000-0000-4000-8000-000000000001";
+  const remoteState = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  const json = (body: unknown) => new Response(JSON.stringify(body), {
+    status: 200, headers: { "content-type": "application/json" },
+  });
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.endsWith("/api/v1/fandoms")) {
+      return json({ items: [
+        { id: fandomId, name: "ARMY", artistName: "방탄소년단" },
+        { id: "10000000-0000-4000-8000-000000000002", name: "BLINK", artistName: "BLACKPINK" },
+      ] });
+    }
+    if (url.endsWith("/api/v1/me/season-membership")) {
+      return json({ userId: "user-1", seasonId: "season-1", fandomId, lockedAt: "2026-09-14T00:00:00Z" });
+    }
+    if (url.endsWith("/api/v1/me/game-state")) return json({ state: remoteState });
+    if (url.endsWith("/api/v1/territories")) return json(integratedTerritories(fandomId));
+    throw new Error(`Unexpected integrated request: ${url}`);
+  }));
+  const user = userEvent.setup();
+
+  render(<KTownApp mode="integrated" mapConfig={null} />);
+  const region = await screen.findByRole("region", { name: "현재 목표" });
+  await waitFor(() => expect(region).toHaveTextContent("ARMY"));
+  await user.click(within(region).getByRole("button", { name: /ARMY/ }));
+
+  const drawer = await screen.findByRole("dialog", { name: "아티스트 선택" });
+  const followed = within(drawer).getByRole("region", { name: "내가 따르는 팬덤" });
+  expect(followed).toHaveTextContent("ARMY");
+  expect(within(followed).getByText("활동 중")).toBeVisible();
 });
 
 it("lets a signed-in integrated visitor sign out through the real session route", async () => {

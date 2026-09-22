@@ -1,5 +1,4 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { MembershipGate } from "@/components/membership/membership-gate";
 import { MembershipProvider } from "@/features/membership/membership-context";
@@ -7,8 +6,7 @@ import { ApiError } from "@/lib/api/api-error";
 import type { MembershipService } from "@/lib/domain";
 
 
-it("requires a fandom selection before revealing the live application", async () => {
-  const user = userEvent.setup();
+it("lets a member without a fandom through to the product's own picker", async () => {
   const service: MembershipService = {
     listFandoms: vi.fn().mockResolvedValue([
       { id: "fandom-1", name: "ARMY", artistName: "방탄소년단" },
@@ -36,12 +34,11 @@ it("requires a fandom selection before revealing the live application", async ()
     </MembershipProvider>,
   );
 
-  expect(await screen.findByRole("radio", { name: /ARMY/ })).toBeVisible();
-  expect(screen.queryByText("실시간 부산 관광지")).not.toBeInTheDocument();
-  await user.click(screen.getByRole("radio", { name: /ARMY/ }));
-  await user.click(screen.getByRole("button", { name: "이 팬덤으로 시즌 시작" }));
+  // Choosing happens on the first-run picker behind the gate, the same one
+  // the demo opens with, so the gate only waits for the answer.
   expect(await screen.findByText("실시간 부산 관광지")).toBeVisible();
-  expect(service.selectFandom).toHaveBeenCalledWith("fandom-1");
+  expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+  expect(service.selectFandom).not.toHaveBeenCalled();
 });
 
 it("sends unauthenticated visitors to the sign-in page", async () => {

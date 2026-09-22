@@ -1,5 +1,6 @@
 import type { PersistedExpedition } from "@/lib/domain";
 import type { PreviewMissionPlace, TerritoryId } from "@/features/team-preview/types";
+import { englishPlaceName } from "@/features/team-preview/korean-name";
 
 export const territoryRegionCodes: Record<string, string> = {
   seoul: "1", incheon: "2", daejeon: "3", daegu: "4", gwangju: "5", busan: "6", ulsan: "7",
@@ -23,7 +24,7 @@ export function liveMissionPlaces(value: PersistedExpedition, territoryId: Terri
   return value.stops.flatMap(({ place }) => {
     if (place.latitude == null || place.longitude == null) return [];
     return [{
-      id: place.id, territoryId, name: { ko: place.nameKo, en: place.nameKo }, category: place.category,
+      id: place.id, territoryId, name: { ko: place.nameKo, en: englishPlaceName(place.nameKo) }, category: place.category,
       relationship: "nearby_recommendation", artistConnectionId: null, evidenceClass: null, access: "public",
       description: { ko: place.description, en: place.description }, address: { ko: place.address, en: place.address },
       coordinates: { latitude: place.latitude, longitude: place.longitude },

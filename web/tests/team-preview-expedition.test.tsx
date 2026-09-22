@@ -22,9 +22,10 @@ beforeEach(() => {
   skipGuide();
 });
 
-function storeReadyBtsSession() {
+function storeReadyBtsSession(locale: "ko" | "en" = "ko") {
   window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify({
     ...createInitialDemoSession(),
+    locale,
     artistConfirmed: true,
     selectedArtistId: "bts",
     selectedTerritoryId: "busan",
@@ -269,3 +270,29 @@ it("turns the closing action into a completion once every stop is checked in", a
   await user.click(finish);
   expect(await screen.findByRole("dialog", { name: "원정을 완료할까요?" })).toBeVisible();
 }, 20_000);
+
+it("reads a Korean-only recommendation in English, with the Korean name kept beside it", async () => {
+  storeReadyBtsSession("en");
+  render(
+    <DemoSessionProvider storage={window.localStorage}>
+      <PreviewExpeditionView
+        expeditionId="bts-busan-artist-linked-expedition"
+        checkInService={services.checkIn}
+        relatedAttractionService={{
+          ...services.tourism,
+          getRouteAttractions: vi.fn(async () => [{
+            contentId: "before", nameKo: "사직공원", latitude: 35.19, longitude: 129.05,
+            distanceKm: 0.8, addressKo: "부산 동래구", source: "KTOUR_LOCATION_BASED" as const,
+            placement: "before_first" as const, reasons: ["Near the first stop"],
+          }]),
+        }}
+        onBack={() => undefined}
+      />
+    </DemoSessionProvider>,
+  );
+
+  // The tourism OpenAPI only names it in Korean; this is the product's own
+  // English for it, and the Korean stays for matching the sign on the gate.
+  const card = await screen.findByRole("listitem", { name: /Sajik Park/ });
+  expect(within(card).getByRole("heading", { level: 3 })).toHaveTextContent("Sajik Park 사직공원");
+});

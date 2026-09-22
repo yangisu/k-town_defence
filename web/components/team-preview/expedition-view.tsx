@@ -15,6 +15,7 @@ import { t } from "@/features/team-preview/i18n";
 import type { Locale, PreviewMissionPlace, StrongholdStage } from "@/features/team-preview/types";
 import type { CheckInImpact, CheckInResult, CheckInService, PersistedExpedition, Place, RouteAttraction, TourismService } from "@/lib/domain";
 import { liveMissionPlaces } from "@/lib/adapters/expedition";
+import { placeName } from "@/features/team-preview/korean-name";
 
 const copy = {
   ko: {
@@ -113,6 +114,7 @@ const copy = {
 
 function ExpeditionPlaceCard({
   name,
+  originalName,
   tag,
   description,
   address,
@@ -126,6 +128,9 @@ function ExpeditionPlaceCard({
   guide = false,
 }: {
   name: string;
+  /** The Korean name, when `name` is this product's own English for it: an
+   *  English reader still has to match it against a sign that says 사직공원. */
+  originalName?: string;
   tag: string;
   description?: string;
   address: string;
@@ -155,7 +160,7 @@ function ExpeditionPlaceCard({
         </a>
       ) : null}
       <div className="stop-copy">
-        <h3>{name}</h3>
+        <h3>{name}{originalName ? <span className="stop-original" lang="ko"> {originalName}</span> : null}</h3>
         <span className="stop-tag">
           {recommended ? <Sparkles size={12} strokeWidth={2.6} aria-hidden="true" /> : null}
           {tag}
@@ -387,7 +392,8 @@ export function PreviewExpeditionView({
     return (
       <ExpeditionPlaceCard
         key={`${placement}:${item.contentId}`}
-        name={item.nameKo}
+        name={placeName(item.nameKo, locale)}
+        originalName={locale === "en" ? item.nameKo : undefined}
         tag={placementLabel}
         description={item.reasons.join(" · ")}
         address={address}
@@ -469,6 +475,7 @@ export function PreviewExpeditionView({
                   {index === 0 ? recommendationCard("before_first") : null}
                   <ExpeditionPlaceCard
                     name={place.name[locale]}
+                    originalName={locale === "en" && place.name.en !== place.name.ko ? place.name.ko : undefined}
                     tag={member ?? labels.publicTag}
                     description={place.description[locale]}
                     address={place.address[locale]}

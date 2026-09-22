@@ -15,6 +15,7 @@ import type { DemoSession } from "@/features/team-preview/demo-session";
 import { t } from "@/features/team-preview/i18n";
 import { useLiveLocation, type LiveLocationPosition } from "@/features/map/use-live-location";
 import { ownerColor, strongholdColor, territoryBounds } from "@/features/team-preview/map-presentation";
+import { shapeCentre } from "@/features/team-preview/shape-centre";
 import type { PreviewTerritory, TerritoryId } from "@/features/team-preview/types";
 import { mapStyleUrl, type MapConfig } from "@/lib/map-config";
 import type { TerritoryFilter } from "./map-filters";
@@ -102,26 +103,18 @@ function neutraliseBaseMap(map: MapLibreMap) {
 }
 
 /**
- * The data's centroid is a representative point, not the middle of the shape
- * that gets drawn, so markers drifted off their territory. Take the centre of
- * the largest ring's bounding box instead, which sits under the body of the
- * shape a reader sees.
+ * Where each territory's mark sits. See `shapeCentre`: the box centre used
+ * before drifted off shapes that wrap around a neighbour, and out to sea for
+ * the territories that reach islands.
  */
 function shapeCentres(collection: { features: unknown[] }) {
   const centres = new Map<string, { longitude: number; latitude: number }>();
   for (const feature of collection.features) {
-    const candidate = feature as {
-      id?: string | number;
-      properties?: { id?: string };
-      geometry?: { type?: string; coordinates?: unknown };
-    };
+    const candidate = feature as { id?: string | number; properties?: { id?: string } };
     const id = String(candidate.id ?? candidate.properties?.id ?? "");
-    const bounds = territoryBounds(feature);
-    if (!id || !bounds) continue;
-    centres.set(id, {
-      longitude: (bounds[0][0] + bounds[1][0]) / 2,
-      latitude: (bounds[0][1] + bounds[1][1]) / 2,
-    });
+    const centre = shapeCentre(feature);
+    if (!id || !centre) continue;
+    centres.set(id, centre);
   }
   return centres;
 }

@@ -97,7 +97,7 @@ it("renders a sourced public artist stop followed only by neutral nearby recomme
   expect(standings.closest(".expedition-hero")).toContainElement(screen.getByRole("heading", { level: 1 }));
 });
 
-it("places API recommendations before, between, and after the two main stops using the same card layout", async () => {
+it("places API recommendations before, between, and after the two main stops, drawn as asides", async () => {
   storeReadyBtsSession();
   const routeItems = [
     {
@@ -140,7 +140,16 @@ it("places API recommendations before, between, and after the two main stops usi
     "미술의거리",
   ]);
   for (const name of ["사직공원", "구덕민속예술관", "미술의거리"]) {
-    expect(screen.getByRole("listitem", { name })).toHaveClass("recommended-stop");
+    const card = screen.getByRole("listitem", { name });
+    expect(card).toHaveClass("recommended-stop");
+    // An aside beside the route, not a stop on it: nothing to check in at.
+    expect(within(card).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(card).getByText("관광 OpenAPI 추천")).toBeVisible();
+  }
+  for (const name of ["부산아시아드주경기장", "감천문화마을"]) {
+    const card = screen.getByRole("listitem", { name });
+    expect(card).not.toHaveClass("recommended-stop");
+    expect(within(card).getByRole("button", { name: `${name} 체크인` })).toBeVisible();
   }
   expect(within(screen.getByRole("listitem", { name: "구덕민속예술관" })).getByText("직선 우회 +0.1km")).toBeVisible();
 });

@@ -369,7 +369,7 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
     mapRef.current = map;
     map.addControl(new maplibregl.AttributionControl({
       compact: true,
-      customAttribution: '<a href="https://www.geoboundaries.org/" target="_blank" rel="noreferrer">geoBoundaries</a>',
+      customAttribution: '<a href="https://sgis.kostat.go.kr/" target="_blank" rel="noreferrer">통계청 SGIS</a> · <a href="https://github.com/vuski/admdongkor" target="_blank" rel="noreferrer">admdongkor</a>',
     }), "bottom-right");
 
     map.on("error", (event) => {
@@ -854,7 +854,8 @@ export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, l
       )}
       <p className="preview-map-attribution">
         Map © <a href="https://aws.amazon.com/location/" target="_blank" rel="noreferrer">Amazon Location Service</a>
-        {" · "}Boundaries © <a href="https://www.geoboundaries.org/" target="_blank" rel="noreferrer">geoBoundaries</a>
+        {" · "}Boundaries © <a href="https://sgis.kostat.go.kr/" target="_blank" rel="noreferrer">통계청 SGIS</a>
+        {" "}(<a href="https://github.com/vuski/admdongkor" target="_blank" rel="noreferrer">admdongkor</a>, CC BY 4.0)
       </p>
       <div className="preview-map-actions">
         {filters}

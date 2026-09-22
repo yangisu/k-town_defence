@@ -29,6 +29,12 @@ test = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# Data files are left out of a pip install unless named here, and the server
+# runs from the installed copy: without this the opening board would be missing
+# from the Docker image and every fandom would start on zero again.
+[tool.setuptools.package-data]
+ktown_defense = ["data/*.json"]
+
 [tool.pytest.ini_options]
 addopts = "--strict-markers"
 asyncio_mode = "auto"

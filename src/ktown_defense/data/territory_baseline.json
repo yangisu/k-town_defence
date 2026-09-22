@@ -1,0 +1,94 @@
+{
+  "busan": {
+    "ARMY": 920,
+    "BLINK": 840
+  },
+  "daegu": {
+    "ARMY": 1800,
+    "BLINK": 840
+  },
+  "gwangju": {
+    "ONEDOOR": 3600,
+    "ARMY": 840
+  },
+  "gunpo": {
+    "BLINK": 920,
+    "ARMY": 840
+  },
+  "seongnam": {
+    "BLINK": 1800,
+    "ARMY": 840
+  },
+  "geoje": {
+    "REMINE": 1800,
+    "ARMY": 840
+  },
+  "suwon": {
+    "MY": 3600,
+    "ARMY": 840
+  },
+  "gyeongju": {
+    "REMINE": 3600,
+    "ARMY": 840
+  },
+  "daejeon": {
+    "DIVE": 920,
+    "ARMY": 840
+  },
+  "seoul": {
+    "UAENA": 3600,
+    "ARMY": 840
+  },
+  "yongin": {
+    "MELODY": 920,
+    "ARMY": 840
+  },
+  "goyang": {
+    "MELODY": 1800,
+    "ARMY": 840
+  },
+  "incheon": {
+    "DIVE": 1800,
+    "ARMY": 840
+  },
+  "jeju": {
+    "DIVE": 3600,
+    "ARMY": 840
+  },
+  "ulsan": {
+    "BRIIZE": 920,
+    "ARMY": 840
+  },
+  "siheung": {
+    "BRIIZE": 1800,
+    "ARMY": 840
+  },
+  "cheonan": {
+    "ZEROSE": 920,
+    "ARMY": 840
+  },
+  "pohang": {
+    "ZEROSE": 1800,
+    "ARMY": 840
+  },
+  "wonju": {
+    "ONEDOOR": 920,
+    "ARMY": 840
+  },
+  "chuncheon": {
+    "Bunnies": 920,
+    "ARMY": 840
+  },
+  "uijeongbu": {
+    "UAENA": 1800,
+    "ARMY": 840
+  },
+  "namyangju": {
+    "CARAT": 3600,
+    "ARMY": 840
+  },
+  "yeongwol": {
+    "ARMY": 3600,
+    "BLINK": 840
+  }
+}

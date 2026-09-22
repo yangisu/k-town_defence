@@ -17,4 +17,29 @@ async def test_territory_board_comes_from_backend_contract(api_client) -> None:
         "ARMY", "BLINK", "CARAT"
     ]
     assert len(busan["standings"]) == 15
-    assert all(standing["validPoints"] == 0 for standing in busan["standings"])
+    # The season opens on the demo's board rather than on zero: a fresh deploy
+    # used to tie every fandom everywhere and hand ARMY all twenty-three.
+    points = {standing["fandomName"]: standing["validPoints"] for standing in busan["standings"]}
+    assert points["ARMY"] == 920
+    assert points["BLINK"] == 840
+    assert all(value == 0 for name, value in points.items() if name not in {"ARMY", "BLINK"})
+
+
+async def test_a_fresh_board_is_not_one_fandom_everywhere(api_client) -> None:
+    response = await api_client.get("/api/v1/territories")
+
+    items = response.json()["items"]
+    names = {
+        standing["fandomId"]: standing["fandomName"]
+        for standing in items[0]["standings"]
+    }
+    owners = {item["id"]: names[item["ownerFandomId"]] for item in items}
+    # Twelve fandoms hold ground on the opening board, as in the demo.
+    assert len(set(owners.values())) == 12
+    assert owners["gwangju"] == "ONEDOOR"
+    assert owners["seoul"] == "UAENA"
+    assert owners["yeongwol"] == "ARMY"
+    stages = {item["id"]: item["strongholdStage"] for item in items}
+    assert stages["busan"] == "seed"
+    assert stages["daegu"] == "tree"
+    assert stages["yeongwol"] == "landmark"

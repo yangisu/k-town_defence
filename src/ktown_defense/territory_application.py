@@ -12,6 +12,7 @@ from .infrastructure.models import (
     SeasonModel,
     SubmissionModel,
 )
+from .territory_baseline import baseline_points
 
 
 @dataclass(frozen=True)
@@ -80,7 +81,7 @@ class TerritoryApplication:
             .limit(1)
         )
         if season is None:
-            return fandoms, {}
+            return fandoms, self._with_baseline(fandoms, {})
 
         rows = (await self._session.execute(
             select(
@@ -100,4 +101,22 @@ class TerritoryApplication:
         for territory_id, fandom_id, points in rows:
             key = (territory_id, fandom_id)
             scores[key] = scores.get(key, 0) + int(points)
-        return fandoms, scores
+        return fandoms, self._with_baseline(fandoms, scores)
+
+    @staticmethod
+    def _with_baseline(
+        fandoms: list[FandomModel], scores: dict[tuple[str, UUID], int],
+    ) -> dict[tuple[str, UUID], int]:
+        """Approved check-ins on top of the season's opening board.
+
+        Without it a new deployment stood every fandom on zero, and the owner
+        tie-break gave one fandom every territory. See territory_baseline.
+        """
+        combined = dict(scores)
+        for territory in TERRITORIES:
+            for fandom in fandoms:
+                opening = baseline_points(territory.id, fandom.name_ko)
+                if opening:
+                    key = (territory.id, fandom.id)
+                    combined[key] = combined.get(key, 0) + opening
+        return combined

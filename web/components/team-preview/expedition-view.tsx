@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Clock3, ExternalLink, Footprints, MapPin, Shield } from "@/components/ui/icons";
+import { ArrowLeft, Clock3, ExternalLink, Footprints, MapPin, Shield, Sparkles } from "@/components/ui/icons";
 import { CheckInFlow } from "@/components/check-in/check-in-flow";
 import { useBodyScrollLock } from "@/components/ui/use-body-scroll-lock";
 import { useModalFocus } from "@/components/ui/use-modal-focus";
@@ -156,7 +156,10 @@ function ExpeditionPlaceCard({
       ) : null}
       <div className="stop-copy">
         <h3>{name}</h3>
-        <span className="stop-tag">{tag}</span>
+        <span className="stop-tag">
+          {recommended ? <Sparkles size={12} strokeWidth={2.6} aria-hidden="true" /> : null}
+          {tag}
+        </span>
         {description ? <p>{description}</p> : null}
         <div className="stop-meta">
           <span><MapPin size={13} /> {address}</span>

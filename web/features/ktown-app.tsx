@@ -28,14 +28,14 @@ import { getPlayableExpedition, previewContent } from "@/features/team-preview/c
 import { isGuideRunning } from "@/features/team-preview/guide-running";
 import { createRemoteDemoSessionStore } from "@/features/team-preview/remote-session-store";
 import { t } from "@/features/team-preview/i18n";
-import { MembershipGate } from "@/components/membership/membership-gate";
+import { MembershipGate, membershipErrorCopy } from "@/components/membership/membership-gate";
 import type { AppServices, CheckInService, PersistedExpedition } from "@/lib/domain";
 import type { MapConfig } from "@/lib/map-config";
 import { createServices, type ServiceMode } from "@/lib/service-factory";
 import { createDemoServices } from "@/lib/demo-services";
 import { mapTerritorySnapshots } from "@/lib/adapters/territory";
 
-function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", checkInMode, practiceCheckInService, roster, onAddArtist, onLeaveSeason, onChangeFandom }: {
+function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", checkInMode, practiceCheckInService, roster, onAddArtist, onLeaveSeason, onChangeFandom, choosingArtist = false, choiceNotice }: {
   services: AppServices;
   mapConfig: MapConfig | null;
   profileLocked?: boolean;
@@ -61,6 +61,12 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   /** Integrated mode changes a fandom through the season membership rather
    *  than the local session, and the API may refuse mid-season. */
   onChangeFandom?: (artistId: NonNullable<DemoSessionState["selectedArtistId"]>) => void;
+  /** The season has no fandom for this member yet, whatever the session
+   *  remembers, so the first-run picker shows — the same one the demo opens
+   *  with, rather than a separate form of its own. */
+  choosingArtist?: boolean;
+  /** Why the last choice did not go through, or that it is being saved. */
+  choiceNotice?: string | null;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Leaving a fandom cannot be undone from the UI, so it is asked before it is
@@ -83,7 +89,8 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   const leaveTitleRef = useRef<HTMLHeadingElement>(null);
   const session = useDemoSession();
   const signOut = useDemoSignOut();
-  const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
+  const artistConfirmed = session.state.artistConfirmed && !choosingArtist;
+  const selectedArtist = artistConfirmed ? session.selectedArtist : null;
 
   useEffect(() => {
     if (mode !== "integrated") return;
@@ -109,6 +116,12 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     setDrawerOpen(false);
   };
   const confirmArtist = (artistId: NonNullable<typeof session.state.selectedArtistId>) => {
+    // The fandom is the season membership's, so it is joined there; the
+    // session follows once the server has it, and the guide with it.
+    if (onChangeFandom) {
+      onChangeFandom(artistId);
+      return;
+    }
     session.dispatch({ type: "selectArtist", artistId });
     // Choosing a first fandom is when the territory page appears, so the guide
     // opens here — but only for a visitor who has never finished it. Coming
@@ -226,20 +239,20 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   // The guide explains the territory page, so it waits for a fandom instead
   // of greeting a visitor who is still choosing one.
   useEffect(() => {
-    if (guideChecked || !session.state.artistConfirmed) return;
+    if (guideChecked || !artistConfirmed) return;
     setGuideChecked(true);
     try {
       if (!hasSeenTutorial(window.localStorage)) openGuide();
     } catch {
       // Blocked storage only means the guide greets this visit too.
     }
-  }, [guideChecked, session.state.artistConfirmed]);
+  }, [guideChecked, artistConfirmed]);
   useEffect(() => {
     // Changing tab normally means starting at the top, but the guide decides
     // where each of its steps sits and this snapped the page away from it.
     if (isGuideRunning()) return;
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }, [session.state.activeTab, session.state.artistConfirmed]);
+  }, [session.state.activeTab, artistConfirmed]);
   useModalFocus(resetOpen, resetDialogRef, resetTitleRef, () => setResetOpen(false));
   useBodyScrollLock(resetOpen);
   useModalFocus(leavingArtistId !== null, leaveDialogRef, leaveTitleRef, () => setLeavingArtistId(null));
@@ -255,11 +268,11 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
         activeTab={session.state.activeTab}
         locale={session.state.locale}
         interactionDisabled={resetOpen}
-        navigationHidden={!session.state.artistConfirmed}
-        backControl={!session.state.artistConfirmed ? <BackToLoginButton locale={session.state.locale} /> : null}
+        navigationHidden={!artistConfirmed}
+        backControl={!artistConfirmed ? <BackToLoginButton locale={session.state.locale} /> : null}
         onLocaleChange={(locale) => session.dispatch({ type: "setLocale", locale })}
         onTabChange={(tab) => session.dispatch({ type: "changeTab", tab })}
-        statusContent={session.state.artistConfirmed ? (
+        statusContent={artistConfirmed ? (
           // Before a fandom exists the strip had nothing to show but an
           // instruction the screen behind it already gives.
           <ObjectiveStrip
@@ -270,12 +283,12 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
           />
         ) : null}
       >
-        {!session.state.artistConfirmed ? (
-          <ProfileSetup locale={session.state.locale} onConfirm={confirmArtist} />
+        {!artistConfirmed ? (
+          <ProfileSetup locale={session.state.locale} roster={roster} onAddArtist={onAddArtist} notice={choiceNotice} onConfirm={confirmArtist} />
         ) : null}
-        {session.state.artistConfirmed && session.state.activeTab === "explore" ? (
+        {artistConfirmed && session.state.activeTab === "explore" ? (
             <TerritoryView
-              key={session.state.artistConfirmed ? `artist:${session.state.selectedArtistId}` : "unconfirmed"}
+              key={artistConfirmed ? `artist:${session.state.selectedArtistId}` : "unconfirmed"}
               mapConfig={mapConfig}
               services={services}
               integrated={mode === "integrated"}
@@ -287,7 +300,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
               onLiveExpedition={setLiveExpedition}
             />
         ) : null}
-        {session.state.artistConfirmed && session.state.activeTab === "expedition" ? (
+        {artistConfirmed && session.state.activeTab === "expedition" ? (
             <PreviewExpeditionView
               expeditionId={session.state.selectedExpeditionId}
               checkInService={mode === "integrated" && guideOpen && practiceCheckInService ? practiceCheckInService : services.checkIn}
@@ -304,16 +317,16 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
               onBack={() => undefined}
             />
         ) : null}
-        {session.state.artistConfirmed && session.state.activeTab === "battle" ? (
+        {artistConfirmed && session.state.activeTab === "battle" ? (
             <RankingView
               locale={session.state.locale}
               fandoms={session.state.fandoms}
               territories={session.state.territories}
-              selectedArtistId={session.state.artistConfirmed ? session.state.selectedArtistId : null}
+              selectedArtistId={artistConfirmed ? session.state.selectedArtistId : null}
               onInspectTerritory={(territoryId) => session.dispatch({ type: "selectTerritory", territoryId })}
             />
         ) : null}
-        {session.state.artistConfirmed && session.state.activeTab === "journey" ? (
+        {artistConfirmed && session.state.activeTab === "journey" ? (
           <RecordView
             locale={session.state.locale}
             session={session.state}
@@ -328,10 +341,12 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
           <ArtistDrawer
             open={drawerOpen}
             locale={session.state.locale}
-            selectedArtistId={session.state.artistConfirmed ? session.state.selectedArtistId : null}
-            // In integrated mode the roster lives on the server, so the drawer
-            // stays a single-fandom switch until that contract catches up.
-            followedArtistIds={onChangeFandom ? undefined : session.state.followedArtistIds}
+            selectedArtistId={artistConfirmed ? session.state.selectedArtistId : null}
+            // A season holds one fandom per member, so the drawer lists just
+            // that one as followed, and choosing another replaces it.
+            followedArtistIds={onChangeFandom
+              ? (artistConfirmed && session.state.selectedArtistId ? [session.state.selectedArtistId] : [])
+              : session.state.followedArtistIds}
             roster={roster}
             onAddArtist={onAddArtist}
             onClose={() => setDrawerOpen(false)}
@@ -517,6 +532,10 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
         onLeaveSeason={leaveSeason}
         checkInMode="demo"
         onChangeFandom={changeFandom}
+        choosingArtist={membership.status === "selection_required"}
+        choiceNotice={membership.isSelecting
+          ? "팬덤을 저장하고 있어요"
+          : membership.error ? membershipErrorCopy(membership.error.code) : null}
       />
     </DemoSignOutProvider>
   );

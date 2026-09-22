@@ -3,10 +3,15 @@
 import { useState } from "react";
 import { ArtistSelector } from "@/components/team-preview/artist-drawer";
 import { t } from "@/features/team-preview/i18n";
-import type { ArtistId, Locale } from "@/features/team-preview/types";
+import type { ArtistId, ArtistProfile, Locale } from "@/features/team-preview/types";
 
-export function ProfileSetup({ locale, onConfirm }: {
+export function ProfileSetup({ locale, roster, onAddArtist, notice, onConfirm }: {
   locale: Locale;
+  /** The season's own fandoms when there is a season; the preview catalog otherwise. */
+  roster?: readonly ArtistProfile[];
+  onAddArtist?(name: string, artistName: string): Promise<void>;
+  /** Saving, or why the last choice did not go through. */
+  notice?: string | null;
   onConfirm(artistId: ArtistId): void;
 }) {
   const [selectedArtistId, setSelectedArtistId] = useState<ArtistId | null>(null);
@@ -21,10 +26,13 @@ export function ProfileSetup({ locale, onConfirm }: {
       <ArtistSelector
         locale={locale}
         selectedArtistId={selectedArtistId}
+        roster={roster}
+        onAddArtist={onAddArtist}
         onSelect={setSelectedArtistId}
         onConfirm={() => selectedArtistId && onConfirm(selectedArtistId)}
         confirmLabel={t(locale, "profileConfirm")}
       />
+      {notice ? <p className="profile-setup-notice" role="status">{notice}</p> : null}
     </section>
   );
 }

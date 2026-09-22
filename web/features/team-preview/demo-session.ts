@@ -394,8 +394,14 @@ const territoryIds = new Set<TerritoryId>(previewContent.territories.map((territ
 const placeIds = new Set(previewContent.places.map((place) => place.id));
 const expeditionIds = new Set(previewContent.expeditions.map((expedition) => expedition.id));
 
+// A fandom a member named themselves is as real a choice as a catalogued one,
+// so its id has to survive a reload — but only in the shape the app mints, so
+// an arbitrary string still cannot walk into a stored session.
+const CUSTOM_ARTIST_ID = /^fandom:[0-9a-fA-F-]{36}$/;
+
 function isArtistId(value: unknown): value is ArtistId {
-  return typeof value === "string" && artistIds.has(value as ArtistId);
+  return typeof value === "string"
+    && (artistIds.has(value as ArtistId) || CUSTOM_ARTIST_ID.test(value));
 }
 
 function isTerritoryId(value: unknown): value is TerritoryId {

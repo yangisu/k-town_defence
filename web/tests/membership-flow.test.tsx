@@ -14,6 +14,8 @@ it("requires a fandom selection before revealing the live application", async ()
       { id: "fandom-1", name: "ARMY", artistName: "방탄소년단" },
     ]),
     getCurrent: vi.fn().mockResolvedValue(null),
+    createFandom: vi.fn(),
+    leaveSeason: vi.fn(),
     selectFandom: vi.fn().mockResolvedValue({
       userId: "user-1",
       seasonId: "season-1",
@@ -46,6 +48,8 @@ it("sends unauthenticated visitors to the sign-in page", async () => {
   const service: MembershipService = {
     listFandoms: vi.fn().mockRejectedValue(new ApiError(401, "AUTHENTICATION_REQUIRED")),
     getCurrent: vi.fn().mockRejectedValue(new ApiError(401, "AUTHENTICATION_REQUIRED")),
+    createFandom: vi.fn(),
+    leaveSeason: vi.fn(),
     selectFandom: vi.fn(),
   };
 

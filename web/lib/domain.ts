@@ -243,6 +243,10 @@ export interface MembershipService {
   listFandoms(): Promise<FandomSummary[]>;
   getCurrent(): Promise<SeasonMembership | null>;
   selectFandom(fandomId: string): Promise<SeasonMembership>;
+  /** Adds a fandom for an artist the seeded catalog does not carry. */
+  createFandom(name: string, artistName: string): Promise<FandomSummary>;
+  /** Drops this season's membership, so the next visit picks a fandom again. */
+  leaveSeason(): Promise<void>;
 }
 
 export interface TourismService {

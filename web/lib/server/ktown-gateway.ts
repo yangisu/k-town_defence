@@ -9,8 +9,10 @@ type GatewayDependencies = {
 const UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}";
 const allowedRoutes = [
   { method: "GET", pattern: /^api\/v1\/fandoms$/ },
+  { method: "POST", pattern: /^api\/v1\/fandoms$/ },
   { method: "GET", pattern: /^api\/v1\/me\/season-membership$/ },
   { method: "PUT", pattern: /^api\/v1\/me\/season-membership$/ },
+  { method: "DELETE", pattern: /^api\/v1\/me\/season-membership$/ },
   { method: "GET", pattern: /^api\/v1\/me\/game-state$/ },
   { method: "PUT", pattern: /^api\/v1\/me\/game-state$/ },
   { method: "GET", pattern: /^api\/v1\/places$/ },
@@ -59,7 +61,8 @@ export async function proxyKtownRequest(
   const isMembershipSelection =
     request.method === "PUT" && path === "api/v1/me/season-membership";
   const isGameStateWrite = request.method === "PUT" && path === "api/v1/me/game-state";
-  if ((isMembershipSelection || isGameStateWrite) && !contentType?.toLowerCase().startsWith("application/json")) {
+  const isFandomCreation = request.method === "POST" && path === "api/v1/fandoms";
+  if ((isMembershipSelection || isGameStateWrite || isFandomCreation) && !contentType?.toLowerCase().startsWith("application/json")) {
     return jsonError(415, "UNSUPPORTED_MEDIA_TYPE", "JSON 요청만 사용할 수 있습니다.");
   }
   const idempotencyKey = request.headers.get("idempotency-key");
@@ -75,7 +78,7 @@ export async function proxyKtownRequest(
   let body: ArrayBuffer | undefined;
   if (!new Set(["GET", "HEAD"]).has(request.method)) {
     body = await request.arrayBuffer();
-    const maximumBodyBytes = isMembershipSelection
+    const maximumBodyBytes = isMembershipSelection || isFandomCreation
       ? 4 * 1024
       : path.endsWith("/photo")
         ? 11 * 1024 * 1024

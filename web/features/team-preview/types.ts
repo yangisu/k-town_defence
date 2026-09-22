@@ -4,11 +4,16 @@ export type Locale = "ko" | "en";
 export type LocalizedText = Record<Locale, string>;
 export type TerritoryId = string;
 export type MissionPlaceId = string;
-export type ArtistId =
+/** The artists the preview catalog documents: territories, member ties and
+ *  routes are written for these and only these. */
+export type CatalogArtistId =
   | "bts" | "blackpink" | "rescene" | "cortis" | "btob"
   | "ive" | "kiiikiii" | "riize" | "zerobaseone"
   | "boynextdoor" | "le-sserafim" | "aespa" | "newjeans"
   | "iu" | "seventeen";
+/** A catalog artist, or one a member named themselves — those carry a
+ *  `fandom:<id>` identifier and no catalog content of their own. */
+export type ArtistId = CatalogArtistId | (string & {});
 export type EvidenceClass = "official" | "verified" | "team_data";
 export type PlaceRelationship = "artist_connection" | "nearby_recommendation";
 export type PlaceAccess = "public" | "restricted" | "sensitive";

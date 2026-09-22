@@ -101,10 +101,13 @@ ROUTE_POLICIES: tuple[RoutePolicy, ...] = (
     P("GET", "/api/v1/places", Audience.PUBLIC),
     P("GET", "/api/v1/places/{placeId}", Audience.PUBLIC),
     P("GET", "/api/v1/fandoms", Audience.PUBLIC),
+    # Naming a fandom is a member's act, even though reading the list is not.
+    P("POST", "/api/v1/fandoms", Audience.MEMBER),
     P("GET", "/api/v1/seasons/current/strongholds", Audience.PUBLIC),
     P("GET", "/api/v1/seasons/current/leaderboards", Audience.PUBLIC),
     P("GET", "/api/v1/me/season-membership", Audience.MEMBER),
     P("PUT", "/api/v1/me/season-membership", Audience.MEMBER),
+    P("DELETE", "/api/v1/me/season-membership", Audience.MEMBER),
     P("GET", "/api/v1/me/game-state", Audience.MEMBER),
     P("PUT", "/api/v1/me/game-state", Audience.MEMBER),
     P("POST", "/api/v1/checkin-sessions", Audience.MEMBER),

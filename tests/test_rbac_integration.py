@@ -19,8 +19,11 @@ PUBLIC_ROUTES = (
 )
 
 MEMBER_ROUTES = (
+    # Reading the fandom list is public; naming a new one is a member's act.
+    ("POST", "/api/v1/fandoms"),
     ("GET", "/api/v1/me/season-membership"),
     ("PUT", "/api/v1/me/season-membership"),
+    ("DELETE", "/api/v1/me/season-membership"),
     ("GET", "/api/v1/me/game-state"),
     ("PUT", "/api/v1/me/game-state"),
     ("POST", "/api/v1/checkin-sessions"),

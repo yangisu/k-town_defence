@@ -75,3 +75,69 @@ async def test_unknown_fandom_is_rejected(member_client) -> None:
 
     assert response.status_code == 404
     assert response.json()["code"] == "FANDOM_NOT_FOUND"
+
+
+async def test_member_can_name_an_artist_the_catalog_does_not_carry(
+    member_client, session_factory
+) -> None:
+    from sqlalchemy import text
+
+    created = await member_client.post(
+        "/api/v1/fandoms", json={"name": "MOONLIGHT", "artistName": "달빛소년단"}
+    )
+    try:
+        assert created.status_code == 201
+        body = created.json()
+        assert body["name"] == "MOONLIGHT"
+        assert body["artistName"] == "달빛소년단"
+
+        # It is listed like any other, so it can be joined straight away.
+        listed = await member_client.get("/api/v1/fandoms")
+        assert "MOONLIGHT" in [item["name"] for item in listed.json()["items"]]
+
+        joined = await member_client.put(
+            "/api/v1/me/season-membership", json={"fandomId": body["id"]}
+        )
+        assert joined.status_code == 200
+        assert joined.json()["fandomId"] == body["id"]
+
+        duplicate = await member_client.post(
+            "/api/v1/fandoms", json={"name": "MOONLIGHT", "artistName": "달빛소년단"}
+        )
+        assert duplicate.status_code == 409
+        assert duplicate.json()["code"] == "FANDOM_ALREADY_EXISTS"
+    finally:
+        # The seeded catalog is shared across tests and never truncated.
+        async with session_factory() as session:
+            await session.execute(
+                text("DELETE FROM season_memberships WHERE fandom_id = :id"),
+                {"id": created.json()["id"]},
+            )
+            await session.execute(
+                text("DELETE FROM fandoms WHERE name_ko = 'MOONLIGHT'")
+            )
+            await session.commit()
+
+
+async def test_naming_an_artist_requires_an_identity(api_client) -> None:
+    response = await api_client.post(
+        "/api/v1/fandoms", json={"name": "NOBODY", "artistName": "익명"}
+    )
+
+    assert response.status_code == 401
+    assert response.json()["code"] == "AUTHENTICATION_REQUIRED"
+
+
+async def test_leaving_the_season_puts_the_fandom_choice_back(member_client) -> None:
+    await member_client.put(
+        "/api/v1/me/season-membership", json={"fandomId": ARMY_ID}
+    )
+
+    left = await member_client.delete("/api/v1/me/season-membership")
+    after = await member_client.get("/api/v1/me/season-membership")
+
+    assert left.status_code == 204
+    assert after.status_code == 200
+    assert after.json() is None
+    # Leaving twice is the same as leaving once.
+    assert (await member_client.delete("/api/v1/me/season-membership")).status_code == 204

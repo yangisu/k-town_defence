@@ -134,6 +134,16 @@ export function DemoSessionProvider({ children, storage, remote, loadTerritories
       sessionStorage?.removeItem(DEMO_SESSION_KEY);
       sessionStorage?.removeItem(LEGACY_DEMO_SESSION_KEY);
       skipNextSave.current = true;
+      // A practice run's seal decides what gets written down, so it cannot
+      // outlive the session it was freezing.
+      setFrozen(null);
+      // A signed-in player's session also lives on the server, and clearing
+      // only this browser left that copy intact: the next page load loaded the
+      // played session straight back, and the reset undid itself. The empty
+      // session goes there directly, since the save below is suppressed.
+      if (remote) {
+        void remote.save({ ...createInitialDemoSession(), locale: state.locale }).catch(() => undefined);
+      }
       dispatch({ type: "reset" });
     };
     return {
@@ -146,7 +156,7 @@ export function DemoSessionProvider({ children, storage, remote, loadTerritories
       territoryError,
       seal: setFrozen,
     };
-  }, [hydrated, serverTerritories, sessionStorage, state, territoryError]);
+  }, [hydrated, remote, serverTerritories, sessionStorage, state, territoryError]);
 
   return <DemoSessionContext.Provider value={value}>{children}</DemoSessionContext.Provider>;
 }

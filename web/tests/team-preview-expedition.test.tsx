@@ -60,8 +60,12 @@ it("renders a sourced public artist stop followed only by neutral nearby recomme
   );
 
   expect(await screen.findByText("아티스트 연관 장소 중심")).toBeVisible();
-  expect(screen.getByText("추천 근거 보기")).toBeVisible();
-  expect(screen.getByRole("link", { name: "출처 확인" })).toBeInTheDocument();
+  // The tie's source is a corner link, as it is on the tactical panel, not a
+  // disclosure to open first.
+  expect(screen.queryByText("추천 근거 보기")).not.toBeInTheDocument();
+  const source = screen.getByRole("link", { name: "출처 확인" });
+  expect(source).toHaveClass("tactical-source");
+  expect(source.closest(".tactical-connection")).not.toBeNull();
   // The transit blurb is gone; the hero states the estimate instead.
   expect(screen.queryByText(/부산도시철도와 시내버스/)).not.toBeInTheDocument();
   expect(screen.getByText(/예상 시간 90분/)).toBeVisible();

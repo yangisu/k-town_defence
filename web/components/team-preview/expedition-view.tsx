@@ -21,7 +21,6 @@ const copy = {
   ko: {
     back: "영토 지도로",
     connectionSource: "아티스트 연결 출처",
-    evidenceDisclosure: "추천 근거 보기",
     evidenceSource: "출처 확인",
     route: "원정 코스",
     estimated: "예상 시간",
@@ -67,7 +66,6 @@ const copy = {
   en: {
     back: "Back to territory map",
     connectionSource: "Artist connection source",
-    evidenceDisclosure: "Why this is recommended",
     evidenceSource: "View source",
     route: "Expedition route",
     estimated: "Estimated",
@@ -437,16 +435,24 @@ export function PreviewExpeditionView({
       <section className="tactical-connection preview-expedition-connection">
         {regionalConnection ? (
           <>
+            {/* The source is a corner link, the way the tactical panel's is: a
+                disclosure to open and then a link to follow asked twice for
+                one thing. */}
+            <a
+              className="tactical-source"
+              href={regionalConnection.sourceUrls[0]}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={labels.evidenceSource}
+            >
+              <ExternalLink size={16} strokeWidth={2.2} aria-hidden="true" />
+            </a>
             {/* An artist-linked route leads with the route's own framing; a
                 public route through a connected region leads with the tie. */}
             <strong>{connection ? labels.artistLinked : labels.regionalStory}</strong>
             <h2>{regionalConnection.memberName[locale]} · {territory.name[locale]}</h2>
             <p>{regionalConnection.story[locale]}</p>
             {connection ? null : <p className="tactical-route-note">{labels.publicRoute}</p>}
-            <details className="tactical-evidence">
-              <summary>{labels.evidenceDisclosure}</summary>
-              <a href={regionalConnection.sourceUrls[0]} target="_blank" rel="noreferrer">{labels.evidenceSource}</a>
-            </details>
           </>
         ) : (
           <>

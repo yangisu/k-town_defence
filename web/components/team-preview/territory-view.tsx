@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { MapFilters, filterAndOrderTerritories, type TerritoryFilter } from "@/components/team-preview/map-filters";
+import { MapFilters, filterAndOrderTerritories, filterHolding, type TerritoryFilter } from "@/components/team-preview/map-filters";
 import { TacticalPanel } from "@/components/team-preview/tactical-panel";
 import { TerritoryMap } from "@/components/team-preview/territory-map";
 import { getPlayableExpedition, previewContent } from "@/features/team-preview/content";
@@ -38,18 +38,13 @@ export function TerritoryView({ mapConfig, services, integrated = false, expedit
   const mapRef = useRef<HTMLDivElement>(null);
   const selectedArtist = session.state.artistConfirmed ? session.selectedArtist : null;
   const selectedTerritory = session.state.artistConfirmed ? session.selectedTerritory : null;
-  // The filter decides the list, and a territory picked on the map joins it at
-  // the end rather than widening the filter. Widening used to lift every dimmed
-  // region on the map to full strength on the first map click, and nothing put
-  // them back; now only the picked one lights up.
-  const visibleTerritories = useMemo(() => {
-    if (!selectedArtist) return session.state.territories;
-    const filtered = filterAndOrderTerritories(session.state.territories, filter, selectedArtist.id);
-    const selectedId = session.state.selectedTerritoryId;
-    if (!selectedId || filtered.some((territory) => territory.id === selectedId)) return filtered;
-    const picked = session.state.territories.find((territory) => territory.id === selectedId);
-    return picked ? [...filtered, picked] : filtered;
-  }, [filter, selectedArtist, session.state.selectedTerritoryId, session.state.territories]);
+  // The filter decides the list, and nothing else joins it. A card that sat in
+  // a filter it does not belong to — Seoul under "my fandom", because it
+  // happened to be selected — said the filter was not being honoured.
+  const visibleTerritories = useMemo(() => (selectedArtist
+    ? filterAndOrderTerritories(session.state.territories, filter, selectedArtist.id)
+    : session.state.territories
+  ), [filter, selectedArtist, session.state.territories]);
   const summary = useMemo(() => selectedArtist
     ? summarizeTerritories(session.state.territories, selectedArtist.id, previewContent.connections)
     : null, [selectedArtist, session.state.territories]);
@@ -64,11 +59,15 @@ export function TerritoryView({ mapConfig, services, integrated = false, expedit
     if (!cleared && follow && !isGuideRunning()) mapRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   };
 
-  // A territory picked on the map may sit outside the current filter. Its card
-  // joins the list above (see visibleTerritories) instead of the filter being
-  // thrown away, so the reader keeps the view they chose.
+  // A territory picked on the map may sit outside the current filter. Rather
+  // than smuggle its card into a list it does not belong to, the view moves to
+  // the filter that does hold it — the first one that does, so a territory the
+  // reader owns opens under "my fandom" and not under "all".
   const selectFromMapSurface = (territoryId: string, source?: "map" | "list") => {
     if (source !== "map") return selectTerritory(territoryId);
+    if (selectedArtist && !visibleTerritories.some((territory) => territory.id === territoryId)) {
+      setFilter(filterHolding(session.state.territories, territoryId, selectedArtist.id));
+    }
     // Aiming at a place on the map means "show me this", never "put it away":
     // a second click re-centres it instead of clearing the card.
     if (session.state.selectedTerritoryId !== territoryId) {

@@ -49,6 +49,22 @@ export function filterAndOrderTerritories(
   ));
 }
 
+/**
+ * The filter a territory belongs under, in the order the filters are offered:
+ * a territory the reader owns is theirs before it is contested, and contested
+ * before it is merely connected. Every territory is in "all", so there is
+ * always an answer.
+ */
+export function filterHolding(
+  territories: readonly PreviewTerritory[],
+  territoryId: string,
+  artistId: ArtistId,
+): TerritoryFilter {
+  const held = TERRITORY_FILTERS.find((candidate) => filterAndOrderTerritories(territories, candidate.id, artistId)
+    .some((territory) => territory.id === territoryId));
+  return held?.id ?? "all";
+}
+
 export function MapFilters({ locale, activeFilter, onChange }: {
   locale: Locale;
   activeFilter: TerritoryFilter;

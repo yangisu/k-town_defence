@@ -1,4 +1,5 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 
 type Handler = (event: { features?: { id?: string; properties?: Record<string, unknown> }[] }) => void;
@@ -88,28 +89,46 @@ beforeEach(() => {
   for (const handler of [...harness.loadHandlers]) handler();
 });
 
-it("selects a territory the current filter hides, straight from its marker", async () => {
+it("moves to the filter that holds a territory picked on the map", async () => {
   const { previewContent } = await import("@/features/team-preview/content");
-  const { filterAndOrderTerritories } = await import("@/components/team-preview/map-filters");
+  const { filterAndOrderTerritories, filterHolding } = await import("@/components/team-preview/map-filters");
   const session = createInitialDemoSession();
   const listed = filterAndOrderTerritories(session.territories, "my_fandom", "bts").map((territory) => territory.id);
   const hidden = session.territories.find((territory) => !listed.includes(territory.id))!;
   const hiddenName = hidden.name.ko;
+  // Where it does belong: the first filter in the row that holds it.
+  const holding = filterHolding(session.territories, hidden.id, "bts");
+  const holdingLabel = { my_fandom: "소유 영토", contested: "접전 지역", artist_connection: "아티스트 연결", all: "전체" }[holding];
 
   const list = await screen.findByRole("list", { name: "지도와 같은 영토 목록" });
   expect(within(list).queryByRole("button", { name: new RegExp(`^${hiddenName}`) })).not.toBeInTheDocument();
 
   clickOnMap("preview-stronghold-symbols", { id: hidden.id, properties: { id: hidden.id } });
 
-  // The picked territory joins the list so a card exists and reads as
-  // selected, and the reader's filter is left exactly as they set it — widening
-  // it to All used to lift every dimmed region on the map along with it.
-  await waitFor(() => expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
-    .getByRole("button", { name: new RegExp(`^${hiddenName}`) })).toHaveAttribute("aria-pressed", "true"));
-  expect(screen.getByRole("button", { name: "소유 영토" })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByRole("button", { name: "전체" })).toHaveAttribute("aria-pressed", "false");
+  // The card is not smuggled into a list it does not belong to: the view moves
+  // to the filter that holds it, and the card is in that list.
+  await waitFor(() => expect(screen.getByRole("button", { name: holdingLabel })).toHaveAttribute("aria-pressed", "true"));
+  expect(screen.getByRole("button", { name: "소유 영토" })).toHaveAttribute("aria-pressed", String(holding === "my_fandom"));
+  expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
+    .getByRole("button", { name: new RegExp(`^${hiddenName}`) })).toHaveAttribute("aria-pressed", "true");
   expect(await screen.findByRole("complementary", { name: `${hiddenName} 전술 패널` })).toBeVisible();
   expect(previewContent.territories.length).toBeGreaterThan(0);
+});
+
+it("leaves a selected territory out of a filter it does not belong to", async () => {
+  const { filterAndOrderTerritories } = await import("@/components/team-preview/map-filters");
+  const session = createInitialDemoSession();
+  const owned = filterAndOrderTerritories(session.territories, "my_fandom", "bts").map((territory) => territory.id);
+  const hidden = session.territories.find((territory) => !owned.includes(territory.id))!;
+
+  clickOnMap("preview-stronghold-symbols", { id: hidden.id, properties: { id: hidden.id } });
+  expect(await screen.findByRole("complementary", { name: `${hidden.name.ko} 전술 패널` })).toBeVisible();
+
+  // Back to a filter that does not hold it: its card goes with the filter,
+  // selected or not.
+  await userEvent.click(screen.getByRole("button", { name: "소유 영토" }));
+  await waitFor(() => expect(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
+    .queryByRole("button", { name: new RegExp(`^${hidden.name.ko}`) })).not.toBeInTheDocument());
 });
 
 // The map used to have no way back: once anything was picked, some territory

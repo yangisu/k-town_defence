@@ -18,7 +18,7 @@ beforeEach(() => {
 it("completes the personalized BTS territory journey and persists its profile and progress", async () => {
   const user = userEvent.setup();
   const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
-  let view = render(<KTownApp mode="demo" />);
+  let view = render(<KTownApp mode="demo" mapConfig={null} />);
 
   expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
   expect(screen.queryByRole("navigation", { name: "주요 메뉴" })).not.toBeInTheDocument();
@@ -58,7 +58,7 @@ it("completes the personalized BTS territory journey and persists its profile an
     selectedExpeditionId: "gwangju-regional-support-expedition",
     activeExpeditionId: "gwangju-regional-support-expedition",
   }));
-  view = render(<KTownApp mode="demo" />);
+  view = render(<KTownApp mode="demo" mapConfig={null} />);
 
   expect(await screen.findByRole("heading", { name: "광주 지역 원정" })).toBeVisible();
   // Gwangju is a region ARMY is tied to, so the expedition page carries that
@@ -136,7 +136,7 @@ it("completes the personalized BTS territory journey and persists its profile an
   expect(within(screen.getByRole("list", { name: "활동 타임라인" })).getByText("부산아시아드주경기장")).toBeVisible();
 
   view.unmount();
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
   expect(within(await screen.findByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   await user.click(screen.getAllByRole("button", { name: "랭킹" })[0]);
   const persistedRanking = screen.getByRole("list", { name: "팬덤 랭킹" });
@@ -148,14 +148,14 @@ it("completes the personalized BTS territory journey and persists its profile an
 
 it("completes and persists the full BTS demo journey from a blank session in English", async () => {
   const user = userEvent.setup();
-  const view = render(<KTownApp mode="demo" />);
+  const view = render(<KTownApp mode="demo" mapConfig={null} />);
 
   expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "EN" }));
   expect(screen.queryByRole("navigation", { name: "Main navigation" })).not.toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Choose an artist to support" })).toBeVisible();
   expect(screen.queryByText("영토 지도")).not.toBeInTheDocument();
-  expect(screen.queryByText("지도를 불러오지 못했어요")).not.toBeInTheDocument();
+  expect(screen.queryByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).not.toBeInTheDocument();
 
   const search = screen.getByRole("searchbox", { name: "Search artist or fandom" });
   await user.type(search, "BTS");
@@ -246,7 +246,7 @@ it("completes and persists the full BTS demo journey from a blank session in Eng
   expect(screen.queryByRole("heading", { name: "내 기록" })).not.toBeInTheDocument();
 
   view.unmount();
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
   expect(within(await screen.findByRole("region", { name: "Current objective" })).getByText("ARMY")).toBeVisible();
   expect(screen.getByRole("button", { name: "EN" })).toHaveAttribute("aria-pressed", "true");
   await user.click(screen.getAllByRole("button", { name: "Ranking" })[0]);
@@ -279,7 +279,7 @@ it("returns an empty season dashboard to Explore without resetting the confirmed
     selectedTerritoryId: "busan",
     activeTab: "journey",
   }));
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
   expect(await screen.findByRole("heading", { name: "아직 원정 기록이 없어요" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "영토 둘러보기" }));
@@ -308,7 +308,7 @@ it("tells Gwangju's connection story while keeping it on Gwangju's public route"
     activeExpeditionId: "gwangju-regional-support-expedition",
     activeTab: "expedition",
   }));
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
   expect(await screen.findByRole("heading", { name: "광주 지역 원정" })).toBeVisible();
   expect(screen.getByText("지역 연결 스토리")).toBeVisible();
@@ -353,7 +353,7 @@ it("opens the inspected contested territory in Explore from the ranking dashboar
     activeTab: "battle",
     selectedExpeditionId: null,
   }));
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
   const inspectBusan = await screen.findByRole("button", { name: "부산 영토 자세히 보기" });
   await user.click(inspectBusan);

@@ -58,6 +58,7 @@ const { TerritoryView } = await import("@/components/team-preview/territory-view
 const { DemoSessionProvider } = await import("@/features/team-preview/demo-session-context");
 const { createInitialDemoSession, DEMO_SESSION_KEY } = await import("@/features/team-preview/demo-session");
 
+const mapConfig = { apiKey: "test-map-key", region: "ap-northeast-2", styleName: "Standard" };
 
 function clickOnMap(layerId: string, feature: { id?: string; properties?: Record<string, unknown> }) {
   for (const handler of harness.layerHandlers.get(`click:${layerId}`) ?? []) handler({ features: [feature] });
@@ -81,7 +82,7 @@ beforeEach(() => {
   }));
   render(
     <DemoSessionProvider storage={window.localStorage}>
-      <TerritoryView />
+      <TerritoryView mapConfig={mapConfig} />
     </DemoSessionProvider>,
   );
   for (const handler of [...harness.loadHandlers]) handler();

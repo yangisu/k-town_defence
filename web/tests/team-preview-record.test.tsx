@@ -188,7 +188,7 @@ it("moves artist changes from the global header into My Record", async () => {
     selectedArtistId: "bts",
     activeTab: "journey",
   }));
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
   expect(await screen.findByRole("heading", { name: "내 기록" })).toBeVisible();
   expect(screen.queryByRole("button", { name: "내 팬덤 · ARMY" })).not.toBeInTheDocument();
@@ -204,7 +204,7 @@ it("confirms replay, removes only the demo session, keeps locale, and restores t
   window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(completedEnglishSession()));
   window.localStorage.setItem(LEGACY_DEMO_SESSION_KEY, JSON.stringify({ version: 1 }));
   window.localStorage.setItem("ktown-locale-neighbor", "preserve-me");
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
   expect(within(await screen.findByRole("region", { name: "Current objective" })).getByText("ARMY")).toBeVisible();
   await waitFor(() => expect(window.localStorage.getItem(LEGACY_DEMO_SESSION_KEY)).toBeNull());

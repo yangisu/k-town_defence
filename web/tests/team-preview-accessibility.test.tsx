@@ -148,7 +148,7 @@ it("keeps the fandom-change confirmation in a dedicated sticky action group", as
 it("traps the artist drawer, closes it with Escape, and returns focus to its trigger", async () => {
   const user = userEvent.setup();
   saveConfirmedBtsSession();
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
   const navigation = await screen.findByRole("navigation", { name: "주요 메뉴" });
   await user.click(within(navigation).getByRole("button", { name: "내 기록" }));
@@ -172,7 +172,7 @@ it("traps the artist drawer, closes it with Escape, and returns focus to its tri
 it("keeps one current primary navigation item and labels locale and reset dialogs", async () => {
   const user = userEvent.setup();
   saveConfirmedBtsSession();
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
   const navigation = await screen.findByRole("navigation", { name: "주요 메뉴" });
   expect(within(navigation).getAllByRole("button").filter((button) => button.hasAttribute("aria-current")))
@@ -193,7 +193,7 @@ it("keeps one current primary navigation item and labels locale and reset dialog
 it("blocks pointer activation of navigation and locale controls behind the reset dialog", async () => {
   const user = userEvent.setup();
   saveConfirmedBtsSession();
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
   const navigation = await screen.findByRole("navigation", { name: "주요 메뉴" });
   const recordTab = within(navigation).getByRole("button", { name: "내 기록" });
@@ -215,7 +215,7 @@ it("blocks pointer activation of navigation and locale controls behind the reset
 it("redirects programmatic background focus into the reset dialog", async () => {
   const user = userEvent.setup();
   saveConfirmedBtsSession();
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
   const english = await screen.findByRole("button", { name: "EN" });
   await user.click(within(screen.getByRole("navigation", { name: "주요 메뉴" })).getByRole("button", { name: "내 기록" }));
@@ -323,7 +323,7 @@ it("announces the complete mission impact as one polite textual summary", async 
 
 it("enters profile setup by keyboard while the shell withholds its primary navigation", async () => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
   expect(await screen.findByRole("img", { name: "K-Town Defense" })).toBeVisible();
   // No tab is reachable before confirmation, so the shell renders none of them.
@@ -363,7 +363,7 @@ it("enters profile setup by keyboard while the shell withholds its primary navig
 
 it("returns focus to the profile trigger after a keyboard-confirmed fandom change", async () => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
   await user.click(await screen.findByRole("radio", { name: /방탄소년단.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
@@ -387,10 +387,10 @@ it("keeps the map fallback, territory-card selection, and selected-region text k
     selectedArtistId: "bts",
     selectedTerritoryId: "busan",
   }));
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
   const unavailable = await screen.findByText("지도를 사용할 수 없어요");
-  expect(unavailable.closest('[role="status"]')).toHaveTextContent("지도를 불러오지 못했어요");
+  expect(unavailable.closest('[role="status"]')).toHaveTextContent("지도를 연결하려면 Amazon Location 설정이 필요해요");
   await user.click(screen.getByRole("button", { name: "전체" }));
   const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
   const busan = within(list).getByRole("button", { name: /^부산/ });
@@ -450,7 +450,7 @@ it("opens Ranking and Record CTA destinations from the keyboard", async () => {
     selectedTerritoryId: "gwangju",
     activeTab: "battle",
   }));
-  render(<KTownApp mode="demo" />);
+  render(<KTownApp mode="demo" mapConfig={null} />);
 
   const rankingCta = await screen.findByRole("button", { name: "부산 영토 자세히 보기" });
   rankingCta.focus();

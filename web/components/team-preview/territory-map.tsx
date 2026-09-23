@@ -17,11 +17,12 @@ import { useLiveLocation, type LiveLocationPosition } from "@/features/map/use-l
 import { ownerColor, strongholdColor, territoryBounds } from "@/features/team-preview/map-presentation";
 import { shapeCentre } from "@/features/team-preview/shape-centre";
 import type { PreviewTerritory, TerritoryId } from "@/features/team-preview/types";
-import { koreaMapStyle } from "@/features/team-preview/map-style";
+import { mapStyleUrl, type MapConfig } from "@/lib/map-config";
 import type { TerritoryFilter } from "./map-filters";
 
 interface TerritoryMapProps {
   filters?: ReactNode;
+  mapConfig: MapConfig | null;
   session: DemoSession;
   listedTerritories?: readonly PreviewTerritory[];
   activeFilter?: TerritoryFilter;
@@ -59,6 +60,49 @@ const strongholdRadiusExpression: ExpressionSpecification = ["match", ["get", "s
 const markerLabels = Object.fromEntries(previewContent.artists.map((artist) => [artist.id, artist.markerLabel]));
 
 /**
+ * The world keeps its own colours — only its borders and labels go, since the
+ * only lines worth reading are the ones this product draws, and Korea stands
+ * out by its own stronger ground rather than by washing its neighbours out.
+ */
+/**
+ * The base map paints Korea too, from a far coarser national outline and — in
+ * the fallback style — in #D6C7FF, all but identical to the lilac this map
+ * uses. Its edge therefore showed past ours as a band of the same colour lying
+ * outside our own coastline, which reads exactly like our fill leaking into
+ * the sea. Korea is ours to draw, so it is cut from every base fill; a feature
+ * without a country code keeps its fill, so the rest of the world is untouched.
+ */
+const notKorea: ExpressionSpecification = [
+  "all",
+  ["!=", ["get", "ADM0_A3"], "KOR"],
+  ["!=", ["get", "iso_3166_1_alpha_3"], "KOR"],
+  ["!=", ["get", "iso_3166_1"], "KR"],
+] as ExpressionSpecification;
+
+function neutraliseBaseMap(map: MapLibreMap) {
+  if (typeof map.getStyle !== "function") return;
+  const style = map.getStyle();
+  for (const layer of style?.layers ?? []) {
+    if (layer.id.startsWith("preview-") || layer.id.startsWith("my-location")) continue;
+    if (layer.type === "fill") {
+      try {
+        map.setFilter?.(layer.id, notKorea);
+      } catch {
+        // A style may reject the expression; its fill simply stays as it was.
+      }
+      continue;
+    }
+    if (typeof map.setLayoutProperty !== "function") return;
+    if (layer.type !== "line" && layer.type !== "symbol") continue;
+    try {
+      map.setLayoutProperty(layer.id, "visibility", "none");
+    } catch {
+      // A style may not accept every property; the rest still clears.
+    }
+  }
+}
+
+/**
  * Where each territory's mark sits. See `shapeCentre`: the box centre used
  * before drifted off shapes that wrap around a neighbour, and out to sea for
  * the territories that reach islands.
@@ -89,10 +133,6 @@ function pointCollection(territories: readonly PreviewTerritory[], availableLogo
         logoId: availableLogoIds.has(territory.ownerArtistId) ? `artist-logo-${territory.ownerArtistId}` : "",
         stage: territory.strongholdStage,
         name: territory.name[locale],
-        // This map carries no font of its own — see `labelImage` — so a label
-        // is an image, and the feature names the one it wears.
-        nameLabelId: labelImageId("name", territory.name[locale]),
-        markLabelId: labelImageId("mark", markerLabels[territory.ownerArtistId] ?? territory.ownerArtistId.slice(0, 2).toUpperCase()),
         // Zoomed out, markers overlap; ours has to win that pile-up.
         mine: territory.ownerArtistId === selectedArtistId ? 1 : 0,
       },
@@ -105,72 +145,6 @@ function pointCollection(territories: readonly PreviewTerritory[], availableLogo
       },
     })),
   };
-}
-
-/**
- * Text on this map is drawn as an image.
- *
- * MapLibre sets type from glyph files served by a style, and the base map
- * that used to provide them is gone (see `koreaMapStyle`). Hosting a Korean
- * glyph set would mean megabytes of font ranges in this repository for the
- * couple of dozen names this map shows, so each label is painted once on a
- * canvas and handed to the map as an icon instead.
- */
-const LABEL_STYLES = {
-  name: { size: 12, weight: 800, color: "#16231d", halo: "#fffef9", haloWidth: 2.4 },
-  mark: { size: 9, weight: 800, color: "#fffef9", halo: "rgba(22,35,29,.55)", haloWidth: 1.6 },
-} as const;
-
-type LabelKind = keyof typeof LABEL_STYLES;
-
-function labelImageId(kind: LabelKind, text: string) {
-  return text ? `label:${kind}:${text}` : "";
-}
-
-/** Paints one label, or does nothing where there is no canvas to paint on. */
-function addLabelImage(map: MapLibreMap, kind: LabelKind, text: string) {
-  const id = labelImageId(kind, text);
-  if (!id || map.hasImage?.(id)) return;
-  const style = LABEL_STYLES[kind];
-  const ratio = 2;
-  const font = `${style.weight} ${style.size * ratio}px var(--font-geist-sans), "Noto Sans KR", sans-serif`;
-  const canvas = document.createElement("canvas");
-  let context = canvas.getContext("2d");
-  if (!context) return;
-  context.font = font;
-  const padding = Math.ceil(style.haloWidth * ratio) + 2;
-  const width = Math.ceil(context.measureText(text).width) + padding * 2;
-  const height = Math.ceil(style.size * ratio * 1.35) + padding * 2;
-  if (!(width > 0) || !(height > 0)) return;
-  canvas.width = width;
-  canvas.height = height;
-  context = canvas.getContext("2d");
-  if (!context) return;
-  context.font = font;
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.lineJoin = "round";
-  context.lineWidth = style.haloWidth * ratio;
-  context.strokeStyle = style.halo;
-  context.strokeText(text, width / 2, height / 2);
-  context.fillStyle = style.color;
-  context.fillText(text, width / 2, height / 2);
-  map.addImage(id, context.getImageData(0, 0, width, height), { pixelRatio: ratio });
-}
-
-/** Hands the marks their data, and the labels that data asks for. */
-function updateStrongholds(map: MapLibreMap, collection: ReturnType<typeof pointCollection>) {
-  addLabelImages(map, collection);
-  updateGeoJsonSource(map, strongholdSourceId, collection);
-}
-
-/** Every label the marks and names on this collection ask for. */
-function addLabelImages(map: MapLibreMap, collection: { features: { properties: Record<string, unknown> }[] }) {
-  for (const feature of collection.features) {
-    const { name, artistLabel, logoId } = feature.properties as { name?: string; artistLabel?: string; logoId?: string };
-    if (name) addLabelImage(map, "name", name);
-    if (artistLabel && !logoId) addLabelImage(map, "mark", artistLabel);
-  }
 }
 
 function ownerColorExpression(territories: readonly PreviewTerritory[]): ExpressionSpecification {
@@ -296,7 +270,7 @@ function ownerBoundaryCollection(collection: { type: string; features: unknown[]
   };
 }
 
-export function TerritoryMap({ filters, session, recentreToken = 0, listedTerritories: requestedTerritories, activeFilter = "all", selectedTerritoryId, onSelectTerritory, onClearSelection }: TerritoryMapProps) {
+export function TerritoryMap({ filters, mapConfig, session, recentreToken = 0, listedTerritories: requestedTerritories, activeFilter = "all", selectedTerritoryId, onSelectTerritory, onClearSelection }: TerritoryMapProps) {
   const listedTerritories = requestedTerritories ?? session.territories;
   const usesListedTerritories = requestedTerritories !== undefined;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -357,7 +331,7 @@ export function TerritoryMap({ filters, session, recentreToken = 0, listedTerrit
         const map = mapRef.current;
         if (map) {
           updateGeoJsonSource(map, boundarySourceId, ownerBoundaryCollection(boundaryCollectionRef.current, sessionRef.current.territories));
-          updateStrongholds(map, pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current, sessionRef.current.selectedArtistId, sessionRef.current.locale));
+          updateGeoJsonSource(map, strongholdSourceId, pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current, sessionRef.current.selectedArtistId, sessionRef.current.locale));
           updateGeoJsonSource(map, connectionSourceId, connectionCollection(sessionRef.current, shapeCentresRef.current));
         }
       })
@@ -366,37 +340,25 @@ export function TerritoryMap({ filters, session, recentreToken = 0, listedTerrit
   }, []);
 
   useEffect(() => {
-    if (mapError || !containerRef.current) return;
+    if (!mapConfig || mapError || !containerRef.current) return;
 
     let active = true;
     let styleLoaded = false;
-    // WebGL is what draws this map, and a browser without it throws here
-    // rather than failing quietly. The territory list below says everything
-    // the map does, so that is what such a reader gets.
-    let map: MapLibreMap;
-    try {
-      map = new maplibregl.Map({
-        container: containerRef.current,
-        style: koreaMapStyle(),
-        center: [127.8, 36.3],
-        // The game is played in one country, so the view stays over it.
-        maxBounds: [[123.5, 32.4], [132.5, 39.4]],
-        minZoom: 5.6,
-        zoom: 6.2,
-        // A finger belongs to the page until it is put on the map, but a mouse
-        // wheel should just zoom — a narrow window is not a touch screen.
-        cooperativeGestures: window.matchMedia?.("(pointer: coarse)").matches ?? false,
-        dragPan: false,
-        scrollZoom: false,
-        attributionControl: false,
-      });
-    } catch (error) {
-      console.error("Territory map could not start", error);
-      // Off this render, like the map's own error event, so the fallback is a
-      // reply to what happened rather than a second render of the same one.
-      queueMicrotask(() => { if (active) setMapError(true); });
-      return () => { active = false; };
-    }
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: mapStyleUrl(mapConfig),
+      center: [127.8, 36.3],
+      // The game is played in one country, so the view stays over it.
+      maxBounds: [[123.5, 32.4], [132.5, 39.4]],
+      minZoom: 5.6,
+      zoom: 6.2,
+      // A finger belongs to the page until it is put on the map, but a mouse
+      // wheel should just zoom — a narrow window is not a touch screen.
+      cooperativeGestures: window.matchMedia?.("(pointer: coarse)").matches ?? false,
+      dragPan: false,
+      scrollZoom: false,
+      attributionControl: false,
+    });
     mapRef.current = map;
     map.addControl(new maplibregl.AttributionControl({
       compact: true,
@@ -405,13 +367,14 @@ export function TerritoryMap({ filters, session, recentreToken = 0, listedTerrit
 
     map.on("error", (event) => {
       const error = event.error;
-      console.error("Territory map error", error);
+      console.error("Amazon Location map error", error);
       if (active && !styleLoaded) setMapError(true);
     });
 
     map.on("load", () => {
       if (!active) return;
       styleLoaded = true;
+      neutraliseBaseMap(map);
       // The country this game is played in: a pale ground under the fandom
       // colours, and the only white outline on the map.
       map.addSource(nationSourceId, {
@@ -437,12 +400,10 @@ export function TerritoryMap({ filters, session, recentreToken = 0, listedTerrit
           ? ownerBoundaryCollection(boundaryCollectionRef.current, sessionRef.current.territories)
           : "/data/preview-territories.geojson",
       });
-      const strongholds = pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current, sessionRef.current.selectedArtistId, sessionRef.current.locale);
-      addLabelImages(map, strongholds);
       map.addSource(strongholdSourceId, {
         type: "geojson",
         promoteId: "id",
-        data: strongholds,
+        data: pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current, sessionRef.current.selectedArtistId, sessionRef.current.locale),
       });
       map.addSource(connectionSourceId, {
         type: "geojson",
@@ -581,22 +542,17 @@ export function TerritoryMap({ filters, session, recentreToken = 0, listedTerrit
           "icon-size": ["match", ["get", "stage"], "seed", 0.12, "tree", 0.18, "landmark", 0.24, 0.12],
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
+          "text-field": ["case", ["==", ["get", "logoId"], ""], ["get", "artistLabel"], ""],
+          "text-size": ["match", ["get", "stage"], "seed", 7, "tree", 8, "landmark", 9, 7],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
         },
-      });
-      map.addLayer({
-        id: "preview-stronghold-labels",
-        type: "symbol",
-        source: strongholdSourceId,
-        // Only the artists without a logo wear their initials.
-        filter: ["==", ["get", "logoId"], ""],
-        layout: {
-          "symbol-sort-key": ["-", 0, ["get", "mine"]],
-          "icon-image": ["get", "markLabelId"],
-          "icon-size": ["match", ["get", "stage"], "seed", 0.78, "tree", 0.89, "landmark", 1, 0.78],
-          "icon-allow-overlap": true,
-          "icon-ignore-placement": true,
+        paint: {
+          "text-color": "#fffef9",
+          "text-halo-color": "rgba(22,35,29,.5)",
+          "text-halo-width": 0.7,
+          "text-opacity": 0.96,
         },
-        paint: { "icon-opacity": 0.96 },
       });
 
       map.addLayer({
@@ -607,12 +563,17 @@ export function TerritoryMap({ filters, session, recentreToken = 0, listedTerrit
         // there is room, sit under the marker, and drop out when they collide.
         minzoom: 7.2,
         layout: {
-          "icon-image": ["get", "nameLabelId"],
-          "icon-size": ["interpolate", ["linear"], ["zoom"], 7.2, 0.85, 10, 1.1],
-          "icon-offset": [0, 26],
-          "icon-anchor": "top",
-          // A name that cannot be read without covering a mark is dropped.
-          "icon-allow-overlap": false,
+          "text-field": ["get", "name"],
+          "text-size": ["interpolate", ["linear"], ["zoom"], 7.2, 10, 10, 13],
+          "text-offset": [0, 1.9],
+          "text-anchor": "top",
+          "text-allow-overlap": false,
+          "text-optional": true,
+        },
+        paint: {
+          "text-color": "#16231d",
+          "text-halo-color": "#fffef9",
+          "text-halo-width": 0.9,
         },
       });
       map.addLayer({
@@ -633,7 +594,7 @@ export function TerritoryMap({ filters, session, recentreToken = 0, listedTerrit
           if (!active || map.hasImage(logoId)) return;
           map.addImage(logoId, image.data);
           availableLogoIdsRef.current.add(artist.id);
-          updateStrongholds(map, pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current, sessionRef.current.selectedArtistId, sessionRef.current.locale));
+          updateGeoJsonSource(map, strongholdSourceId, pointCollection(sessionRef.current.territories, availableLogoIdsRef.current, shapeCentresRef.current, sessionRef.current.selectedArtistId, sessionRef.current.locale));
         }).catch(() => undefined);
       }
 
@@ -698,12 +659,12 @@ export function TerritoryMap({ filters, session, recentreToken = 0, listedTerrit
       map.remove();
       if (mapRef.current === map) mapRef.current = null;
     };
-  }, [mapError, retryKey, usesListedTerritories]);
+  }, [mapConfig, mapError, retryKey, usesListedTerritories]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    updateStrongholds(map, pointCollection(session.territories, availableLogoIdsRef.current, shapeCentresRef.current, session.selectedArtistId, session.locale));
+    updateGeoJsonSource(map, strongholdSourceId, pointCollection(session.territories, availableLogoIdsRef.current, shapeCentresRef.current, session.selectedArtistId, session.locale));
     if (boundaryCollectionRef.current) {
       updateGeoJsonSource(map, boundarySourceId, ownerBoundaryCollection(boundaryCollectionRef.current, session.territories));
     }
@@ -837,7 +798,7 @@ export function TerritoryMap({ filters, session, recentreToken = 0, listedTerrit
 
   return (
     <section className={fullscreen ? "preview-map-boundary fullscreen" : "preview-map-boundary"}>
-      {!mapError ? (
+      {mapConfig && !mapError ? (
         <div
           ref={containerRef}
           data-guide="territory-map"
@@ -880,12 +841,13 @@ export function TerritoryMap({ filters, session, recentreToken = 0, listedTerrit
       ) : (
         <div className="preview-map-configuration" role="status">
           <strong>{t(session.locale, "mapUnavailable")}</strong>
-          <span>{t(session.locale, "mapLoadError")}</span>
-          <button type="button" onClick={retry}>{t(session.locale, "retry")}</button>
+          <span>{t(session.locale, "mapConfigError")}</span>
+          {mapError ? <button type="button" onClick={retry}>{t(session.locale, "retry")}</button> : null}
         </div>
       )}
       <p className="preview-map-attribution">
-        Boundaries © <a href="https://sgis.kostat.go.kr/" target="_blank" rel="noreferrer">통계청 SGIS</a>
+        Map © <a href="https://aws.amazon.com/location/" target="_blank" rel="noreferrer">Amazon Location Service</a>
+        {" · "}Boundaries © <a href="https://sgis.kostat.go.kr/" target="_blank" rel="noreferrer">통계청 SGIS</a>
         {" "}(<a href="https://github.com/vuski/admdongkor" target="_blank" rel="noreferrer">admdongkor</a>, CC BY 4.0)
       </p>
       <div className="preview-map-actions">

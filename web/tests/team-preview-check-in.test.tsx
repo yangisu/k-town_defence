@@ -47,7 +47,7 @@ function storeReadyBtsSession(locale: "ko" | "en" = "ko") {
 
 async function openPreviewCheckIn(user: ReturnType<typeof userEvent.setup>) {
   storeReadyBtsSession();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
   await user.click(within(await screen.findByRole("complementary", { name: /(전술 패널|tactical panel)$/ })).getByRole("button", { name: "원정 시작" }));
   await user.click(await screen.findByRole("button", { name: "감천문화마을 체크인" }));
 }
@@ -84,7 +84,7 @@ it("connects demo evidence to territory and rank impact", async () => {
 it("keeps the condensed demo check-in and impact available in English", async () => {
   const user = userEvent.setup();
   storeReadyBtsSession("en");
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   await user.click(within(await screen.findByRole("complementary", { name: /(전술 패널|tactical panel)$/ })).getByRole("button", { name: "Start expedition" }));
   expect(await screen.findByRole("heading", { name: "BTS Busan official concert venue expedition" })).toBeVisible();

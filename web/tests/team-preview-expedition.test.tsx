@@ -35,7 +35,7 @@ function storeReadyBtsSession(locale: "ko" | "en" = "ko") {
 it("opens the verified artist-linked route through the demo application", async () => {
   const user = userEvent.setup();
   storeReadyBtsSession();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   await user.click(within(await screen.findByRole("complementary", { name: /(전술 패널|tactical panel)$/ })).getByRole("button", { name: "원정 시작" }));
 
@@ -180,7 +180,7 @@ it.each([
     selectedArtistId: "bts",
     selectedTerritoryId: "gwangju",
   }));
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   for (const role of roles) {
     const matches = await screen.findAllByText(role);
@@ -220,7 +220,7 @@ it("rejects an expedition that belongs to a different selected artist", async ()
 it("ends a running expedition and reopens the territory for a new one", async () => {
   const user = userEvent.setup();
   storeReadyBtsSession();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   const panel = await screen.findByRole("complementary", { name: /(전술 패널|tactical panel)$/ });
   await user.click(within(panel).getByRole("button", { name: "원정 시작" }));
@@ -250,7 +250,7 @@ it("ends a running expedition and reopens the territory for a new one", async ()
 it("turns the closing action into a completion once every stop is checked in", async () => {
   const user = userEvent.setup();
   storeReadyBtsSession();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
   await user.click(within(await screen.findByRole("complementary", { name: /(전술 패널|tactical panel)$/ })).getByRole("button", { name: "원정 시작" }));
 
   expect(screen.getByRole("button", { name: "원정 종료" })).toBeVisible();

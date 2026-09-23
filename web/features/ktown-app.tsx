@@ -30,14 +30,12 @@ import { createRemoteDemoSessionStore } from "@/features/team-preview/remote-ses
 import { t } from "@/features/team-preview/i18n";
 import { MembershipGate, membershipErrorCopy } from "@/components/membership/membership-gate";
 import type { AppServices, CheckInService, PersistedExpedition } from "@/lib/domain";
-import type { MapConfig } from "@/lib/map-config";
 import { createServices, type ServiceMode } from "@/lib/service-factory";
 import { createDemoServices } from "@/lib/demo-services";
 import { mapTerritorySnapshots } from "@/lib/adapters/territory";
 
-function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", checkInMode, practiceCheckInService, roster, onAddArtist, onLeaveSeason, onChangeFandom, choosingArtist = false, choiceNotice }: {
+function DemoProduct({ services, profileLocked = false, mode = "demo", checkInMode, practiceCheckInService, roster, onAddArtist, onLeaveSeason, onChangeFandom, choosingArtist = false, choiceNotice, accountId }: {
   services: AppServices;
-  mapConfig: MapConfig | null;
   profileLocked?: boolean;
   mode?: ServiceMode;
   checkInMode?: "demo" | "integrated";
@@ -67,6 +65,9 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   choosingArtist?: boolean;
   /** Why the last choice did not go through, or that it is being saved. */
   choiceNotice?: string | null;
+  /** Whose run this is, where there is an account: the guide is greeted once
+   *  per reader, and a reset does not make them a new one. */
+  accountId?: string | null;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Leaving a fandom cannot be undone from the UI, so it is asked before it is
@@ -128,7 +129,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     // back through a link is not a new account.
     setGuideChecked(true);
     try {
-      if (!hasSeenTutorial(window.localStorage)) openGuide();
+      if (!hasSeenTutorial(window.localStorage, accountId)) openGuide();
     } catch {
       openGuide();
     }
@@ -196,7 +197,7 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     guideSnapshot.current = null;
     if (before) session.dispatch({ type: "hydrate", state: before });
     try {
-      markTutorialSeen(window.localStorage);
+      markTutorialSeen(window.localStorage, accountId);
     } catch {
       // Nothing to remember when storage is blocked.
     }
@@ -225,8 +226,10 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
   useEffect(() => () => sealRef.current(null), []);
 
   const resetDemo = () => {
-    // Resetting asks for the demo from the top, greeting included.
-    forgetTutorial(window.localStorage);
+    // The demo is asked for from the top, greeting included. An account's
+    // reset clears the run, not the reader: they have already been greeted,
+    // and being shown the guide again is not what they asked for.
+    if (!accountId) forgetTutorial(window.localStorage);
     setGuideChecked(false);
     session.reset();
     // In a season the fandom is held by the server, not by this session, so
@@ -242,11 +245,11 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
     if (guideChecked || !artistConfirmed) return;
     setGuideChecked(true);
     try {
-      if (!hasSeenTutorial(window.localStorage)) openGuide();
+      if (!hasSeenTutorial(window.localStorage, accountId)) openGuide();
     } catch {
       // Blocked storage only means the guide greets this visit too.
     }
-  }, [guideChecked, artistConfirmed]);
+  }, [accountId, guideChecked, artistConfirmed]);
   useEffect(() => {
     // Changing tab normally means starting at the top, but the guide decides
     // where each of its steps sits and this snapped the page away from it.
@@ -289,7 +292,6 @@ function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo"
         {artistConfirmed && session.state.activeTab === "explore" ? (
             <TerritoryView
               key={artistConfirmed ? `artist:${session.state.selectedArtistId}` : "unconfirmed"}
-              mapConfig={mapConfig}
               services={services}
               integrated={mode === "integrated"}
               expeditionRecoveryStatus={expeditionRecoveryStatus}
@@ -451,7 +453,7 @@ export function createPreviewCheckInService(services: AppServices): CheckInServi
   };
 }
 
-function IntegratedModernProduct({ services, mapConfig }: { services: AppServices; mapConfig: MapConfig | null }) {
+function IntegratedModernProduct({ services }: { services: AppServices }) {
   const membership = useMembership();
   const session = useDemoSession();
   const uiServices = useMemo(() => ({ ...services, checkIn: createPreviewCheckInService(services) }), [services]);
@@ -464,10 +466,9 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
   ));
   const { dispatch, hydrated, state } = session;
   const signOut = useCallback(() => {
-    // The guide greets a first run, and the flag that suppresses it lives in
-    // this browser rather than on the account — so signing out has to clear it,
-    // or whoever logs in here next inherits a greeting someone else dismissed.
-    forgetTutorial(window.localStorage);
+    // Nothing to clear: the guide's answer is kept under this account's own
+    // key (see `tutorialSeenKey`), so whoever signs in here next is greeted on
+    // their own first run and this reader is not greeted again on their next.
     window.location.href = "/api/auth/signout";
   }, []);
 
@@ -523,7 +524,6 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
     <DemoSignOutProvider value={signOut}>
       <DemoProduct
         services={uiServices}
-        mapConfig={mapConfig}
         profileLocked
         mode="integrated"
         practiceCheckInService={practiceCheckInService}
@@ -532,6 +532,7 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
         onLeaveSeason={leaveSeason}
         checkInMode="demo"
         onChangeFandom={changeFandom}
+        accountId={membership.membership?.userId ?? null}
         choosingArtist={membership.status === "selection_required"}
         choiceNotice={membership.isSelecting
           ? "팬덤을 저장하고 있어요"
@@ -541,7 +542,7 @@ function IntegratedModernProduct({ services, mapConfig }: { services: AppService
   );
 }
 
-export function KTownApp({ mode, mapConfig }: { mode: ServiceMode; mapConfig: MapConfig | null }) {
+export function KTownApp({ mode }: { mode: ServiceMode }) {
   const services = useMemo(() => createServices(mode), [mode]);
   const remoteStore = useMemo(() => createRemoteDemoSessionStore(), []);
   const territoryLoader = useMemo(() => mode === "integrated"
@@ -549,14 +550,14 @@ export function KTownApp({ mode, mapConfig }: { mode: ServiceMode; mapConfig: Ma
     : undefined, [mode, services]);
 
   if (mode === "demo") {
-    return <DemoSessionProvider><DemoProduct services={services} mapConfig={mapConfig} /></DemoSessionProvider>;
+    return <DemoSessionProvider><DemoProduct services={services} /></DemoSessionProvider>;
   }
 
   return (
     <MembershipProvider service={services.membership}>
       <MembershipGate>
         <DemoSessionProvider remote={remoteStore} loadTerritories={territoryLoader}>
-          <IntegratedModernProduct services={services} mapConfig={mapConfig} />
+          <IntegratedModernProduct services={services} />
         </DemoSessionProvider>
       </MembershipGate>
     </MembershipProvider>

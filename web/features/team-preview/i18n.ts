@@ -192,7 +192,7 @@ const ko = {
   strongholdLandmarkBuff: "나무 혜택 + 로컬 소비 인증 +30P",
   loading: "불러오는 중",
   retry: "다시 시도",
-  mapConfigError: "지도를 연결하려면 Amazon Location 설정이 필요해요",
+  mapLoadError: "지도를 불러오지 못했어요",
   configurationError: "서비스 설정을 확인해 주세요",
 } as const;
 
@@ -390,7 +390,7 @@ const en: Record<CopyKey, string> = {
   strongholdLandmarkBuff: "Tree benefit + verified local spend +30P",
   loading: "Loading",
   retry: "Retry",
-  mapConfigError: "Amazon Location configuration is required to connect the map",
+  mapLoadError: "The map could not be loaded",
   configurationError: "Check the service configuration",
 };
 

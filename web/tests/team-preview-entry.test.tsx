@@ -49,7 +49,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 it("requires profile confirmation before rendering the territory workspace", async () => {
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
   expect(screen.queryByRole("heading", { name: "영토 지도" })).not.toBeInTheDocument();
@@ -61,7 +61,7 @@ it("requires profile confirmation before rendering the territory workspace", asy
 
 it("confirms a fandom profile before exposing the personalized workspace", async () => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   await user.click(await screen.findByRole("radio", { name: /방탄소년단.*ARMY/ }));
   expect(screen.getByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
@@ -74,7 +74,7 @@ it("confirms a fandom profile before exposing the personalized workspace", async
 
 it("persists initial profile confirmation at the national view across reload", async () => {
   const user = userEvent.setup();
-  const view = render(<KTownApp mode="demo" mapConfig={null} />);
+  const view = render(<KTownApp mode="demo" />);
 
   await user.click(await screen.findByRole("radio", { name: /방탄소년단.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
@@ -90,7 +90,7 @@ it("persists initial profile confirmation at the national view across reload", a
   }));
 
   view.unmount();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   expect(within(await screen.findByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   expect(screen.queryByRole("button", { name: "전국 보기" })).not.toBeInTheDocument();
@@ -98,7 +98,7 @@ it("persists initial profile confirmation at the national view across reload", a
 
 it("opens in the product shell and enters the service after explicit profile confirmation", async () => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
   expect(screen.queryByRole("navigation", { name: "주요 메뉴" })).not.toBeInTheDocument();
@@ -115,7 +115,7 @@ it("opens in the product shell and enters the service after explicit profile con
 
   expect(screen.getByRole("heading", { name: "영토 지도" })).toBeVisible();
   expect(screen.getByRole("navigation", { name: "주요 메뉴" })).toBeVisible();
-  expect(screen.getByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).toBeVisible();
+  expect(screen.getByText("지도를 불러오지 못했어요")).toBeVisible();
   // A fresh reader opens on the whole board, not on the ground their fandom
   // already holds — which for most fandoms is none of it.
   const fallbackList = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
@@ -130,7 +130,7 @@ it("opens in the product shell and enters the service after explicit profile con
 
 it("searches localized artists and recommends their first home territory", async () => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   const search = await screen.findByRole("searchbox", { name: "아티스트 또는 팬덤 검색" });
   await user.type(search, "에스파");
@@ -180,7 +180,7 @@ it.each([
   territories,
 }) => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   await user.click(await screen.findByRole("button", { name: localeButton }));
   const allArtists = screen.getAllByRole("radio");
@@ -216,7 +216,7 @@ it("hydrates a confirmed returning profile directly into its personalized worksp
   };
   window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(saved));
 
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   expect(screen.queryByRole("heading", { name: "응원할 아티스트를 선택하세요" })).not.toBeInTheDocument();
   expect(within(await screen.findByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
@@ -232,7 +232,7 @@ it("keeps the expedition tab empty until a route is started from the territory m
     selectedArtistId: "bts",
     selectedTerritoryId: null,
   }));
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   expect(within(await screen.findByRole("region", { name: "현재 목표" })).getByText("ARMY")).toBeVisible();
   await user.click(screen.getAllByRole("button", { name: "원정" })[0]);
@@ -262,7 +262,7 @@ it("keeps the expedition tab empty until a route is started from the territory m
 
 it("does not allow reconfirming the current fandom as a profile change", async () => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
@@ -275,7 +275,7 @@ it("does not allow reconfirming the current fandom as a profile change", async (
 
 it("keeps profile-menu changes on the strongest relevant territory", async () => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
@@ -294,7 +294,7 @@ it("keeps profile-menu changes on the strongest relevant territory", async () =>
 
 it("does not confirm a selected fandom after search hides its card", async () => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   await user.click(await screen.findByRole("radio", { name: /aespa.*MY/i }));
   await user.type(screen.getByRole("searchbox", { name: "아티스트 또는 팬덤 검색" }), "BTS");
@@ -325,7 +325,7 @@ it("keeps locale controls and omits ambiguous identity when no fandom is selecte
 
 it("keeps the current objective, reset, and locale controls in one non-overlapping shell header", async () => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
@@ -345,7 +345,7 @@ it("keeps the current objective, reset, and locale controls in one non-overlappi
 
 it("switches artists without carrying the previous artist's expedition route", async () => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
@@ -383,7 +383,7 @@ it("synchronizes the root document language for persisted and runtime locale cha
     ...createInitialDemoSession(),
     locale: "en",
   }));
-  const view = render(<KTownApp mode="demo" mapConfig={null} />);
+  const view = render(<KTownApp mode="demo" />);
 
   expect(await screen.findByRole("button", { name: "EN", pressed: true })).toBeVisible();
   expect(document.documentElement).toHaveAttribute("lang", "en");
@@ -420,7 +420,7 @@ it("opens a signed-in member without a fandom on the demo's own artist picker", 
   vi.stubGlobal("fetch", fetcher);
   const user = userEvent.setup();
 
-  render(<KTownApp mode="integrated" mapConfig={null} />);
+  render(<KTownApp mode="integrated" />);
 
   // The same first-run screen the demo opens with, not a form of its own.
   expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
@@ -472,7 +472,7 @@ it("renders the modern UI and restores account state after durable membership is
   });
   vi.stubGlobal("fetch", fetcher);
 
-  render(<KTownApp mode="integrated" mapConfig={null} />);
+  render(<KTownApp mode="integrated" />);
 
   await waitFor(() => {
     expect(screen.getByRole("region", { name: "현재 목표" })).toHaveTextContent("ARMY");
@@ -508,7 +508,7 @@ it("shows a signed-in member their fandom on the artist drawer, as the demo does
   }));
   const user = userEvent.setup();
 
-  render(<KTownApp mode="integrated" mapConfig={null} />);
+  render(<KTownApp mode="integrated" />);
   const region = await screen.findByRole("region", { name: "현재 목표" });
   await waitFor(() => expect(region).toHaveTextContent("ARMY"));
   await user.click(within(region).getByRole("button", { name: /ARMY/ }));
@@ -559,7 +559,7 @@ it("lets a signed-in integrated visitor sign out through the real session route"
   });
 
   const user = userEvent.setup();
-  render(<KTownApp mode="integrated" mapConfig={null} />);
+  render(<KTownApp mode="integrated" />);
   await waitFor(() => {
     expect(screen.getByRole("region", { name: "현재 목표" })).toHaveTextContent("ARMY");
   });
@@ -573,7 +573,7 @@ it("lets a signed-in integrated visitor sign out through the real session route"
 
 it("paints the header fandom pill with the fandom's own colour", async () => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
@@ -588,7 +588,7 @@ it("paints the header fandom pill with the fandom's own colour", async () => {
 
 it("opens the artist drawer from the header fandom pill", async () => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));
@@ -600,7 +600,7 @@ it("opens the artist drawer from the header fandom pill", async () => {
 
 it("collapses and restores the side rail from the logo toggle", async () => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   await user.click(await screen.findByRole("radio", { name: /BTS.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));

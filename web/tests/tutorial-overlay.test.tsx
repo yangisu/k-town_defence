@@ -1,12 +1,13 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, expect, it } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { KTownApp } from "@/features/ktown-app";
 import { GUIDE_STEPS } from "@/features/team-preview/guide-steps";
 import { GAME_RULES } from "@/features/team-preview/game-rules";
 import { createInitialDemoSession, demoSessionReducer, DEMO_SESSION_KEY } from "@/features/team-preview/demo-session";
 import { previewContent } from "@/features/team-preview/content";
-import { TUTORIAL_SEEN_KEY } from "@/features/team-preview/tutorial-seen";
+import { TUTORIAL_SEEN_KEY, tutorialSeenKey } from "@/features/team-preview/tutorial-seen";
+import { BRAND_WELCOME_KEY } from "@/features/team-preview/brand-welcome";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -318,3 +319,57 @@ it("opens the check-in inside the guide without the two fighting over focus", as
   expect(document.querySelector(".checkin-dialog")).toBeNull();
   expect(screen.getByText(`${GUIDE_STEPS.findIndex((s) => s.id === "check-in-verify") + 1} / ${GUIDE_STEPS.length}`)).toBeVisible();
 }, 30_000);
+
+it("does not greet a signed-in member again when they reset the demo", async () => {
+  const user = userEvent.setup();
+  const fandomId = "10000000-0000-4000-8000-000000000001";
+  const userId = "user-1";
+  // This member has already been through the guide on this browser.
+  window.localStorage.setItem(tutorialSeenKey(userId), "seen");
+  const remoteState = demoSessionReducer(createInitialDemoSession(), { type: "selectArtist", artistId: "bts" });
+  let membership: unknown = { userId, seasonId: "season-1", fandomId, lockedAt: "2026-09-14T00:00:00Z" };
+  const json = (body: unknown) => new Response(JSON.stringify(body), {
+    status: 200, headers: { "content-type": "application/json" },
+  });
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? "GET";
+    if (url.endsWith("/api/v1/fandoms")) {
+      return json({ items: [{ id: fandomId, name: "ARMY", artistName: "방탄소년단" }] });
+    }
+    if (url.endsWith("/api/v1/me/season-membership")) {
+      if (method === "DELETE") membership = null;
+      return json(membership);
+    }
+    if (url.endsWith("/api/v1/me/game-state")) return json({ state: method === "PUT" ? null : remoteState });
+    if (url.endsWith("/api/v1/territories")) {
+      return json({
+        items: createInitialDemoSession().territories.map((territory) => ({
+          id: territory.id, nameKo: territory.name.ko, nameEn: territory.name.en,
+          latitude: territory.centroid.latitude, longitude: territory.centroid.longitude,
+          populationDecline: territory.populationDecline, balanceMultiplier: territory.balanceMultiplier,
+          balanceReasonKo: territory.balanceReason.ko, balanceReasonEn: territory.balanceReason.en,
+          ownerFandomId: fandomId, strongholdStage: territory.strongholdStage,
+          standings: [{ fandomId, fandomName: "ARMY", artistName: "방탄소년단", validPoints: 920 }],
+        })),
+      });
+    }
+    return json(null);
+  }));
+
+  // The brand beat plays once a session and is not what this test is about.
+  window.sessionStorage.setItem(BRAND_WELCOME_KEY, "seen");
+  render(<KTownApp mode="integrated" />);
+  await waitFor(() => expect(screen.getByRole("region", { name: "현재 목표" })).toHaveTextContent("ARMY"), { timeout: 3000 });
+  expect(screen.queryByRole("dialog", { name: "K-Defense 시작하기" })).not.toBeInTheDocument();
+
+  await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
+  await user.click(await screen.findByRole("button", { name: "데모 초기화" }));
+  await user.click(await screen.findByRole("button", { name: "초기화" }));
+
+  // The reset clears the run, not the reader: they have seen the guide, and
+  // it does not come back to explain the product to them a second time.
+  expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
+  expect(screen.queryByRole("dialog", { name: "K-Defense 시작하기" })).not.toBeInTheDocument();
+  expect(window.localStorage.getItem(tutorialSeenKey(userId))).toBe("seen");
+});

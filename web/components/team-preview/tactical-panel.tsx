@@ -24,9 +24,6 @@ const panelCopy = {
     owner: "현재 소유",
     challenger: "도전자",
     regionalStory: "지역 연결 스토리",
-    regionalSupport: "지역의 공공 관광 코스",
-    publicRoute: "공식 관광 출처 기반 공공 원정",
-    noDirectPlace: "검증된 아티스트 직접 연관 장소가 없어 공공 관광지만 안내합니다.",
     stronghold: "거점 단계",
     seed: "씨앗",
     tree: "나무",
@@ -75,9 +72,6 @@ const panelCopy = {
     owner: "Current owner",
     challenger: "Challenger",
     regionalStory: "Regional connection story",
-    regionalSupport: "Public tourism route in this region",
-    publicRoute: "Public route from official tourism sources",
-    noDirectPlace: "No verified direct artist destination is available, so this route includes public attractions only.",
     stronghold: "Stronghold stage",
     seed: "Seed",
     tree: "Tree",
@@ -238,13 +232,6 @@ export function TacticalPanel({
         ? copy.blocked
         : copy.start;
   const territoryOwnerColor = previewContent.artists.find((candidate) => candidate.id === territory.ownerArtistId)?.color;
-  const noConnectionRecommendation = expedition.artistId === null
-    ? (locale === "ko"
-        ? "이 영토에는 선택한 아티스트의 검증된 직접 연결이 없어 공공 관광 원정을 추천합니다."
-        : "This territory has no verified direct connection to the selected artist, so a public tourism expedition is recommended.")
-    : (locale === "ko"
-        ? `이 영토에는 선택한 아티스트의 검증된 직접 연결이 없어 ${expeditionTerritory.name.ko}의 검증된 아티스트 연관 장소 중심 원정을 추천합니다.`
-        : `This territory has no verified direct connection to the selected artist, so the nearest verified artist-linked expedition in ${expeditionTerritory.name.en} is recommended.`);
 
   // Terms mirror the labels rendered beside them, so the help cannot drift.
   const awardHelpLines: readonly (readonly [string, string])[] = [
@@ -372,39 +359,25 @@ export function TacticalPanel({
 
       <TerritoryStandings territory={territory} locale={locale} selectedArtistId={artist.id} />
 
-      <section data-guide="tactical-connection" className="tactical-connection">
-        <a
-          className="tactical-source"
-          href={sourceUrl}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={copy.evidenceSource}
-        >
-          <ExternalLink size={16} strokeWidth={2.2} aria-hidden="true" />
-        </a>
-        {/* The reader's fandom tie to *this* region and the route on offer are
-            two different things. The tie used to be hidden whenever the route
-            was a public one, which silenced it in every region that has a
-            documented link but no route of its own. It leads now, and the note
-            about the route follows it. */}
-        {connection ? (
-          <>
-            <strong>{copy.regionalStory} · {connection.memberName[locale]}</strong>
-            <p>{connection.story[locale]}</p>
-            {expedition.artistId === null ? <p className="tactical-route-note">{copy.publicRoute}</p> : null}
-          </>
-        ) : expedition.artistId === null ? (
-          <>
-            <strong>{copy.regionalSupport}</strong>
-            <p>{copy.publicRoute}</p>
-          </>
-        ) : (
-          <>
-            <strong>{t(locale, "evidenceNearby")}</strong>
-            <p>{noConnectionRecommendation}</p>
-          </>
-        )}
-      </section>
+      {/* The reader's fandom tie to this region. A region the artist has no
+          documented tie to used to get this card anyway, filled with a line
+          about public tourism that said nothing about them — so there is no
+          card there now. */}
+      {connection ? (
+        <section data-guide="tactical-connection" className="tactical-connection">
+          <a
+            className="tactical-source"
+            href={sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={copy.evidenceSource}
+          >
+            <ExternalLink size={16} strokeWidth={2.2} aria-hidden="true" />
+          </a>
+          <strong>{copy.regionalStory} · {connection.memberName[locale]}</strong>
+          <p>{connection.story[locale]}</p>
+        </section>
+      ) : null}
 
       <section data-guide="tactical-award" className="tactical-award" aria-label={copy.awardTitle}>
         <div className="tactical-section-heading">

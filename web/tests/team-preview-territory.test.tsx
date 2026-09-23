@@ -242,10 +242,10 @@ it("keeps a region with no tie on its own public route", async () => {
   renderPreviewWithArtist({ selectedTerritoryId: "yeongwol" });
 
   const panel = await screen.findByRole("complementary", { name: "영월 전술 패널" });
-  expect(within(panel).getByText("지역의 공공 관광 코스")).toBeVisible();
+  // No tie here, so the card that would hold one is not in the panel at all.
   expect(within(panel).queryByText(/지역 연결 스토리/)).not.toBeInTheDocument();
   expect(within(panel).queryByLabelText("연결 근거 등급")).not.toBeInTheDocument();
-  expect(within(panel).getByRole("link", { name: "출처 확인" })).toHaveAttribute("href", expect.stringMatching(/^https:\/\//));
+  expect(within(panel).queryByRole("link", { name: "출처 확인" })).not.toBeInTheDocument();
 
   const action = within(panel).getByRole("button", { name: "원정 시작" });
   expect(action).toBeEnabled();
@@ -286,13 +286,13 @@ it.each([
 });
 
 
-it("names the region's own public route in English when there is no tie", async () => {
+it("leaves out the connection card in English too, where there is no tie", async () => {
   renderPreviewWithArtist({ locale: "en", selectedTerritoryId: "yeongwol" });
 
   const panel = await screen.findByRole("complementary", { name: "Yeongwol tactical panel" });
-  expect(within(panel).getByText("Public tourism route in this region")).toBeVisible();
   expect(within(panel).queryByText(/Regional connection story/)).not.toBeInTheDocument();
   expect(within(panel).queryByText(/in Busan is recommended/i)).not.toBeInTheDocument();
+  expect(panel.querySelector(".tactical-connection")).toBeNull();
 });
 
 it.each([
@@ -588,7 +588,6 @@ it("tells the fandom's own tie to the region it is a tie to", async () => {
 
   const panel = await screen.findByRole("complementary", { name: "군포 전술 패널" });
   expect(within(panel).getByText(/지역 연결 스토리 · 지수/)).toBeVisible();
-  expect(within(panel).getByText("공식 관광 출처 기반 공공 원정")).toBeVisible();
 
   // The source is a corner link now, not a disclosure.
   const source = within(panel).getByRole("link", { name: "출처 확인" });
@@ -602,15 +601,15 @@ it("tells the fandom's own tie to the region it is a tie to", async () => {
   expect(gap.nextElementSibling).toHaveTextContent(/거점 성장까지|최고 단계 방어 중/);
 });
 
-it("labels a public route without borrowing the artist connection story", async () => {
+it("leaves out the connection card where the fandom has no tie to the region", async () => {
   // BLINK has no researched tie to Busan, so nothing is borrowed to fill it —
-  // not JISOO's Gunpo story, not anyone else's.
+  // not JISOO's Gunpo story, not anyone else's, and not a line about public
+  // tourism that says nothing about them.
   renderPreviewWithArtist({ selectedArtistId: "blackpink", selectedTerritoryId: "busan" });
 
   const panel = await screen.findByRole("complementary", { name: "부산 전술 패널" });
-  expect(within(panel).getByText("지역의 공공 관광 코스")).toBeVisible();
-  expect(within(panel).getByText("공식 관광 출처 기반 공공 원정")).toBeVisible();
   expect(within(panel).queryByText(/지역 연결 스토리/)).not.toBeInTheDocument();
+  expect(panel.querySelector(".tactical-connection")).toBeNull();
 });
 
 it("sets the balance multiplier beside the stronghold mark", async () => {

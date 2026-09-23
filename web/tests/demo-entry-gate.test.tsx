@@ -124,7 +124,7 @@ it("returns to the login screen from the artist selection screen", async () => {
   const user = userEvent.setup();
   window.localStorage.clear();
   window.sessionStorage.setItem(DEMO_LOGIN_SESSION_KEY, "authenticated");
-  render(<DemoEntryGate><KTownApp mode="demo" mapConfig={null} /></DemoEntryGate>);
+  render(<DemoEntryGate><KTownApp mode="demo" /></DemoEntryGate>);
 
   expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
   const back = screen.getByRole("button", { name: "로그인 화면으로 돌아가기" });
@@ -141,7 +141,7 @@ it("logs out from the record tab and keeps demo progress for the next login", as
   const user = userEvent.setup();
   window.localStorage.clear();
   window.sessionStorage.setItem(DEMO_LOGIN_SESSION_KEY, "authenticated");
-  render(<DemoEntryGate><KTownApp mode="demo" mapConfig={null} /></DemoEntryGate>);
+  render(<DemoEntryGate><KTownApp mode="demo" /></DemoEntryGate>);
 
   await user.click(await screen.findByRole("radio", { name: /방탄소년단.*ARMY/ }));
   await user.click(screen.getByRole("button", { name: "이 팬덤으로 시작" }));

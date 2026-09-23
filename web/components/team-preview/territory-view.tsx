@@ -9,7 +9,6 @@ import { useDemoSession } from "@/features/team-preview/demo-session-context";
 import { isGuideRunning } from "@/features/team-preview/guide-running";
 import { t } from "@/features/team-preview/i18n";
 import { summarizeTerritories } from "@/features/team-preview/territory-summary";
-import type { MapConfig } from "@/lib/map-config";
 import { ShareSheet } from "@/components/share/share-sheet";
 import { buildShareCard } from "@/features/share/build-share-card";
 import type { AppServices, PersistedExpedition } from "@/lib/domain";
@@ -17,8 +16,7 @@ import { hasLiveExpeditionData, territoryRegionCodes } from "@/lib/adapters/expe
 
 type ExpeditionRecoveryStatus = "ready" | "loading" | "error";
 
-export function TerritoryView({ mapConfig, services, integrated = false, expeditionRecoveryStatus = "ready", onRetryExpeditionRecovery, onLiveExpedition }: {
-  mapConfig: MapConfig | null;
+export function TerritoryView({ services, integrated = false, expeditionRecoveryStatus = "ready", onRetryExpeditionRecovery, onLiveExpedition }: {
   services?: AppServices;
   integrated?: boolean;
   expeditionRecoveryStatus?: ExpeditionRecoveryStatus;
@@ -219,7 +217,6 @@ export function TerritoryView({ mapConfig, services, integrated = false, expedit
       <div className={tacticalPanel ? "preview-map-layout" : "preview-map-layout preview-map-layout--solo"} ref={mapRef}>
         <TerritoryMap
           filters={selectedArtist ? <MapFilters locale={session.state.locale} activeFilter={filter} onChange={changeFilter} /> : null}
-          mapConfig={mapConfig}
           session={session.state}
           listedTerritories={visibleTerritories}
           activeFilter={filter}

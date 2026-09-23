@@ -37,7 +37,7 @@ async function reachTheWaitingStep(user: ReturnType<typeof userEvent.setup>) {
 
 it("waits for a fandom before greeting a first-time visitor", async () => {
   const user = userEvent.setup();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   // Artist selection explains itself, so the guide stays out of its way.
   expect(await screen.findByRole("heading", { name: "응원할 아티스트를 선택하세요" })).toBeVisible();
@@ -53,7 +53,7 @@ it("waits for a fandom before greeting a first-time visitor", async () => {
 it("moves on from a click anywhere, and offers no skip or next button", async () => {
   const user = userEvent.setup();
   storeConfirmedBtsSession();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   const dialog = await screen.findByRole("dialog");
   expect(within(dialog).queryByRole("button", { name: "건너뛰기" })).not.toBeInTheDocument();
@@ -68,7 +68,7 @@ it("moves on from a click anywhere, and offers no skip or next button", async ()
 it("holds the choose-a-territory step until a territory is chosen", async () => {
   const user = userEvent.setup();
   storeConfirmedBtsSession();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   const dialog = await reachTheWaitingStep(user);
   expect(within(dialog).getByRole("heading", { name: "여행할 지역 선택하기" })).toBeVisible();
@@ -86,7 +86,7 @@ it("holds the choose-a-territory step until a territory is chosen", async () => 
 it("walks the rest of the tour and finishes on the last step", async () => {
   const user = userEvent.setup();
   storeConfirmedBtsSession();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   const dialog = await reachTheWaitingStep(user);
   await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))
@@ -125,7 +125,7 @@ it("walks the rest of the tour and finishes on the last step", async () => {
 it("steps back from the control left of the counter", async () => {
   const user = userEvent.setup();
   storeConfirmedBtsSession();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   const dialog = await screen.findByRole("dialog");
   expect(within(dialog).getByRole("button", { name: "이전" })).toBeDisabled();
@@ -147,13 +147,13 @@ it("explains the real scoring numbers rather than placeholders", () => {
 it("remembers a finished guide so it does not interrupt the next visit", async () => {
   const user = userEvent.setup();
   storeConfirmedBtsSession();
-  const { unmount } = render(<KTownApp mode="demo" mapConfig={null} />);
+  const { unmount } = render(<KTownApp mode="demo" />);
 
   await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "가이드 닫기" }));
   expect(window.localStorage.getItem(TUTORIAL_SEEN_KEY)).toBe("seen");
 
   unmount();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
   expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
@@ -161,7 +161,7 @@ it("remembers a finished guide so it does not interrupt the next visit", async (
 it("closes the guide with Escape", async () => {
   const user = userEvent.setup();
   storeConfirmedBtsSession();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   expect(await screen.findByRole("dialog")).toBeVisible();
   await user.keyboard("{Escape}");
@@ -172,7 +172,7 @@ it("reopens the guide from the record page", async () => {
   const user = userEvent.setup();
   storeConfirmedBtsSession();
   window.localStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
   await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
@@ -183,7 +183,7 @@ it("reopens the guide from the record page", async () => {
 
 it("shows the English tour for an English visitor", async () => {
   storeConfirmedBtsSession("en");
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   expect(await screen.findByRole("dialog", { name: GUIDE_STEPS[0].title.en })).toBeVisible();
 });
@@ -191,7 +191,7 @@ it("shows the English tour for an English visitor", async () => {
 it("keeps nothing the practice check-in earned", async () => {
   const user = userEvent.setup();
   storeConfirmedBtsSession();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   const before = JSON.parse(window.localStorage.getItem(DEMO_SESSION_KEY)!);
   const dialog = await reachTheWaitingStep(user);
@@ -248,7 +248,7 @@ it("undoes only the practice check-in, leaving earlier progress alone", async ()
   played = demoSessionReducer(played, { type: "selectTerritory", territoryId: "busan" });
   window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(played));
   window.localStorage.setItem(TUTORIAL_SEEN_KEY, "seen");
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   expect(await screen.findByRole("heading", { name: "영토 지도" })).toBeVisible();
   await user.click(screen.getAllByRole("button", { name: "내 기록" })[0]);
@@ -294,7 +294,7 @@ it("undoes only the practice check-in, leaving earlier progress alone", async ()
 it("opens the check-in inside the guide without the two fighting over focus", async () => {
   const user = userEvent.setup();
   storeConfirmedBtsSession();
-  render(<KTownApp mode="demo" mapConfig={null} />);
+  render(<KTownApp mode="demo" />);
 
   const dialog = await reachTheWaitingStep(user);
   await user.click(within(screen.getByRole("list", { name: "지도와 같은 영토 목록" }))

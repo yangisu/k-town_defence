@@ -38,7 +38,6 @@ function renderPreviewWithArtist(overrides: Partial<DemoSession> = {}) {
   render(
     <DemoSessionProvider storage={window.localStorage}>
       <TerritoryView
-        mapConfig={null}
       />
     </DemoSessionProvider>,
   );
@@ -114,7 +113,6 @@ it("starts an integrated expedition through the backend before opening the demo 
   render(
     <DemoSessionProvider storage={window.localStorage}>
       <TerritoryView
-        mapConfig={null}
         services={services}
         integrated
         expeditionRecoveryStatus="ready"
@@ -139,7 +137,7 @@ it("shows an integrated start failure and lets the visitor try again", async () 
   window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(confirmedSession()));
   render(
     <DemoSessionProvider storage={window.localStorage}>
-      <TerritoryView mapConfig={null} services={services} integrated expeditionRecoveryStatus="ready" />
+      <TerritoryView services={services} integrated expeditionRecoveryStatus="ready" />
     </DemoSessionProvider>,
   );
 
@@ -158,7 +156,6 @@ it("blocks a new expedition when current-expedition recovery failed", async () =
   render(
     <DemoSessionProvider storage={window.localStorage}>
       <TerritoryView
-        mapConfig={null}
         services={services}
         integrated
         expeditionRecoveryStatus="error"
@@ -170,7 +167,9 @@ it("blocks a new expedition when current-expedition recovery failed", async () =
   expect(await screen.findByRole("alert")).toHaveTextContent("새 원정 시작을 잠시 막았어요");
   expect(within(screen.getByRole("complementary", { name: "부산 전술 패널" }))
     .getByRole("button", { name: "원정 시작" })).toBeDisabled();
-  await userEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+  // The map's own retry sits on this page too, so this one is asked for by
+  // the alert it belongs to.
+  await userEvent.click(within(await screen.findByRole("alert")).getByRole("button", { name: "다시 시도" }));
   expect(retry).toHaveBeenCalledOnce();
 });
 

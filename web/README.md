@@ -27,6 +27,7 @@ The production container uses the same commands. Configure at least
 `KTOWN_API_BASE_URL`, `KTOWN_SESSION_SECRET`, and one social OAuth provider.
 OAuth callbacks use `https://<domain>/api/auth/<provider>/callback`.
 
-The territory map draws itself from this repository's own boundary data
-(`public/data`), so it needs no map provider, key, or network tiles. A browser
-without WebGL gets the territory list the map sits above.
+The Amazon Location API key is browser-visible by design. Restrict its allowed
+referrer to the exact production origin, for example
+`https://ktowndefense.com/*`, and enable only the map actions the application
+uses.

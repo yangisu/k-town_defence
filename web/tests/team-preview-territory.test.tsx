@@ -38,6 +38,7 @@ function renderPreviewWithArtist(overrides: Partial<DemoSession> = {}) {
   render(
     <DemoSessionProvider storage={window.localStorage}>
       <TerritoryView
+        mapConfig={null}
       />
     </DemoSessionProvider>,
   );
@@ -113,6 +114,7 @@ it("starts an integrated expedition through the backend before opening the demo 
   render(
     <DemoSessionProvider storage={window.localStorage}>
       <TerritoryView
+        mapConfig={null}
         services={services}
         integrated
         expeditionRecoveryStatus="ready"
@@ -137,7 +139,7 @@ it("shows an integrated start failure and lets the visitor try again", async () 
   window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(confirmedSession()));
   render(
     <DemoSessionProvider storage={window.localStorage}>
-      <TerritoryView services={services} integrated expeditionRecoveryStatus="ready" />
+      <TerritoryView mapConfig={null} services={services} integrated expeditionRecoveryStatus="ready" />
     </DemoSessionProvider>,
   );
 
@@ -156,6 +158,7 @@ it("blocks a new expedition when current-expedition recovery failed", async () =
   render(
     <DemoSessionProvider storage={window.localStorage}>
       <TerritoryView
+        mapConfig={null}
         services={services}
         integrated
         expeditionRecoveryStatus="error"
@@ -167,9 +170,7 @@ it("blocks a new expedition when current-expedition recovery failed", async () =
   expect(await screen.findByRole("alert")).toHaveTextContent("새 원정 시작을 잠시 막았어요");
   expect(within(screen.getByRole("complementary", { name: "부산 전술 패널" }))
     .getByRole("button", { name: "원정 시작" })).toBeDisabled();
-  // The map's own retry sits on this page too, so this one is asked for by
-  // the alert it belongs to.
-  await userEvent.click(within(await screen.findByRole("alert")).getByRole("button", { name: "다시 시도" }));
+  await userEvent.click(screen.getByRole("button", { name: "다시 시도" }));
   expect(retry).toHaveBeenCalledOnce();
 });
 
@@ -336,14 +337,15 @@ it.each([
     : {
         busan: "Busan", daegu: "Daegu", gwangju: "Gwangju", gunpo: "Gunpo", seongnam: "Seongnam", geoje: "Geoje", suwon: "Suwon", gyeongju: "Gyeongju", daejeon: "Daejeon", seoul: "Seoul", yongin: "Yongin", goyang: "Goyang", incheon: "Incheon", jeju: "Jeju", ulsan: "Ulsan", siheung: "Siheung", cheonan: "Cheonan", pohang: "Pohang", wonju: "Wonju", chuncheon: "Chuncheon", uijeongbu: "Uijeongbu", namyangju: "Namyangju", yeongwol: "Yeongwol",
       };
-  // Gwangju is the selected territory, so it joins the end of any filter that
-  // does not already list it — picking on the map no longer widens the filter.
+  // Gwangju is the selected territory, but a filter lists what belongs to it
+  // and nothing else: Gwangju appears under the filters that hold it, and is
+  // missing from the ones that do not.
   const expectedTerritoryIds = [
     ["wonju", "gwangju"],
-    ["wonju", "chuncheon", "yongin", "gunpo", "cheonan", "daejeon", "busan", "ulsan", "gwangju"],
+    ["wonju", "chuncheon", "yongin", "gunpo", "cheonan", "daejeon", "busan", "ulsan"],
     // ONEDOOR's researched ties are LEEHAN's Busan and SUNGHO's Wonju. The
     // Gwangju and Suwon entries had no article behind them and are gone.
-    ["busan", "wonju", "gwangju"],
+    ["busan", "wonju"],
     // Gwangju and Suwon fall back into plain order now that ONEDOOR has no
     // researched tie to either.
     ["busan", "wonju", "gunpo", "daejeon", "yongin", "ulsan", "cheonan", "chuncheon", "yeongwol", "geoje", "gyeongju", "goyang", "gwangju", "namyangju", "daegu", "seoul", "seongnam", "suwon", "siheung", "uijeongbu", "incheon", "jeju", "pohang"],

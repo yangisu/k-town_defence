@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { TerritoryMap } from "@/components/team-preview/territory-map";
 import { previewContent } from "@/features/team-preview/content";
 import { createInitialDemoSession } from "@/features/team-preview/demo-session";
-import { SEA_COLOR } from "@/features/team-preview/map-style";
+import type { MapConfig } from "@/lib/map-config";
 
 interface MapEvent {
   features?: Array<{ id?: string | number; properties?: Record<string, unknown> }>;
@@ -105,6 +105,12 @@ vi.mock("maplibre-gl", () => {
   return { ...maplibre, default: maplibre };
 });
 
+const config: MapConfig = {
+  apiKey: "test-map-key",
+  region: "ap-northeast-2",
+  styleName: "Standard",
+};
+
 type GeolocationSuccess = (position: GeolocationPosition) => void;
 type GeolocationFailure = (error: GeolocationPositionError) => void;
 
@@ -137,12 +143,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("draws its own ground and keeps map selection equivalent to the territory list", async () => {
+it("uses Amazon Location and keeps map selection equivalent to the territory list", async () => {
   const user = userEvent.setup();
   const onSelectTerritory = vi.fn();
   const session = createInitialDemoSession();
   const { rerender } = render(
     <TerritoryMap
+      mapConfig={config}
       session={session}
       selectedTerritoryId="busan"
       onSelectTerritory={onSelectTerritory}
@@ -151,13 +158,9 @@ it("draws its own ground and keeps map selection equivalent to the territory lis
 
   const mapRegion = screen.getByRole("region", { name: "대한민국 팬덤 영토 지도" });
   expect((mapRegion as HTMLElement).style.minHeight).toBe("");
-  // No base map underneath: the sea is a background, and every shape on top
-  // of it is this repository's own.
-  expect(mapHarness.instances[0].options.style).toMatchObject({
-    version: 8,
-    sources: {},
-    layers: [{ id: "sea", type: "background", paint: { "background-color": SEA_COLOR } }],
-  });
+  expect(mapHarness.instances[0].options.style).toBe(
+    "https://maps.geo.ap-northeast-2.amazonaws.com/v2/styles/Standard/descriptor?key=test-map-key&color-scheme=Light",
+  );
 
   mapHarness.instances[0].emit("load");
   expect(mapHarness.instances[0].flyTo).not.toHaveBeenCalled();
@@ -173,6 +176,7 @@ it("draws its own ground and keeps map selection equivalent to the territory lis
 
   rerender(
     <TerritoryMap
+      mapConfig={config}
       session={{ ...session, selectedTerritoryId: "daegu" }}
       selectedTerritoryId="daegu"
       onSelectTerritory={onSelectTerritory}
@@ -184,6 +188,7 @@ it("draws its own ground and keeps map selection equivalent to the territory lis
 
   rerender(
     <TerritoryMap
+      mapConfig={config}
       session={{ ...session, selectedTerritoryId: null }}
       selectedTerritoryId={null}
       onSelectTerritory={onSelectTerritory}
@@ -199,20 +204,22 @@ it("draws its own ground and keeps map selection equivalent to the territory lis
   );
 });
 
-it("keeps a real operable territory list beside the map", async () => {
+it("shows a real operable territory list when map configuration is missing", async () => {
   const user = userEvent.setup();
   const onSelectTerritory = vi.fn();
   render(
     <TerritoryMap
+      mapConfig={null}
       session={createInitialDemoSession()}
       selectedTerritoryId={null}
       onSelectTerritory={onSelectTerritory}
     />,
   );
 
-  // The map needs no key or configuration to draw now, so it is always there.
-  expect(screen.getByRole("region", { name: "대한민국 팬덤 영토 지도" })).toBeVisible();
-  expect(screen.queryByText("지도를 불러오지 못했어요")).not.toBeInTheDocument();
+  expect(screen.getByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).toBeVisible();
+  expect(screen.queryByRole("region", { name: "대한민국 팬덤 영토 지도" })).not.toBeInTheDocument();
+  expect(document.querySelector(".map-grid")).not.toBeInTheDocument();
+  expect(screen.queryByText(/KOREA\s*EXPEDITION/)).not.toBeInTheDocument();
 
   const list = screen.getByRole("list", { name: "지도와 같은 영토 목록" });
   expect(within(list).getAllByRole("button")).toHaveLength(previewContent.territories.length);
@@ -220,11 +227,12 @@ it("keeps a real operable territory list beside the map", async () => {
   expect(onSelectTerritory).toHaveBeenCalledWith("yeongwol", "list");
 });
 
-it("localizes the map in English", () => {
+it("localizes the configured map and missing-configuration controls in English", () => {
   const englishSession = { ...createInitialDemoSession(), locale: "en" as const };
   const onSelectTerritory = vi.fn();
-  render(
+  const { rerender } = render(
     <TerritoryMap
+      mapConfig={config}
       session={englishSession}
       selectedTerritoryId="busan"
       onSelectTerritory={onSelectTerritory}
@@ -233,11 +241,23 @@ it("localizes the map in English", () => {
 
   expect(screen.getByRole("region", { name: "Korea fandom territory map" })).toBeVisible();
   expect(screen.queryByRole("region", { name: "대한민국 팬덤 영토 지도" })).not.toBeInTheDocument();
+
+  rerender(
+    <TerritoryMap
+      mapConfig={null}
+      session={englishSession}
+      selectedTerritoryId="busan"
+      onSelectTerritory={onSelectTerritory}
+    />,
+  );
+  expect(screen.getByText("Amazon Location configuration is required to connect the map")).toBeVisible();
+  expect(screen.queryByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).not.toBeInTheDocument();
 });
 
 it("localizes map failure recovery in English", async () => {
   render(
     <TerritoryMap
+      mapConfig={config}
       session={{ ...createInitialDemoSession(), locale: "en" }}
       selectedTerritoryId="busan"
       onSelectTerritory={() => undefined}
@@ -246,7 +266,7 @@ it("localizes map failure recovery in English", async () => {
 
   mapHarness.instances[0].emit("error", { error: new Error("style failed") });
 
-  expect(await screen.findByText("The map could not be loaded")).toBeVisible();
+  expect(await screen.findByText("Amazon Location configuration is required to connect the map")).toBeVisible();
   expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
   expect(screen.queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
 });
@@ -256,6 +276,7 @@ it("recovers from a map style error without losing attribution or territory cont
   const onSelectTerritory = vi.fn();
   render(
     <TerritoryMap
+      mapConfig={config}
       session={createInitialDemoSession()}
       selectedTerritoryId="busan"
       onSelectTerritory={onSelectTerritory}
@@ -263,9 +284,9 @@ it("recovers from a map style error without losing attribution or territory cont
   );
 
   mapHarness.instances[0].emit("error", { error: new Error("style failed") });
-  expect(await screen.findByText("지도를 불러오지 못했어요")).toBeVisible();
+  expect(await screen.findByText("지도를 연결하려면 Amazon Location 설정이 필요해요")).toBeVisible();
   expect(screen.getByRole("button", { name: "다시 시도" })).toBeVisible();
-  expect(screen.queryByRole("link", { name: "Amazon Location Service" })).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Amazon Location Service" })).toBeVisible();
   expect(screen.getByRole("link", { name: "통계청 SGIS" })).toBeVisible();
   expect(screen.getByRole("link", { name: "admdongkor" })).toBeVisible();
 
@@ -326,6 +347,7 @@ it("keeps configured boundary and click layers equivalent to the filtered territ
   };
   const { rerender } = render(
     <TerritoryMap
+      mapConfig={config}
       session={yeongwolSession}
       selectedTerritoryId="yeongwol"
       onSelectTerritory={onSelectTerritory}
@@ -355,6 +377,7 @@ it("keeps configured boundary and click layers equivalent to the filtered territ
   };
   rerender(
     <TerritoryMap
+      mapConfig={config}
       session={busanSession}
       selectedTerritoryId="busan"
       onSelectTerritory={onSelectTerritory}
@@ -375,6 +398,7 @@ it("encodes owner fandom colors and selected-artist connection pins in configure
   };
   render(
     <TerritoryMap
+      mapConfig={config}
       session={session}
       selectedTerritoryId="busan"
       onSelectTerritory={() => undefined}
@@ -411,6 +435,7 @@ it("replaces connection pins when the selected artist changes without a territor
   };
   const { rerender } = render(
     <TerritoryMap
+      mapConfig={config}
       session={btsSession}
       selectedTerritoryId="busan"
       onSelectTerritory={() => undefined}
@@ -421,6 +446,7 @@ it("replaces connection pins when the selected artist changes without a territor
 
   rerender(
     <TerritoryMap
+      mapConfig={config}
       session={{ ...btsSession, selectedArtistId: "blackpink" }}
       selectedTerritoryId="busan"
       onSelectTerritory={() => undefined}
@@ -443,6 +469,7 @@ it("recolors a captured boundary and stronghold without recreating the map", () 
   };
   const { rerender } = render(
     <TerritoryMap
+      mapConfig={config}
       session={session}
       selectedTerritoryId="busan"
       onSelectTerritory={() => undefined}
@@ -459,6 +486,7 @@ it("recolors a captured boundary and stronghold without recreating the map", () 
 
   rerender(
     <TerritoryMap
+      mapConfig={config}
       session={captured}
       selectedTerritoryId="busan"
       onSelectTerritory={() => undefined}
@@ -485,6 +513,7 @@ it("renders translucent territory ownership with artist identity inside each str
   const session = createInitialDemoSession();
   render(
     <TerritoryMap
+      mapConfig={config}
       session={session}
       selectedTerritoryId="busan"
       onSelectTerritory={() => undefined}
@@ -495,35 +524,27 @@ it("renders translucent territory ownership with artist identity inside each str
   const fill = mapHarness.instances[0].layers.find((layer) => layer.id === "preview-territory-fill");
   const strongholds = mapHarness.instances[0].layers.find((layer) => layer.id === "preview-stronghold-symbols");
   const identities = mapHarness.instances[0].layers.find((layer) => layer.id === "preview-stronghold-identities");
-  const marks = mapHarness.instances[0].layers.find((layer) => layer.id === "preview-stronghold-labels");
-  const names = mapHarness.instances[0].layers.find((layer) => layer.id === "preview-territory-names");
   const source = mapHarness.instances[0].sources.get("preview-strongholds")?.initialData as {
-    features: Array<{ properties: { artistLabel: string; logoId: string | null; markLabelId: string; nameLabelId: string } }>;
+    features: Array<{ properties: { artistLabel: string; logoId: string | null } }>;
   };
 
   expect(fill?.paint).toEqual(expect.objectContaining({ "fill-opacity": expect.any(Array) }));
   expect(strongholds?.paint).toEqual(expect.objectContaining({ "circle-opacity": 0.68 }));
   expect(identities).toEqual(expect.objectContaining({
     type: "symbol",
-    layout: expect.objectContaining({ "icon-image": ["get", "logoId"] }),
+    layout: expect.objectContaining({
+      "icon-image": ["get", "logoId"],
+      "text-field": ["case", ["==", ["get", "logoId"], ""], ["get", "artistLabel"], ""],
+    }),
   }));
-  // This map carries no font of its own, so every label is an image the map
-  // is given: the initials an artist without a logo wears, and the names.
-  expect(marks).toEqual(expect.objectContaining({
-    type: "symbol",
-    filter: ["==", ["get", "logoId"], ""],
-    layout: expect.objectContaining({ "icon-image": ["get", "markLabelId"] }),
-  }));
-  expect(names?.layout).toEqual(expect.objectContaining({ "icon-image": ["get", "nameLabelId"] }));
   expect(source.features.every((feature) => feature.properties.artistLabel.length > 0)).toBe(true);
-  expect(source.features.map((feature) => feature.properties.nameLabelId)).toContain("label:name:부산");
-  expect(source.features.every((feature) => feature.properties.markLabelId.startsWith("label:mark:"))).toBe(true);
 });
 
 it("fills the selected territory above the base fill and uses fandom-colored stronghold rings", () => {
   const session = createInitialDemoSession();
   render(
     <TerritoryMap
+      mapConfig={config}
       session={session}
       selectedTerritoryId="gunpo"
       onSelectTerritory={() => undefined}
@@ -564,13 +585,14 @@ it("uses an immediate camera transition when reduced motion is requested and pol
     selectedTerritoryId: null,
   };
   const { rerender } = render(
-    <TerritoryMap session={initial} selectedTerritoryId={null} onSelectTerritory={() => undefined} />,
+    <TerritoryMap mapConfig={config} session={initial} selectedTerritoryId={null} onSelectTerritory={() => undefined} />,
   );
   const map = mapHarness.instances[0];
   map.emit("load");
 
   rerender(
     <TerritoryMap
+      mapConfig={config}
       session={{ ...initial, selectedTerritoryId: "daegu" }}
       selectedTerritoryId="daegu"
       onSelectTerritory={() => undefined}
@@ -599,6 +621,7 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
   };
   const { rerender } = render(
     <TerritoryMap
+      mapConfig={config}
       session={session}
       listedTerritories={session.territories.filter((territory) => territory.id === "busan")}
       activeFilter="my_fandom"
@@ -647,6 +670,7 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
 
   rerender(
     <TerritoryMap
+      mapConfig={config}
       session={{ ...session, selectedTerritoryId: "daegu" }}
       listedTerritories={session.territories}
       activeFilter="all"
@@ -675,6 +699,7 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
   vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: false }));
   rerender(
     <TerritoryMap
+      mapConfig={config}
       session={{ ...session, selectedTerritoryId: "gwangju" }}
       listedTerritories={session.territories.filter((territory) => territory.id === "gwangju")}
       activeFilter="all"
@@ -690,6 +715,7 @@ it("keeps nationwide ownership on semantic layers while filtering the accessible
   vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
   rerender(
     <TerritoryMap
+      mapConfig={config}
       session={{ ...session, selectedTerritoryId: "busan" }}
       listedTerritories={session.territories.filter((territory) => territory.id === "busan")}
       activeFilter="all"
@@ -714,6 +740,7 @@ it("locate-me button requests permission and feeds a real position into the my-l
   const { emitPosition } = mockGeolocation();
   render(
     <TerritoryMap
+      mapConfig={config}
       session={createInitialDemoSession()}
       selectedTerritoryId="busan"
       onSelectTerritory={() => undefined}
@@ -739,6 +766,7 @@ it("denied location permission shows an inline hint instead of throwing", async 
   mockGeolocation({ deny: true });
   render(
     <TerritoryMap
+      mapConfig={config}
       session={createInitialDemoSession()}
       selectedTerritoryId="busan"
       onSelectTerritory={() => undefined}
@@ -755,6 +783,7 @@ it("picks a territory from its stronghold marker and points the cursor at it", a
   const onSelectTerritory = vi.fn();
   render(
     <TerritoryMap
+      mapConfig={config}
       session={createInitialDemoSession()}
       selectedTerritoryId={null}
       onSelectTerritory={onSelectTerritory}
@@ -780,6 +809,7 @@ it("picks a territory from its stronghold marker and points the cursor at it", a
 it("never hands MapLibre a filter key without a filter", async () => {
   render(
     <TerritoryMap
+      mapConfig={config}
       session={createInitialDemoSession()}
       listedTerritories={createInitialDemoSession().territories.slice(0, 3)}
       selectedTerritoryId={null}
@@ -800,6 +830,7 @@ it("never hands MapLibre a filter key without a filter", async () => {
 it("promotes the territory id so the owner colours and highlight resolve", async () => {
   render(
     <TerritoryMap
+      mapConfig={config}
       session={createInitialDemoSession()}
       selectedTerritoryId={null}
       onSelectTerritory={() => undefined}
@@ -825,6 +856,7 @@ it("promotes the territory id so the owner colours and highlight resolve", async
 it("draws the country this game is played in, and only its outline in white", async () => {
   render(
     <TerritoryMap
+      mapConfig={config}
       session={createInitialDemoSession()}
       selectedTerritoryId={null}
       onSelectTerritory={() => undefined}
@@ -844,6 +876,7 @@ it("draws the country this game is played in, and only its outline in white", as
 it("names each territory once there is room for the name", async () => {
   render(
     <TerritoryMap
+      mapConfig={config}
       session={createInitialDemoSession()}
       selectedTerritoryId={null}
       onSelectTerritory={() => undefined}
@@ -856,13 +889,14 @@ it("names each territory once there is room for the name", async () => {
   // Zoomed out the names would pile onto the markers, so they wait for room
   // and drop out rather than overlap.
   expect(names?.minzoom).toBeGreaterThan(6.2);
-  expect(names?.layout).toMatchObject({ "icon-allow-overlap": false, "icon-anchor": "top" });
+  expect(names?.layout).toMatchObject({ "text-allow-overlap": false, "text-optional": true });
 });
 
 it("hands the wheel to the map only once the reader clicks it", async () => {
   const user = userEvent.setup();
   render(
     <TerritoryMap
+      mapConfig={config}
       session={createInitialDemoSession()}
       selectedTerritoryId={null}
       onSelectTerritory={() => undefined}

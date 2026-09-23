@@ -1,6 +1,8 @@
 import { DemoEntryGate } from "@/components/demo-entry/demo-entry-gate";
 import { KTownApp } from "@/features/ktown-app";
+import { readMapConfig } from "@/lib/map-config";
 
 export default function DemoPage() {
-  return <DemoEntryGate><KTownApp mode="demo" /></DemoEntryGate>;
+  const mapConfig = readMapConfig(process.env);
+  return <DemoEntryGate><KTownApp mode="demo" mapConfig={mapConfig} /></DemoEntryGate>;
 }

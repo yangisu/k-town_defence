@@ -30,12 +30,14 @@ import { createRemoteDemoSessionStore } from "@/features/team-preview/remote-ses
 import { t } from "@/features/team-preview/i18n";
 import { MembershipGate, membershipErrorCopy } from "@/components/membership/membership-gate";
 import type { AppServices, CheckInService, PersistedExpedition } from "@/lib/domain";
+import type { MapConfig } from "@/lib/map-config";
 import { createServices, type ServiceMode } from "@/lib/service-factory";
 import { createDemoServices } from "@/lib/demo-services";
 import { mapTerritorySnapshots } from "@/lib/adapters/territory";
 
-function DemoProduct({ services, profileLocked = false, mode = "demo", checkInMode, practiceCheckInService, roster, onAddArtist, onLeaveSeason, onChangeFandom, choosingArtist = false, choiceNotice, accountId }: {
+function DemoProduct({ services, mapConfig, profileLocked = false, mode = "demo", checkInMode, practiceCheckInService, roster, onAddArtist, onLeaveSeason, onChangeFandom, choosingArtist = false, choiceNotice, accountId }: {
   services: AppServices;
+  mapConfig: MapConfig | null;
   profileLocked?: boolean;
   mode?: ServiceMode;
   checkInMode?: "demo" | "integrated";
@@ -292,6 +294,7 @@ function DemoProduct({ services, profileLocked = false, mode = "demo", checkInMo
         {artistConfirmed && session.state.activeTab === "explore" ? (
             <TerritoryView
               key={artistConfirmed ? `artist:${session.state.selectedArtistId}` : "unconfirmed"}
+              mapConfig={mapConfig}
               services={services}
               integrated={mode === "integrated"}
               expeditionRecoveryStatus={expeditionRecoveryStatus}
@@ -453,7 +456,7 @@ export function createPreviewCheckInService(services: AppServices): CheckInServi
   };
 }
 
-function IntegratedModernProduct({ services }: { services: AppServices }) {
+function IntegratedModernProduct({ services, mapConfig }: { services: AppServices; mapConfig: MapConfig | null }) {
   const membership = useMembership();
   const session = useDemoSession();
   const uiServices = useMemo(() => ({ ...services, checkIn: createPreviewCheckInService(services) }), [services]);
@@ -524,6 +527,7 @@ function IntegratedModernProduct({ services }: { services: AppServices }) {
     <DemoSignOutProvider value={signOut}>
       <DemoProduct
         services={uiServices}
+        mapConfig={mapConfig}
         profileLocked
         mode="integrated"
         practiceCheckInService={practiceCheckInService}
@@ -542,7 +546,7 @@ function IntegratedModernProduct({ services }: { services: AppServices }) {
   );
 }
 
-export function KTownApp({ mode }: { mode: ServiceMode }) {
+export function KTownApp({ mode, mapConfig }: { mode: ServiceMode; mapConfig: MapConfig | null }) {
   const services = useMemo(() => createServices(mode), [mode]);
   const remoteStore = useMemo(() => createRemoteDemoSessionStore(), []);
   const territoryLoader = useMemo(() => mode === "integrated"
@@ -550,14 +554,14 @@ export function KTownApp({ mode }: { mode: ServiceMode }) {
     : undefined, [mode, services]);
 
   if (mode === "demo") {
-    return <DemoSessionProvider><DemoProduct services={services} /></DemoSessionProvider>;
+    return <DemoSessionProvider><DemoProduct services={services} mapConfig={mapConfig} /></DemoSessionProvider>;
   }
 
   return (
     <MembershipProvider service={services.membership}>
       <MembershipGate>
         <DemoSessionProvider remote={remoteStore} loadTerritories={territoryLoader}>
-          <IntegratedModernProduct services={services} />
+          <IntegratedModernProduct services={services} mapConfig={mapConfig} />
         </DemoSessionProvider>
       </MembershipGate>
     </MembershipProvider>
